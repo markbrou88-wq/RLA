@@ -1,7 +1,7 @@
 {
   "name": "rla",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,18 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-  "@supabase/supabase-js": "^2.45.0",
-  "react": "^18.3.1",
-  "react-dom": "^18.3.1",
-  "react-router-dom": "^6.26.2",
-  "dayjs": "^1.11.13",
-  "zustand": "^4.5.5"
-},
-"devDependencies": {
-  "vite": "^5.4.8",
-  "@vitejs/plugin-react": "^4.3.1",
-  "@types/react": "^18.3.3",
-  "@types/react-dom": "^18.3.0"
-}
-
+    "@supabase/supabase-js": "^2.45.0",
+    "dayjs": "^1.11.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.8"
+  }
 }
