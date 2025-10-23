@@ -38,7 +38,7 @@ function AuthBar() {
 
   async function sendReset() {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin, // sends them back to your site
+      redirectTo: window.location.origin,
     });
     setStatus(error ? error.message : "Password reset email sent.");
   }
@@ -47,7 +47,9 @@ function AuthBar() {
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "8px 0" }}>
       {user ? (
         <>
-          <span style={{ color: "#0a7e07" }}>Signed in{user.email ? ` as ${user.email}` : ""}</span>
+          <span style={{ color: "#0a7e07" }}>
+            Signed in{user?.email ? ` as ${user.email}` : ""}
+          </span>
           <button onClick={signOut}>Sign out</button>
         </>
       ) : (
