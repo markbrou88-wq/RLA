@@ -1,6 +1,6 @@
 import React from "react";
 import { supabase } from "./supabaseClient.js";
-import { Link, Routes, Route, NavLink, BrowserRouter } from "react-router-dom";
+import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import StandingsPage from "./pages/StandingsPage.jsx";
 import GamesPage from "./pages/GamesPage.jsx";
 import GameDetailPage from "./pages/GameDetailPage.jsx";
