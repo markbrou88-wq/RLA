@@ -84,6 +84,8 @@ function Nav() {
     <nav style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #eee", marginBottom: 8 }}>
       <NavLink to="/" end>Standings</NavLink>
       <NavLink to="/games">Games</NavLink>
+      <NavLink to="/stats">Stats</NavLink>
+
     </nav>
   );
 }
@@ -102,6 +104,7 @@ export default function App() {
           <Route path="/" element={<StandingsPage />} />
           <Route path="/games" element={<GamesPage />} />
           <Route path="/games/:slug" element={<GameDetailPage />} />
+          <Route path="/stats" element={<StatsPage />} />
         </Routes>
       </main>
 
