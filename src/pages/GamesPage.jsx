@@ -1,3 +1,4 @@
+// src/pages/GamesPage.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import dayjs from "dayjs";
@@ -39,6 +40,12 @@ function GameRow({ g, onDelete, onToggleStatus, canEdit }) {
       <td style={{ padding: "8px" }}>{g.status}</td>
       <td style={{ padding: "8px" }}>
         <Link to={`/games/${g.slug}`}>Open</Link>
+        {(g.status === "final" || g.status === "final_so") && (
+          <>
+            {" · "}
+            <Link to={`/games/${g.slug}/boxscore`}>Boxscore</Link>
+          </>
+        )}
       </td>
       <td style={{ padding: "8px", whiteSpace: "nowrap" }}>
         {canEdit && (
@@ -61,6 +68,7 @@ export default function GamesPage() {
   const [loading, setLoading] = React.useState(true);
   const [user, setUser] = React.useState(null);
 
+  // auth state (only signed-in can create/toggle/delete)
   React.useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user || null));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
@@ -72,7 +80,7 @@ export default function GamesPage() {
   const load = React.useCallback(async () => {
     setLoading(true);
 
-    // include logo_url for both teams
+    // include logos for both teams
     const { data: g, error: ge } = await supabase
       .from("games")
       .select(`
@@ -89,6 +97,7 @@ export default function GamesPage() {
       setGames(g || []);
     }
 
+    // teams for the create form (text-only select)
     const { data: t, error: te } = await supabase
       .from("teams")
       .select("id, name, short_name")
@@ -103,7 +112,9 @@ export default function GamesPage() {
     setLoading(false);
   }, []);
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => {
+    load();
+  }, [load]);
 
   const createGame = async (e) => {
     e.preventDefault();
@@ -159,7 +170,7 @@ export default function GamesPage() {
       alert(error.message);
       return;
     }
-    load(); // Standings & Stats pages auto-refresh via their realtime listeners
+    load(); // Standings & Stats auto-refresh via their realtime listeners
   };
 
   return (
