@@ -5,6 +5,7 @@ import { Routes, Route, NavLink } from "react-router-dom";
 import StandingsPage from "./pages/StandingsPage.jsx";
 import GamesPage from "./pages/GamesPage.jsx";
 import GameDetailPage from "./pages/GameDetailPage.jsx";
+import StatsPage from "./pages/StatsPage.jsx";
 
 function AuthBar() {
   const [email, setEmail] = React.useState("");
