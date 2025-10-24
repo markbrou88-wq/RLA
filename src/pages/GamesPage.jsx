@@ -132,25 +132,24 @@ export default function GamesPage() {
   };
 
   const toggleStatus = async (g) => {
-    // scheduled -> final   |   final/final_ot -> scheduled
-    const newStatus =
-      g.status === "final" || g.status === "final_ot"
-        ? "scheduled"
-        : g.went_ot
-        ? "final_ot"
-        : "final";
+  // status rotation:
+  // scheduled → final → final_so → scheduled
+  let newStatus;
+  if (g.status === "scheduled") newStatus = "final";
+  else if (g.status === "final") newStatus = "final_so";
+  else newStatus = "scheduled";
 
-    const { error } = await supabase
-      .from("games")
-      .update({ status: newStatus })
-      .eq("id", g.id);
+  const { error } = await supabase
+    .from("games")
+    .update({ status: newStatus })
+    .eq("id", g.id);
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    load(); // refresh the table; Standings will update too (below we make it auto-refresh)
-  };
+  if (error) {
+    alert(error.message);
+    return;
+  }
+  load(); // refresh games list
+};
 
   return (
     <div>
