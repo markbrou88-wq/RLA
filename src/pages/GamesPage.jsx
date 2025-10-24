@@ -1,4 +1,3 @@
-// src/pages/GamesPage.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import dayjs from "dayjs";
@@ -17,7 +16,9 @@ function TeamChip({ team }) {
           style={{ objectFit: "contain", borderRadius: 4 }}
         />
       ) : null}
-      <span>{team.name}</span>
+      <Link to={`/teams/${team.id}`} style={{ textDecoration: "none" }}>
+        {team.name}
+      </Link>
     </span>
   );
 }
