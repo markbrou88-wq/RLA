@@ -4,7 +4,10 @@ import { Link } from "react-router-dom";
 import dayjs from "dayjs";
 import { supabase } from "../supabaseClient.js";
 
-function GameRow({ g, onDelete, canEdit }) {
+function GameRow({ g, onDelete, onToggleStatus, canEdit }) {
+  const label =
+    g.status === "final" || g.status === "final_ot" ? "Reopen" : "Mark Final";
+
   return (
     <tr>
       <td style={{ padding: "8px" }}>{dayjs(g.game_date).format("YYYY-MM-DD")}</td>
@@ -19,8 +22,15 @@ function GameRow({ g, onDelete, canEdit }) {
       <td style={{ padding: "8px" }}>
         <Link to={`/games/${g.slug}`}>Open</Link>
       </td>
-      <td style={{ padding: "8px" }}>
-        {canEdit ? <button onClick={() => onDelete(g.id)}>Delete</button> : null}
+      <td style={{ padding: "8px", whiteSpace: "nowrap" }}>
+        {canEdit && (
+          <>
+            <button onClick={() => onToggleStatus(g)} style={{ marginRight: 6 }}>
+              {label}
+            </button>
+            <button onClick={() => onDelete(g.id)}>Delete</button>
+          </>
+        )}
       </td>
     </tr>
   );
@@ -33,7 +43,7 @@ export default function GamesPage() {
   const [loading, setLoading] = React.useState(true);
   const [user, setUser] = React.useState(null);
 
-  // Track auth state (so only signed-in users can create/delete)
+  // Track auth state (create/delete/toggle only for signed-in users)
   React.useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user || null));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
@@ -90,7 +100,6 @@ export default function GamesPage() {
       return;
     }
 
-    // Create a simple slug: YYYYMMDD-homeId-awayId
     const slug = `${dayjs(form.date).format("YYYYMMDD")}-${form.home}-${form.away}`;
     const { error } = await supabase.from("games").insert({
       game_date: form.date,
@@ -104,7 +113,7 @@ export default function GamesPage() {
     });
 
     if (error) {
-      alert(error.message); // If you're not signed in, RLS will block here.
+      alert(error.message);
       return;
     }
 
@@ -116,10 +125,31 @@ export default function GamesPage() {
     if (!confirm("Delete this game?")) return;
     const { error } = await supabase.from("games").delete().eq("id", id);
     if (error) {
-      alert(error.message); // RLS will block if not signed in
+      alert(error.message);
     } else {
       load();
     }
+  };
+
+  const toggleStatus = async (g) => {
+    // scheduled -> final   |   final/final_ot -> scheduled
+    const newStatus =
+      g.status === "final" || g.status === "final_ot"
+        ? "scheduled"
+        : g.went_ot
+        ? "final_ot"
+        : "final";
+
+    const { error } = await supabase
+      .from("games")
+      .update({ status: newStatus })
+      .eq("id", g.id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    load(); // refresh the table; Standings will update too (below we make it auto-refresh)
   };
 
   return (
@@ -169,7 +199,7 @@ export default function GamesPage() {
         </form>
       ) : (
         <p style={{ color: "#666", marginBottom: 16 }}>
-          Sign in (top of page) to create or delete games.
+          Sign in (top of page) to create, toggle, or delete games.
         </p>
       )}
 
@@ -200,6 +230,7 @@ export default function GamesPage() {
                   key={g.id}
                   g={g}
                   onDelete={deleteGame}
+                  onToggleStatus={toggleStatus}
                   canEdit={!!user}
                 />
               ))}
