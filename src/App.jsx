@@ -8,6 +8,7 @@ import GameDetailPage from "./pages/GameDetailPage.jsx";
 import StatsPage from "./pages/StatsPage.jsx";
 import BoxscorePage from "./pages/BoxscorePage.jsx";  // <-- add this
 import TeamPage from "./pages/TeamPage.jsx"; // add
+import GameRosterPage from "./pages/GameRosterPage.jsx";
 
 function AuthBar() {
   const [email, setEmail] = React.useState("");
@@ -109,6 +110,7 @@ export default function App() {
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />  {/* <-- add this */}
           <Route path="/teams/:id" element={<TeamPage />} />
+          <Route path="/games/:slug/roster" element={<GameRosterPage />} />
         </Routes>
       </main>
 
