@@ -6,6 +6,7 @@ import StandingsPage from "./pages/StandingsPage.jsx";
 import GamesPage from "./pages/GamesPage.jsx";
 import GameDetailPage from "./pages/GameDetailPage.jsx";
 import StatsPage from "./pages/StatsPage.jsx";
+import BoxscorePage from "./pages/BoxscorePage.jsx";  // <-- add this
 
 function AuthBar() {
   const [email, setEmail] = React.useState("");
@@ -105,6 +106,7 @@ export default function App() {
           <Route path="/games" element={<GamesPage />} />
           <Route path="/games/:slug" element={<GameDetailPage />} />
           <Route path="/stats" element={<StatsPage />} />
+          <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />  {/* <-- add this */}
         </Routes>
       </main>
 
