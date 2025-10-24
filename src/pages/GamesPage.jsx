@@ -1,22 +1,40 @@
-// src/pages/GamesPage.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import dayjs from "dayjs";
 import { supabase } from "../supabaseClient.js";
 
+function TeamChip({ team }) {
+  if (!team) return null;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      {team.logo_url ? (
+        <img
+          src={team.logo_url}
+          alt={team.name}
+          width={20}
+          height={20}
+          style={{ objectFit: "contain", borderRadius: 4 }}
+        />
+      ) : null}
+      <span>{team.name}</span>
+    </span>
+  );
+}
+
 function GameRow({ g, onDelete, onToggleStatus, canEdit }) {
   const label =
-    g.status === "final" || g.status === "final_ot" ? "Reopen" : "Mark Final";
+    g.status === "final" || g.status === "final_so" ? "Reopen" : "Mark Final / SO";
 
   return (
     <tr>
       <td style={{ padding: "8px" }}>{dayjs(g.game_date).format("YYYY-MM-DD")}</td>
       <td style={{ padding: "8px" }}>
-        {g.home_team?.name} vs {g.away_team?.name}
+        <TeamChip team={g.home_team} />
+        <span style={{ opacity: 0.6, margin: "0 8px" }}>vs</span>
+        <TeamChip team={g.away_team} />
       </td>
       <td style={{ padding: "8px" }}>
-        {g.home_score}–{g.away_score}
-        {g.went_ot ? " (OT)" : ""}
+        {g.home_score}–{g.away_score} {g.status === "final_so" ? "(SO)" : ""}
       </td>
       <td style={{ padding: "8px" }}>{g.status}</td>
       <td style={{ padding: "8px" }}>
@@ -43,7 +61,6 @@ export default function GamesPage() {
   const [loading, setLoading] = React.useState(true);
   const [user, setUser] = React.useState(null);
 
-  // Track auth state (create/delete/toggle only for signed-in users)
   React.useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user || null));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
@@ -55,12 +72,14 @@ export default function GamesPage() {
   const load = React.useCallback(async () => {
     setLoading(true);
 
-    // Fetch games with team names
+    // include logo_url for both teams
     const { data: g, error: ge } = await supabase
       .from("games")
-      .select(
-        "*, home_team:teams!games_home_team_id_fkey(id, name), away_team:teams!games_away_team_id_fkey(id, name)"
-      )
+      .select(`
+        *,
+        home_team:teams!games_home_team_id_fkey ( id, name, logo_url, short_name ),
+        away_team:teams!games_away_team_id_fkey ( id, name, logo_url, short_name )
+      `)
       .order("game_date", { ascending: false });
 
     if (ge) {
@@ -70,10 +89,9 @@ export default function GamesPage() {
       setGames(g || []);
     }
 
-    // Fetch teams for the create form
     const { data: t, error: te } = await supabase
       .from("teams")
-      .select("*")
+      .select("id, name, short_name")
       .order("name", { ascending: true });
     if (te) {
       console.error(te);
@@ -85,9 +103,7 @@ export default function GamesPage() {
     setLoading(false);
   }, []);
 
-  React.useEffect(() => {
-    load();
-  }, [load]);
+  React.useEffect(() => { load(); }, [load]);
 
   const createGame = async (e) => {
     e.preventDefault();
@@ -107,7 +123,6 @@ export default function GamesPage() {
       away_team_id: Number(form.away),
       home_score: 0,
       away_score: 0,
-      went_ot: false,
       status: "scheduled",
       slug,
     });
@@ -124,38 +139,33 @@ export default function GamesPage() {
   const deleteGame = async (id) => {
     if (!confirm("Delete this game?")) return;
     const { error } = await supabase.from("games").delete().eq("id", id);
-    if (error) {
-      alert(error.message);
-    } else {
-      load();
-    }
+    if (error) alert(error.message);
+    else load();
   };
 
-  const toggleStatus = async (g) => {
-  // status rotation:
   // scheduled → final → final_so → scheduled
-  let newStatus;
-  if (g.status === "scheduled") newStatus = "final";
-  else if (g.status === "final") newStatus = "final_so";
-  else newStatus = "scheduled";
+  const toggleStatus = async (g) => {
+    let newStatus;
+    if (g.status === "scheduled") newStatus = "final";
+    else if (g.status === "final") newStatus = "final_so";
+    else newStatus = "scheduled";
 
-  const { error } = await supabase
-    .from("games")
-    .update({ status: newStatus })
-    .eq("id", g.id);
+    const { error } = await supabase
+      .from("games")
+      .update({ status: newStatus })
+      .eq("id", g.id);
 
-  if (error) {
-    alert(error.message);
-    return;
-  }
-  load(); // refresh games list
-};
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    load(); // Standings & Stats pages auto-refresh via their realtime listeners
+  };
 
   return (
     <div>
       <h2>Games</h2>
 
-      {/* Create form: only show when signed in */}
       {user ? (
         <form
           onSubmit={createGame}
