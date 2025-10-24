@@ -1,3 +1,4 @@
+// src/pages/GamesPage.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import dayjs from "dayjs";
@@ -41,6 +42,8 @@ function GameRow({ g, onDelete, onToggleStatus, canEdit }) {
       <td style={{ padding: "8px" }}>{g.status}</td>
       <td style={{ padding: "8px" }}>
         <Link to={`/games/${g.slug}`}>Open</Link>
+        {" · "}
+        <Link to={`/games/${g.slug}/roster`}>Roster</Link>
         {(g.status === "final" || g.status === "final_so") && (
           <>
             {" · "}
@@ -98,7 +101,7 @@ export default function GamesPage() {
       setGames(g || []);
     }
 
-    // teams for the create form (text-only select)
+    // teams for the create form
     const { data: t, error: te } = await supabase
       .from("teams")
       .select("id, name, short_name")
@@ -171,7 +174,7 @@ export default function GamesPage() {
       alert(error.message);
       return;
     }
-    load(); // Standings & Stats auto-refresh via their realtime listeners
+    load(); // Standings & Stats auto-refresh elsewhere via their listeners
   };
 
   return (
