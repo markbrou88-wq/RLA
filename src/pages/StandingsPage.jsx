@@ -1,33 +1,6 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
-
-function TeamCell({ name, logo, short }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      {logo ? (
-        <img
-          src={logo}
-          alt={name}
-          width={24}
-          height={24}
-          style={{ objectFit: "contain", borderRadius: 4 }}
-        />
-      ) : (
-        <div
-          style={{
-            width: 24, height: 24, borderRadius: 4,
-            background: "#eee", display: "grid", placeItems: "center",
-            fontSize: 10, color: "#666",
-          }}
-          title={name}
-        >
-          {short?.slice(0, 3) || "—"}
-        </div>
-      )}
-      <span>{name}</span>
-    </div>
-  );
-}
 
 export default function StandingsPage() {
   const [rows, setRows] = React.useState([]);
@@ -37,13 +10,13 @@ export default function StandingsPage() {
   const load = React.useCallback(async () => {
     setLoading(true);
 
-    // fetch standings (existing view)
+    // 1) Existing standings view (unchanged)
     const standingsPromise = supabase
       .from("standings_current")
       .select("team_id, name, gp, w, l, otl, pts, gf, ga, diff")
       .order("pts", { ascending: false });
 
-    // fetch teams once for logos/short names
+    // 2) Teams for logos + short names (merged client-side)
     const teamsPromise = supabase
       .from("teams")
       .select("id, short_name, logo_url");
@@ -55,7 +28,10 @@ export default function StandingsPage() {
     if (tErr) console.error(tErr);
 
     const map = Object.fromEntries(
-      (tData || []).map((t) => [t.id, { short_name: t.short_name, logo_url: t.logo_url }])
+      (tData || []).map((t) => [
+        t.id,
+        { short_name: t.short_name, logo_url: t.logo_url },
+      ])
     );
 
     setTeamById(map);
@@ -65,7 +41,7 @@ export default function StandingsPage() {
 
   React.useEffect(() => { load(); }, [load]);
 
-  // realtime: refresh when games change
+  // Realtime: refresh when games change (final/so/etc.)
   React.useEffect(() => {
     const ch = supabase
       .channel("standings-auto-refresh")
@@ -87,8 +63,15 @@ export default function StandingsPage() {
         <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 720 }}>
           <thead>
             <tr>
-              {["Team","GP","W","L","OTL","PTS","GF","GA","+/-"].map(h => (
-                <th key={h} style={{ textAlign:"left", borderBottom:"1px solid #ddd", padding:"8px" }}>
+              {["Team","GP","W","L","OTL","PTS","GF","GA","+/-"].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #ddd",
+                    padding: "8px",
+                  }}
+                >
                   {h}
                 </th>
               ))}
@@ -99,17 +82,43 @@ export default function StandingsPage() {
               const t = teamById[r.team_id] || {};
               return (
                 <tr key={r.team_id}>
-                  <td style={{ padding:"8px" }}>
-                    <TeamCell name={r.name} logo={t.logo_url} short={t.short_name} />
+                  <td style={{ padding: "8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {t.logo_url ? (
+                        <img
+                          src={t.logo_url}
+                          alt={r.name}
+                          width={24}
+                          height={24}
+                          style={{ objectFit: "contain", borderRadius: 4 }}
+                        />
+                      ) : (
+                        <div
+                          title={r.name}
+                          style={{
+                            width: 24, height: 24, borderRadius: 4,
+                            background: "#eee", color: "#666",
+                            display: "grid", placeItems: "center", fontSize: 10,
+                          }}
+                        >
+                          {(t.short_name || r.name).slice(0, 3)}
+                        </div>
+                      )}
+                      <Link to={`/teams/${r.team_id}`} style={{ textDecoration: "none" }}>
+                        {r.name}
+                      </Link>
+                    </div>
                   </td>
-                  <td style={{ padding:"8px" }}>{r.gp}</td>
-                  <td style={{ padding:"8px" }}>{r.w}</td>
-                  <td style={{ padding:"8px" }}>{r.l}</td>
-                  <td style={{ padding:"8px" }}>{r.otl}</td>
-                  <td style={{ padding:"8px", fontWeight:"bold" }}>{r.pts}</td>
-                  <td style={{ padding:"8px" }}>{r.gf}</td>
-                  <td style={{ padding:"8px" }}>{r.ga}</td>
-                  <td style={{ padding:"8px", color: r.diff >= 0 ? "green" : "red" }}>{r.diff}</td>
+                  <td style={{ padding: "8px" }}>{r.gp}</td>
+                  <td style={{ padding: "8px" }}>{r.w}</td>
+                  <td style={{ padding: "8px" }}>{r.l}</td>
+                  <td style={{ padding: "8px" }}>{r.otl}</td>
+                  <td style={{ padding: "8px", fontWeight: "bold" }}>{r.pts}</td>
+                  <td style={{ padding: "8px" }}>{r.gf}</td>
+                  <td style={{ padding: "8px" }}>{r.ga}</td>
+                  <td style={{ padding: "8px", color: r.diff >= 0 ? "green" : "red" }}>
+                    {r.diff}
+                  </td>
                 </tr>
               );
             })}
