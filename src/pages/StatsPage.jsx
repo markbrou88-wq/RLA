@@ -20,33 +20,43 @@ function TeamCell({ name, logo, short }) {
 
 export default function StatsPage() {
   const [rows, setRows] = React.useState([]);
+  const [teamById, setTeamById] = React.useState({});
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
-  const [sort, setSort] = React.useState("points"); // goals | assists | points | gp
+  const [sort, setSort] = React.useState("points"); // points|goals|assists|gp
   const [limit, setLimit] = React.useState(50);
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    // pull team logo via embedded relation
-    const { data, error } = await supabase
-      .from("player_stats_current")
-      .select(`
-        player_id, player_name,
-        team_id, team_name,
-        gp, goals, assists, points, pim,
-        teams ( logo_url, short_name )
-      `)
-      .order(["points","goals","assists"].includes(sort) ? sort : "points", {
-        ascending: false,
-      });
 
-    if (!error) setRows(data || []);
+    const sortCol = ["points","goals","assists","gp"].includes(sort) ? sort : "points";
+
+    const statsPromise = supabase
+      .from("player_stats_current")
+      .select("player_id, player_name, team_id, team_name, gp, goals, assists, points, pim")
+      .order(sortCol, { ascending: false });
+
+    const teamsPromise = supabase
+      .from("teams")
+      .select("id, short_name, logo_url");
+
+    const [{ data: sData, error: sErr }, { data: tData, error: tErr }] =
+      await Promise.all([statsPromise, teamsPromise]);
+
+    if (sErr) console.error(sErr);
+    if (tErr) console.error(tErr);
+
+    const map = Object.fromEntries(
+      (tData || []).map((t) => [t.id, { short_name: t.short_name, logo_url: t.logo_url }])
+    );
+
+    setTeamById(map);
+    setRows(sData || []);
     setLoading(false);
   }, [sort]);
 
   React.useEffect(() => { load(); }, [load]);
 
-  // refresh when games change
   React.useEffect(() => {
     const ch = supabase
       .channel("stats-auto-refresh")
@@ -94,38 +104,33 @@ export default function StatsPage() {
         <button onClick={load}>Refresh</button>
       </div>
 
-      {loading ? (
-        <p>Loading…</p>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 720 }}>
+      {loading ? <p>Loading…</p> : (
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ borderCollapse:"collapse", width:"100%", minWidth: 720 }}>
             <thead>
               <tr>
                 {["Player","Team","GP","G","A","PTS","PIM"].map((h) => (
-                  <th key={h} style={{ textAlign:"left", borderBottom:"1px solid #ddd", padding:"8px" }}>
-                    {h}
-                  </th>
+                  <th key={h} style={{ textAlign:"left", borderBottom:"1px solid #ddd", padding:"8px" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
-                <tr key={r.player_id}>
-                  <td style={{ padding:"8px" }}>{r.player_name}</td>
-                  <td style={{ padding:"8px" }}>
-                    <TeamCell
-                      name={r.team_name}
-                      logo={r.teams?.logo_url}
-                      short={r.teams?.short_name}
-                    />
-                  </td>
-                  <td style={{ padding:"8px" }}>{r.gp}</td>
-                  <td style={{ padding:"8px" }}>{r.goals}</td>
-                  <td style={{ padding:"8px" }}>{r.assists}</td>
-                  <td style={{ padding:"8px", fontWeight:"bold" }}>{r.points}</td>
-                  <td style={{ padding:"8px" }}>{r.pim}</td>
-                </tr>
-              ))}
+              {filtered.map((r) => {
+                const t = teamById[r.team_id] || {};
+                return (
+                  <tr key={r.player_id}>
+                    <td style={{ padding:"8px" }}>{r.player_name}</td>
+                    <td style={{ padding:"8px" }}>
+                      <TeamCell name={r.team_name} logo={t.logo_url} short={t.short_name} />
+                    </td>
+                    <td style={{ padding:"8px" }}>{r.gp}</td>
+                    <td style={{ padding:"8px" }}>{r.goals}</td>
+                    <td style={{ padding:"8px" }}>{r.assists}</td>
+                    <td style={{ padding:"8px", fontWeight:"bold" }}>{r.points}</td>
+                    <td style={{ padding:"8px" }}>{r.pim}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
