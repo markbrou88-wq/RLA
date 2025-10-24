@@ -15,14 +15,9 @@ function TeamCell({ name, logo, short }) {
       ) : (
         <div
           style={{
-            width: 24,
-            height: 24,
-            borderRadius: 4,
-            background: "#eee",
-            display: "grid",
-            placeItems: "center",
-            fontSize: 10,
-            color: "#666",
+            width: 24, height: 24, borderRadius: 4,
+            background: "#eee", display: "grid", placeItems: "center",
+            fontSize: 10, color: "#666",
           }}
           title={name}
         >
@@ -36,28 +31,41 @@ function TeamCell({ name, logo, short }) {
 
 export default function StandingsPage() {
   const [rows, setRows] = React.useState([]);
+  const [teamById, setTeamById] = React.useState({});
   const [loading, setLoading] = React.useState(true);
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    // pull logo via embedded relation to teams
-    const { data, error } = await supabase
+
+    // fetch standings (existing view)
+    const standingsPromise = supabase
       .from("standings_current")
-      .select(`
-        team_id,
-        name,
-        gp, w, l, otl, pts, gf, ga, diff,
-        teams ( logo_url, short_name )
-      `)
+      .select("team_id, name, gp, w, l, otl, pts, gf, ga, diff")
       .order("pts", { ascending: false });
 
-    if (!error) setRows(data || []);
+    // fetch teams once for logos/short names
+    const teamsPromise = supabase
+      .from("teams")
+      .select("id, short_name, logo_url");
+
+    const [{ data: sData, error: sErr }, { data: tData, error: tErr }] =
+      await Promise.all([standingsPromise, teamsPromise]);
+
+    if (sErr) console.error(sErr);
+    if (tErr) console.error(tErr);
+
+    const map = Object.fromEntries(
+      (tData || []).map((t) => [t.id, { short_name: t.short_name, logo_url: t.logo_url }])
+    );
+
+    setTeamById(map);
+    setRows(sData || []);
     setLoading(false);
   }, []);
 
   React.useEffect(() => { load(); }, [load]);
 
-  // auto-refresh when games change (final/so/etc.)
+  // realtime: refresh when games change
   React.useEffect(() => {
     const ch = supabase
       .channel("standings-auto-refresh")
@@ -80,30 +88,31 @@ export default function StandingsPage() {
           <thead>
             <tr>
               {["Team","GP","W","L","OTL","PTS","GF","GA","+/-"].map(h => (
-                <th key={h} style={{ textAlign:"left", borderBottom:"1px solid #ddd", padding:"8px" }}>{h}</th>
+                <th key={h} style={{ textAlign:"left", borderBottom:"1px solid #ddd", padding:"8px" }}>
+                  {h}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => (
-              <tr key={r.team_id}>
-                <td style={{ padding:"8px" }}>
-                  <TeamCell
-                    name={r.name}
-                    logo={r.teams?.logo_url}
-                    short={r.teams?.short_name}
-                  />
-                </td>
-                <td style={{ padding:"8px" }}>{r.gp}</td>
-                <td style={{ padding:"8px" }}>{r.w}</td>
-                <td style={{ padding:"8px" }}>{r.l}</td>
-                <td style={{ padding:"8px" }}>{r.otl}</td>
-                <td style={{ padding:"8px", fontWeight:"bold" }}>{r.pts}</td>
-                <td style={{ padding:"8px" }}>{r.gf}</td>
-                <td style={{ padding:"8px" }}>{r.ga}</td>
-                <td style={{ padding:"8px", color: r.diff >= 0 ? "green" : "red" }}>{r.diff}</td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const t = teamById[r.team_id] || {};
+              return (
+                <tr key={r.team_id}>
+                  <td style={{ padding:"8px" }}>
+                    <TeamCell name={r.name} logo={t.logo_url} short={t.short_name} />
+                  </td>
+                  <td style={{ padding:"8px" }}>{r.gp}</td>
+                  <td style={{ padding:"8px" }}>{r.w}</td>
+                  <td style={{ padding:"8px" }}>{r.l}</td>
+                  <td style={{ padding:"8px" }}>{r.otl}</td>
+                  <td style={{ padding:"8px", fontWeight:"bold" }}>{r.pts}</td>
+                  <td style={{ padding:"8px" }}>{r.gf}</td>
+                  <td style={{ padding:"8px" }}>{r.ga}</td>
+                  <td style={{ padding:"8px", color: r.diff >= 0 ? "green" : "red" }}>{r.diff}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
