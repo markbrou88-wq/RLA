@@ -42,10 +42,27 @@ function SmallTable({ headers, rows }) {
   );
 }
 
+function RosterList({ title, logo, rows }) {
+  return (
+    <div style={{ border: "1px solid #eee", borderRadius: 8, padding: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        {logo ? <img src={logo} alt="" style={{ width: 40, height: 40, objectFit: "contain" }} /> : null}
+        <h3 style={{ margin: 0 }}>{title}</h3>
+      </div>
+      <SmallTable
+        headers={["#", "Player", "Pos"]}
+        rows={rows}
+      />
+    </div>
+  );
+}
+
 export default function BoxscorePage() {
   const { slug } = useParams();
   const [game, setGame] = React.useState(null);
   const [events, setEvents] = React.useState([]);
+  const [homeRoster, setHomeRoster] = React.useState([]);
+  const [awayRoster, setAwayRoster] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState("");
 
@@ -53,7 +70,8 @@ export default function BoxscorePage() {
     (async () => {
       setLoading(true);
       setErr("");
-      // 1) Game + team info
+
+      // 1) Game + teams
       const { data: g, error: ge } = await supabase
         .from("games")
         .select(`
@@ -66,24 +84,77 @@ export default function BoxscorePage() {
         .maybeSingle();
 
       if (ge || !g) { setErr(ge?.message || "Game not found"); setLoading(false); return; }
-
       setGame(g);
 
-      // 2) Events (goals, assists, penalties), sorted by period + time
+      // 2) Events (unchanged logic)
       const { data: ev, error: ee } = await supabase
         .from("events")
         .select(`
           id, game_id, team_id, player_id, event, period, time_mmss,
           team:teams ( id, short_name ),
-          player:players ( id, name )
+          player:players ( id, name, number )
         `)
         .eq("game_id", g.id)
         .order("period", { ascending: true })
         .order("time_mmss", { ascending: true });
-
       if (ee) { setErr(ee.message); setLoading(false); return; }
-
       setEvents(ev || []);
+
+      // 3) Per-game roster (prefer dressed players; fallback to full team if none)
+      const { data: roster, error: re } = await supabase
+        .from("game_rosters")
+        .select(`
+          player_id, team_id, dressed,
+          player:players ( id, name, number, position )
+        `)
+        .eq("game_id", g.id)
+        .eq("dressed", true);
+      if (re) console.warn("roster load:", re.message);
+
+      let homeR = [];
+      let awayR = [];
+
+      if (roster && roster.length > 0) {
+        homeR = roster
+          .filter(r => r.team_id === g.home_team.id)
+          .map(r => r.player);
+        awayR = roster
+          .filter(r => r.team_id === g.away_team.id)
+          .map(r => r.player);
+      }
+
+      // Fallback to all players on each team if roster not yet saved
+      if (homeR.length === 0) {
+        const { data: hp } = await supabase
+          .from("players")
+          .select("id, name, number, position")
+          .eq("team_id", g.home_team.id)
+          .order("number", { ascending: true, nullsFirst: true })
+          .order("name", { ascending: true });
+        homeR = hp || [];
+      }
+      if (awayR.length === 0) {
+        const { data: ap } = await supabase
+          .from("players")
+          .select("id, name, number, position")
+          .eq("team_id", g.away_team.id)
+          .order("number", { ascending: true, nullsFirst: true })
+          .order("name", { ascending: true });
+        awayR = ap || [];
+      }
+
+      // Sort nicely by number then name
+      const sortRoster = (arr) =>
+        [...arr].sort((a, b) => {
+          const an = a.number ?? 9999;
+          const bn = b.number ?? 9999;
+          if (an !== bn) return an - bn;
+          return (a.name || "").localeCompare(b.name || "");
+        });
+
+      setHomeRoster(sortRoster(homeR));
+      setAwayRoster(sortRoster(awayR));
+
       setLoading(false);
     })();
   }, [slug]);
@@ -95,7 +166,7 @@ export default function BoxscorePage() {
   const home = game.home_team;
   const away = game.away_team;
 
-  // Build goal rows with assists grouped after each goal
+  // Build goal rows + penalties + goals by period (assist logic unchanged)
   const goalRows = [];
   const penalties = [];
   const goalsByPeriod = { home: {1:0,2:0,3:0,OT:0}, away: {1:0,2:0,3:0,OT:0} };
@@ -106,7 +177,7 @@ export default function BoxscorePage() {
       const perKey = e.period >= 1 && e.period <= 3 ? e.period : "OT";
       goalsByPeriod[teamSide][perKey] = (goalsByPeriod[teamSide][perKey] || 0) + 1;
 
-      // find immediate assists following this goal (until next goal or period change)
+      // assists = next consecutive "assist" events for same team/period until next goal
       const assists = [];
       for (let j = idx + 1; j < events.length; j++) {
         const n = events[j];
@@ -115,6 +186,7 @@ export default function BoxscorePage() {
           assists.push(n.player?.name || "—");
         }
       }
+
       goalRows.push([
         e.team?.short_name || "",
         e.period,
@@ -136,6 +208,9 @@ export default function BoxscorePage() {
     [home.short_name || home.name, goalsByPeriod.home[1]||0, goalsByPeriod.home[2]||0, goalsByPeriod.home[3]||0, (goalsByPeriod.home.OT||0), game.home_score],
     [away.short_name || away.name, goalsByPeriod.away[1]||0, goalsByPeriod.away[2]||0, goalsByPeriod.away[3]||0, (goalsByPeriod.away.OT||0), game.away_score],
   ];
+
+  // Format roster table rows
+  const toRosterRows = (arr) => arr.map(p => [p.number ?? "", p.name, p.position || ""]);
 
   return (
     <div style={{ padding: 16 }}>
@@ -173,6 +248,21 @@ export default function BoxscorePage() {
         </div>
       </div>
 
+      {/* Side-by-side rosters */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <RosterList
+          title={`${home.short_name || home.name} Lineup`}
+          logo={home.logo_url}
+          rows={toRosterRows(homeRoster)}
+        />
+        <RosterList
+          title={`${away.short_name || away.name} Lineup`}
+          logo={away.logo_url}
+          rows={toRosterRows(awayRoster)}
+        />
+      </div>
+
+      {/* Goals / Penalties / Goals by Period */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
         <Section title="Goals">
           <SmallTable
