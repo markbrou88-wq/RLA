@@ -77,6 +77,9 @@ function RosterList({ title, logo, rows }) {
   );
 }
 
+// Treat anyone with position "G" (case-insensitive) as a goalie; we exclude from lineup
+const isSkater = (p) => (p?.position || "").toUpperCase() !== "G";
+
 export default function BoxscorePage() {
   const { slug } = useParams();
   const [game, setGame] = React.useState(null);
@@ -129,7 +132,7 @@ export default function BoxscorePage() {
       }
       setEvents(ev || []);
 
-      // 3) Rosters
+      // 3) Rosters (prefer saved dressed roster)
       const { data: roster } = await supabase
         .from("game_rosters")
         .select(`
@@ -147,7 +150,7 @@ export default function BoxscorePage() {
         awayR = roster.filter((r) => r.team_id === g.away_team.id).map((r) => r.player);
       }
 
-      // fallback to full team list
+      // Fallback to full team list if no game_rosters yet
       if (homeR.length === 0) {
         const { data: hp } = await supabase
           .from("players")
@@ -171,10 +174,11 @@ export default function BoxscorePage() {
           return (a.name || "").localeCompare(b.name || "");
         });
 
-      setHomeRoster(sortRoster(homeR));
-      setAwayRoster(sortRoster(awayR));
+      // ❗ filter to skaters only for lineup tables
+      setHomeRoster(sortRoster(homeR.filter(isSkater)));
+      setAwayRoster(sortRoster(awayR.filter(isSkater)));
 
-      // 4) Goalies
+      // 4) Goalie lines
       const { data: goalies } = await supabase
         .from("game_goalies")
         .select(`
@@ -361,7 +365,7 @@ export default function BoxscorePage() {
         </div>
       </div>
 
-      {/* Rosters */}
+      {/* Rosters (skaters only) */}
       <div
         style={{
           display: "grid",
