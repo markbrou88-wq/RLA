@@ -1,140 +1,106 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 
-function TeamCell({ name, logo, short }) {
+function Table({ headers, rows }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      {logo ? (
-        <img
-          src={logo}
-          alt={name}
-          width={20}
-          height={20}
-          style={{ objectFit: "contain", borderRadius: 4 }}
-        />
-      ) : null}
-      <span>{short ? `${name} (${short})` : name}</span>
+    <div style={{ overflowX:"auto" }}>
+      <table style={{ borderCollapse:"collapse", width:"100%" }}>
+        <thead>
+          <tr>
+            {headers.map(h=>(
+              <th key={h} style={{ textAlign:"left", padding:"8px", borderBottom:"1px solid #ddd" }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr><td colSpan={headers.length} style={{ padding:8, color:"#777" }}>—</td></tr>
+          ) : rows.map((r,i)=>(
+            <tr key={i}>
+              {r.map((c,j)=>(
+                <td key={j} style={{ padding:"8px", borderBottom:"1px solid #f3f3f3" }}>{c}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 export default function StatsPage() {
-  const [rows, setRows] = React.useState([]);
-  const [teamById, setTeamById] = React.useState({});
+  const [skaters, setSkaters] = React.useState([]);
+  const [goalies, setGoalies] = React.useState([]);
+  const [teams, setTeams] = React.useState({});
   const [loading, setLoading] = React.useState(true);
-  const [search, setSearch] = React.useState("");
-  const [sort, setSort] = React.useState("points"); // points|goals|assists|gp
-  const [limit, setLimit] = React.useState(50);
 
   const load = React.useCallback(async () => {
     setLoading(true);
 
-    const sortCol = ["points","goals","assists","gp"].includes(sort) ? sort : "points";
-
-    const statsPromise = supabase
-      .from("player_stats_current")
+    const teamsQ   = supabase.from("teams").select("id, short_name, logo_url");
+    const skatersQ = supabase.from("player_stats_current")
       .select("player_id, player_name, team_id, team_name, gp, goals, assists, points, pim")
-      .order(sortCol, { ascending: false });
+      .order("points", { ascending:false });
+    const goaliesQ = supabase.from("goalie_stats_current")
+      .select("player_id, player_name, team_id, team_name, gp, gs, w, l, otl, so, sa, ga, sv, sv_pct, toi_seconds, gaa")
+      .order("sv_pct", { ascending:false });
 
-    const teamsPromise = supabase
-      .from("teams")
-      .select("id, short_name, logo_url");
+    const [{ data: t }, { data: s }, { data: g }] =
+      await Promise.all([teamsQ, skatersQ, goaliesQ]);
 
-    const [{ data: sData, error: sErr }, { data: tData, error: tErr }] =
-      await Promise.all([statsPromise, teamsPromise]);
-
-    if (sErr) console.error(sErr);
-    if (tErr) console.error(tErr);
-
-    const map = Object.fromEntries(
-      (tData || []).map((t) => [t.id, { short_name: t.short_name, logo_url: t.logo_url }])
-    );
-
-    setTeamById(map);
-    setRows(sData || []);
+    setTeams(Object.fromEntries((t||[]).map(x=>[x.id, x])));
+    setSkaters(s||[]);
+    setGoalies(g||[]);
     setLoading(false);
-  }, [sort]);
+  }, []);
 
   React.useEffect(() => { load(); }, [load]);
 
+  // Realtime refresh when games finalize
   React.useEffect(() => {
     const ch = supabase
-      .channel("stats-auto-refresh")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "games" },
-        () => load()
-      )
+      .channel("stats-refresh")
+      .on("postgres_changes", { event: "*", schema:"public", table:"games" }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [load]);
 
-  const filtered = rows
-    .filter(
-      (r) =>
-        r.player_name.toLowerCase().includes(search.toLowerCase()) ||
-        r.team_name.toLowerCase().includes(search.toLowerCase())
-    )
-    .slice(0, limit);
+  if (loading) return <p>Loading stats…</p>;
 
   return (
     <div>
       <h2>Stats</h2>
 
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
-        <input
-          placeholder="Search player or team…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <label>Sort by:</label>
-        <select value={sort} onChange={(e) => setSort(e.target.value)}>
-          <option value="points">Points</option>
-          <option value="goals">Goals</option>
-          <option value="assists">Assists</option>
-          <option value="gp">Games Played</option>
-        </select>
-        <label>Show:</label>
-        <select value={limit} onChange={(e) => setLimit(Number(e.target.value))}>
-          <option value={25}>Top 25</option>
-          <option value={50}>Top 50</option>
-          <option value={100}>Top 100</option>
-          <option value={100000}>All</option>
-        </select>
-        <button onClick={load}>Refresh</button>
-      </div>
+      {/* Skaters */}
+      <h3>Skaters</h3>
+      <Table
+        headers={["Player","Team","GP","G","A","P","PIM"]}
+        rows={(skaters||[]).map(s=>{
+          const t = teams[s.team_id] || {};
+          return [
+            s.player_name,
+            t.short_name || s.team_name,
+            s.gp, s.goals, s.assists, s.points, s.pim
+          ];
+        })}
+      />
 
-      {loading ? <p>Loading…</p> : (
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ borderCollapse:"collapse", width:"100%", minWidth: 720 }}>
-            <thead>
-              <tr>
-                {["Player","Team","GP","G","A","PTS","PIM"].map((h) => (
-                  <th key={h} style={{ textAlign:"left", borderBottom:"1px solid #ddd", padding:"8px" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => {
-                const t = teamById[r.team_id] || {};
-                return (
-                  <tr key={r.player_id}>
-                    <td style={{ padding:"8px" }}>{r.player_name}</td>
-                    <td style={{ padding:"8px" }}>
-                      <TeamCell name={r.team_name} logo={t.logo_url} short={t.short_name} />
-                    </td>
-                    <td style={{ padding:"8px" }}>{r.gp}</td>
-                    <td style={{ padding:"8px" }}>{r.goals}</td>
-                    <td style={{ padding:"8px" }}>{r.assists}</td>
-                    <td style={{ padding:"8px", fontWeight:"bold" }}>{r.points}</td>
-                    <td style={{ padding:"8px" }}>{r.pim}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Goalies */}
+      <h3 style={{ marginTop: 24 }}>Goalies</h3>
+      <Table
+        headers={["Goalie","Team","GP","GS","W","L","OTL","SO","SA","GA","SV","SV%","GAA","TOI"]}
+        rows={(goalies||[]).map(g=>{
+          const t = teams[g.team_id] || {};
+          const svp = (g.sv_pct == null) ? "" : g.sv_pct.toFixed(3);
+          const toi = (()=>{ const m=Math.floor((g.toi_seconds||0)/60), s=(g.toi_seconds||0)%60; return `${m}:${String(s).padStart(2,"0")}`; })();
+          return [
+            g.player_name,
+            t.short_name || g.team_name,
+            g.gp, g.gs, g.w, g.l, g.otl, g.so, g.sa, g.ga, g.sv, svp, g.gaa ?? "", toi
+          ];
+        })}
+      />
     </div>
   );
 }
