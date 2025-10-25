@@ -79,6 +79,7 @@ function RosterList({ title, logo, rows }) {
 
 // Treat anyone with position "G" (case-insensitive) as a goalie; we exclude from lineup
 const isSkater = (p) => (p?.position || "").toUpperCase() !== "G";
+const isGoalie = (p) => (p?.position || "").toUpperCase() === "G";
 
 export default function BoxscorePage() {
   const { slug } = useParams();
@@ -174,12 +175,12 @@ export default function BoxscorePage() {
           return (a.name || "").localeCompare(b.name || "");
         });
 
-      // ❗ filter to skaters only for lineup tables
+      // lineup = skaters only
       setHomeRoster(sortRoster(homeR.filter(isSkater)));
       setAwayRoster(sortRoster(awayR.filter(isSkater)));
 
-      // 4) Goalie lines
-      const { data: goalies } = await supabase
+      // 4) Goalie lines (from game_goalies)
+      const { data: goalies, error: gerr } = await supabase
         .from("game_goalies")
         .select(`
           player:players ( id, name ),
@@ -187,9 +188,31 @@ export default function BoxscorePage() {
           shots_against, goals_against, decision, shutout
         `)
         .eq("game_id", g.id);
+      if (gerr) console.warn("goalies load:", gerr.message);
 
-      const hg = (goalies || []).filter((r) => r.team_id === g.home_team.id);
-      const ag = (goalies || []).filter((r) => r.team_id === g.away_team.id);
+      let hg = (goalies || []).filter((r) => r.team_id === g.home_team.id);
+      let ag = (goalies || []).filter((r) => r.team_id === g.away_team.id);
+
+      // 🔁 Fallback: if no goalie lines entered yet, show roster/players with position G as names with blank stats
+      const blankGoalieLine = (name) => ({
+        player: { name },
+        team_id: null,
+        started: false,
+        minutes_seconds: 0,
+        shots_against: null,
+        goals_against: null,
+        decision: "ND",
+        shutout: false,
+      });
+
+      if (hg.length === 0) {
+        const homeGs = homeR.filter(isGoalie);
+        if (homeGs.length) hg = homeGs.map((p) => blankGoalieLine(p.name));
+      }
+      if (ag.length === 0) {
+        const awayGs = awayR.filter(isGoalie);
+        if (awayGs.length) ag = awayGs.map((p) => blankGoalieLine(p.name));
+      }
 
       setHomeGoalies(hg);
       setAwayGoalies(ag);
@@ -263,28 +286,31 @@ export default function BoxscorePage() {
 
   const toRosterRows = (arr) => arr.map((p) => [p.number ?? "", p.name, p.position || ""]);
 
-  // format goalie table rows
+  // format goalie table rows (blank-friendly)
   const toGoalieRows = (arr) =>
     arr.map((g) => {
+      const sa = g.shots_against ?? "";
+      const ga = g.goals_against ?? "";
       const svp =
-        g.shots_against > 0
+        g.shots_against > 0 && g.goals_against != null
           ? ((g.shots_against - g.goals_against) / g.shots_against).toFixed(3)
           : "";
       const gaa =
-        g.minutes_seconds > 0
+        g.minutes_seconds > 0 && g.goals_against != null
           ? ((g.goals_against * 3600) / g.minutes_seconds).toFixed(2)
           : "";
-      const toi = `${Math.floor(g.minutes_seconds / 60)}:${String(
-        g.minutes_seconds % 60
-      ).padStart(2, "0")}`;
+      const toi =
+        g.minutes_seconds > 0
+          ? `${Math.floor(g.minutes_seconds / 60)}:${String(g.minutes_seconds % 60).padStart(2, "0")}`
+          : "";
       return [
         g.player?.name || "—",
-        g.shots_against,
-        g.goals_against,
+        sa,
+        ga,
         svp,
         gaa,
         toi,
-        g.decision,
+        g.decision || "",
         g.shutout ? "✓" : "",
       ];
     });
@@ -386,7 +412,7 @@ export default function BoxscorePage() {
         />
       </div>
 
-      {/* Goalie tables */}
+      {/* Goalies */}
       <div
         style={{
           display: "grid",
@@ -398,16 +424,7 @@ export default function BoxscorePage() {
         <div style={{ border: "1px solid #eee", borderRadius: 8, padding: 12 }}>
           <h3 style={{ marginTop: 0 }}>{home.short_name || home.name} Goalies</h3>
           <SmallTable
-            headers={[
-              "Goalie",
-              "SA",
-              "GA",
-              "SV%",
-              "GAA",
-              "TOI",
-              "Decision",
-              "SO",
-            ]}
+            headers={["Goalie", "SA", "GA", "SV%", "GAA", "TOI", "Decision", "SO"]}
             rows={toGoalieRows(homeGoalies)}
           />
         </div>
@@ -415,16 +432,7 @@ export default function BoxscorePage() {
         <div style={{ border: "1px solid #eee", borderRadius: 8, padding: 12 }}>
           <h3 style={{ marginTop: 0 }}>{away.short_name || away.name} Goalies</h3>
           <SmallTable
-            headers={[
-              "Goalie",
-              "SA",
-              "GA",
-              "SV%",
-              "GAA",
-              "TOI",
-              "Decision",
-              "SO",
-            ]}
+            headers={["Goalie", "SA", "GA", "SV%", "GAA", "TOI", "Decision", "SO"]}
             rows={toGoalieRows(awayGoalies)}
           />
         </div>
