@@ -48,6 +48,9 @@ function GameRow({ g, onDelete, onToggleStatus, canEdit }) {
           <>
             {" · "}
             <Link to={`/games/${g.slug}/boxscore`}>Boxscore</Link>
+            {" · "}
+            <Link to={`/games/${g.slug}/goalies`}>Goalies</Link>
+
           </>
         )}
       </td>
