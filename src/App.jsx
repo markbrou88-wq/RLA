@@ -111,8 +111,8 @@ export default function App() {
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />  {/* <-- add this */}
           <Route path="/teams/:id" element={<TeamPage />} />
-          <Route path="/games/:slug/roster" element={<GameRosterPage />} />
-          <Route path="/games/:slug/goalies" element={<GoaliesPage />} />
+          
+          
         </Routes>
       </main>
 
