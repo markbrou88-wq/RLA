@@ -1,128 +1,124 @@
+// src/App.jsx
 import React from "react";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  NavLink,
-  Link,
-  useParams,
-} from "react-router-dom";
-
+import { supabase } from "./supabaseClient.js";
+import { Routes, Route, NavLink } from "react-router-dom";
+import StandingsPage from "./pages/StandingsPage.jsx";
+import GamesPage from "./pages/GamesPage.jsx";
+import GameDetailPage from "./pages/GameDetailPage.jsx";
+import StatsPage from "./pages/StatsPage.jsx";
+import BoxscorePage from "./pages/BoxscorePage.jsx";  // <-- add this
+import TeamPage from "./pages/TeamPage.jsx"; // add
 import "./styles.css";
 import ThemeToggle from "./components/ThemeToggle";
 
-// Pages (make sure these files exist and default-export a React component)
-import StandingsPage from "./pages/StandingsPage.jsx";
-import GamesPage from "./pages/GamesPage.jsx";
-import StatsPage from "./pages/StatsPage.jsx";
-import GameDetailPage from "./pages/GameDetailPage.jsx"; // "Open" editor
-import BoxscorePage from "./pages/BoxscorePage.jsx";
+function AuthBar() {
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [user, setUser] = React.useState(null);
+  const [status, setStatus] = React.useState("");
 
-/* ---------------- Error Boundary ---------------- */
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null, info: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error, info) {
-    this.setState({ info });
-    // You can also send to logging service here if you want
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="container">
-          <div className="card" style={{ borderLeft: "4px solid #d33" }}>
-            <h2 className="m0" style={{ marginBottom: 8 }}>Something went wrong.</h2>
-            <pre style={{ whiteSpace: "pre-wrap" }}>
-              {String(this.state.error ?? "")}
-            </pre>
-            {this.state.info?.componentStack && (
-              <details>
-                <summary>Stack</summary>
-                <pre>{this.state.info.componentStack}</pre>
-              </details>
-            )}
-            <div style={{ marginTop: 12 }}>
-              <Link className="btn" to="/games">Go to Games</Link>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+  React.useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user || null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
-/* ---------------- Placeholder for /teams/:id ---------------- */
-function TeamPlaceholder() {
-  const { id } = useParams();
+  async function signUp(e) {
+    e.preventDefault();
+    const { error } = await supabase.auth.signUp({ email, password });
+    setStatus(error ? error.message : "Account created! You can now sign in.");
+  }
+
+  async function signIn(e) {
+    e.preventDefault();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setStatus(error ? error.message : "Signed in!");
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+  }
+
+  async function sendReset() {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    setStatus(error ? error.message : "Password reset email sent.");
+  }
+
   return (
-    <div className="container">
-      <div className="card">
-        <h2 className="m0">Team #{id}</h2>
-        <p className="kicker">Team page coming soon.</p>
-        <Link to="/games">← Back to Games</Link>
-      </div>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "8px 0" }}>
+      {user ? (
+        <>
+          <span style={{ color: "#0a7e07" }}>
+            Signed in{user?.email ? ` as ${user.email}` : ""}
+          </span>
+          <button onClick={signOut}>Sign out</button>
+        </>
+      ) : (
+        <form style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+          />
+          <button onClick={signIn}>Sign in</button>
+          <button type="button" onClick={signUp}>Sign up</button>
+          <button type="button" onClick={sendReset}>Forgot password?</button>
+        </form>
+      )}
+      <span style={{ color: "#666" }}>{status}</span>
     </div>
   );
 }
 
-/* ---------------- Layout ---------------- */
-function Header() {
+function Nav() {
   return (
-    <header className="container row" style={{ justifyContent: "space-between" }}>
-      <h1 className="m0">RLA Hockey League</h1>
-      <ThemeToggle />
-    </header>
-  );
-}
+    <nav style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #eee", marginBottom: 8 }}>
+      <NavLink to="/" end>Standings</NavLink>
+      <NavLink to="/games">Games</NavLink>
+      <NavLink to="/stats">Stats</NavLink>
 
-function TopNav() {
-  const linkClass = ({ isActive }) => `nav-link ${isActive ? "active" : ""}`;
-  return (
-    <nav className="nav container">
-      <NavLink to="/standings" className={linkClass}>Standings</NavLink>
-      <NavLink to="/games" className={linkClass}>Games</NavLink>
-      <NavLink to="/stats" className={linkClass}>Stats</NavLink>
-      <div className="flex-spacer" />
     </nav>
   );
 }
 
-/* ---------------- App ---------------- */
 export default function App() {
   return (
-    <BrowserRouter>
-      <Header />
-      <TopNav />
-      <ErrorBoundary>
+    <div style={{ fontFamily: "Inter, system-ui, Arial", maxWidth: 1100, margin: "0 auto", padding: "16px" }}>
+      <h1 style={{ margin: 0 }}>RLA Hockey League</h1>
+      <p style={{ margin: "4px 0 8px", color: "#666" }}>Standings • Games • Live Boxscore</p>
+
+      <AuthBar />
+      <Nav />
+
+      <main style={{ padding: "16px 0" }}>
         <Routes>
-          {/* Home → Games */}
-          <Route path="/" element={<Navigate to="/games" replace />} />
-
-          {/* Main pages */}
-          <Route path="/standings" element={<StandingsPage />} />
+          <Route path="/" element={<StandingsPage />} />
           <Route path="/games" element={<GamesPage />} />
-          <Route path="/games/:slug" element={<GameDetailPage />} /> {/* Open editor */}
-          <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />
+          <Route path="/games/:slug" element={<GameDetailPage />} />
           <Route path="/stats" element={<StatsPage />} />
-
-          {/* Team placeholder so /teams/:id links don’t 404 */}
-          <Route path="/teams/:id" element={<TeamPlaceholder />} />
-
-          {/* Old routes → Open editor */}
-          <Route path="/games/:slug/roster" element={<Navigate to="../" replace />} />
-          <Route path="/games/:slug/goalies" element={<Navigate to="../" replace />} />
-
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/games" replace />} />
+          <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />  {/* <-- add this */}
+          <Route path="/teams/:id" element={<TeamPage />} />
+          
+          
         </Routes>
-      </ErrorBoundary>
-    </BrowserRouter>
+      </main>
+
+      <footer style={{ padding: "16px 0", color: "#777", fontSize: 12 }}>
+        Built with React + Supabase • Realtime edits for boxscores
+      </footer>
+    </div>
   );
 }
