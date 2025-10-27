@@ -84,15 +84,20 @@ function AuthBar() {
 }
 
 function Nav() {
+  const linkStyle = ({ isActive }) => ({
+    fontWeight: isActive ? 700 : 500,
+    color: isActive ? "#3b5fff" : "inherit",
+  });
+
   return (
     <nav style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #eee", marginBottom: 8 }}>
-      <NavLink to="/" end>Standings</NavLink>
-      <NavLink to="/games">Games</NavLink>
-      <NavLink to="/stats">Stats</NavLink>
-
+      <NavLink to="/" end style={linkStyle}>Standings</NavLink>
+      <NavLink to="/games" style={linkStyle}>Games</NavLink>
+      <NavLink to="/stats" style={linkStyle}>Stats</NavLink>
     </nav>
   );
 }
+
 
 export default function App() {
   return (
