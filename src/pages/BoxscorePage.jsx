@@ -1,6 +1,7 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
+import { useI18n } from "../i18n.jsx";
 
 function Section({ title, children }) {
   return (
@@ -82,6 +83,8 @@ const isSkater = (p) => (p?.position || "").toUpperCase() !== "G";
 const isGoalie = (p) => (p?.position || "").toUpperCase() === "G";
 
 export default function BoxscorePage() {
+  const { t } = useI18n();
+  
   const { slug } = useParams();
   const [game, setGame] = React.useState(null);
   const [events, setEvents] = React.useState([]);
