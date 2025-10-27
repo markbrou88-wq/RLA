@@ -2,10 +2,12 @@
 import React from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { useI18n } from "../i18n.jsx";
 
 const POSITIONS = ["C", "LW", "RW", "D", "G"];
 
 export default function TeamPage() {
+  const { t } = useI18n();
   const { id } = useParams();
   const nav = useNavigate();
 
