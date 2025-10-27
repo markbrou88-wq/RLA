@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
+import { useI18n } from "../i18n.jsx";
 
 function Table({ headers, rows }) {
   return (
@@ -30,6 +31,8 @@ function Table({ headers, rows }) {
 }
 
 export default function StatsPage() {
+  const { t } = useI18n();
+  
   const [skaters, setSkaters] = React.useState([]);
   const [goalies, setGoalies] = React.useState([]);
   const [teams, setTeams] = React.useState({});
