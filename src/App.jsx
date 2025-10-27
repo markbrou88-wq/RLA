@@ -9,7 +9,7 @@ import StatsPage from "./pages/StatsPage.jsx";
 import BoxscorePage from "./pages/BoxscorePage.jsx";  // <-- add this
 import TeamPage from "./pages/TeamPage.jsx"; // add
 import "./styles.css";
-
+import ThemeToggle from "./components/ThemeToggle";
 
 function AuthBar() {
   const [email, setEmail] = React.useState("");
