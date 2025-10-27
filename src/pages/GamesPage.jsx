@@ -1,8 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { useI18n } from "../i18n.jsx";
 
 export default function GamesPage() {
+  const { t } = useI18n();
+  
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState("");
 
