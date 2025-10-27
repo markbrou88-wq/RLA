@@ -1,124 +1,98 @@
-// src/App.jsx
 import React from "react";
-import { supabase } from "./supabaseClient.js";
-import { Routes, Route, NavLink } from "react-router-dom";
-import StandingsPage from "./pages/StandingsPage.jsx";
-import GamesPage from "./pages/GamesPage.jsx";
-import GameDetailPage from "./pages/GameDetailPage.jsx";
-import StatsPage from "./pages/StatsPage.jsx";
-import BoxscorePage from "./pages/BoxscorePage.jsx";  // <-- add this
-import TeamPage from "./pages/TeamPage.jsx"; // add
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation, useParams } from "react-router-dom";
+
 import "./styles.css";
 import ThemeToggle from "./components/ThemeToggle";
 
-function AuthBar() {
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [user, setUser] = React.useState(null);
-  const [status, setStatus] = React.useState("");
+// Pages (make sure these files exist)
+import StandingsPage from "./pages/StandingsPage.jsx";
+import GamesPage from "./pages/GamesPage.jsx";
+import StatsPage from "./pages/StatsPage.jsx";
+import GameDetailPage from "./pages/GameDetailPage.jsx"; // "Open" editor
+import BoxscorePage from "./pages/BoxscorePage.jsx";
 
-  React.useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user || null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  async function signUp(e) {
-    e.preventDefault();
-    const { error } = await supabase.auth.signUp({ email, password });
-    setStatus(error ? error.message : "Account created! You can now sign in.");
-  }
-
-  async function signIn(e) {
-    e.preventDefault();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setStatus(error ? error.message : "Signed in!");
-  }
-
-  async function signOut() {
-    await supabase.auth.signOut();
-  }
-
-  async function sendReset() {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
-    });
-    setStatus(error ? error.message : "Password reset email sent.");
-  }
-
+// ---------- Small helpers ----------
+function NavLink({ to, children }) {
+  const loc = useLocation();
+  const isActive =
+    (to === "/"
+      ? loc.pathname === "/"
+      : loc.pathname === to || loc.pathname.startsWith(to + "/"));
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "8px 0" }}>
-      {user ? (
-        <>
-          <span style={{ color: "#0a7e07" }}>
-            Signed in{user?.email ? ` as ${user.email}` : ""}
-          </span>
-          <button onClick={signOut}>Sign out</button>
-        </>
-      ) : (
-        <form style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-          />
-          <button onClick={signIn}>Sign in</button>
-          <button type="button" onClick={signUp}>Sign up</button>
-          <button type="button" onClick={sendReset}>Forgot password?</button>
-        </form>
-      )}
-      <span style={{ color: "#666" }}>{status}</span>
+    <Link className={`nav-link ${isActive ? "active" : ""}`} to={to}>
+      {children}
+    </Link>
+  );
+}
+
+// Placeholder so /teams/:id links don’t 404 if you haven’t built a Team page yet.
+function TeamPlaceholder() {
+  const { id } = useParams();
+  return (
+    <div className="container">
+      <div className="card">
+        <h2 className="m0">Team #{id}</h2>
+        <p className="kicker">Team page coming soon.</p>
+        <p>
+          (The link exists so clicks from the Games list don’t 404. We can wire a full
+          team roster/editor here when you’re ready.)
+        </p>
+        <Link to="/games">← Back to Games</Link>
+      </div>
     </div>
   );
 }
 
-function Nav() {
+// Top header (title + theme toggle)
+function Header() {
   return (
-    <nav style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #eee", marginBottom: 8 }}>
-      <NavLink to="/" end>Standings</NavLink>
+    <header className="container row" style={{ justifyContent: "space-between" }}>
+      <h1 className="m0">RLA Hockey League</h1>
+      <ThemeToggle />
+    </header>
+  );
+}
+
+// Site nav (uses NavLink for active states)
+function TopNav() {
+  return (
+    <nav className="nav container">
+      <NavLink to="/standings">Standings</NavLink>
       <NavLink to="/games">Games</NavLink>
       <NavLink to="/stats">Stats</NavLink>
-
+      <div className="flex-spacer" />
+      {/* You can add auth status or buttons at right if needed */}
     </nav>
   );
 }
 
 export default function App() {
   return (
-    <div style={{ fontFamily: "Inter, system-ui, Arial", maxWidth: 1100, margin: "0 auto", padding: "16px" }}>
-      <h1 style={{ margin: 0 }}>RLA Hockey League</h1>
-      <p style={{ margin: "4px 0 8px", color: "#666" }}>Standings • Games • Live Boxscore</p>
+    <BrowserRouter>
+      <Header />
+      <TopNav />
 
-      <AuthBar />
-      <Nav />
+      <Routes>
+        {/* Home → Games */}
+        <Route path="/" element={<Navigate to="/games" replace />} />
 
-      <main style={{ padding: "16px 0" }}>
-        <Routes>
-          <Route path="/" element={<StandingsPage />} />
-          <Route path="/games" element={<GamesPage />} />
-          <Route path="/games/:slug" element={<GameDetailPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />  {/* <-- add this */}
-          <Route path="/teams/:id" element={<TeamPage />} />
-          
-          
-        </Routes>
-      </main>
+        {/* Main pages */}
+        <Route path="/standings" element={<StandingsPage />} />
+        <Route path="/games" element={<GamesPage />} />
+        <Route path="/games/:slug" element={<GameDetailPage />} />            {/* Open editor */}
+        <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />
+        <Route path="/stats" element={<StatsPage />} />
 
-      <footer style={{ padding: "16px 0", color: "#777", fontSize: 12 }}>
-        Built with React + Supabase • Realtime edits for boxscores
-      </footer>
-    </div>
+        {/* Team placeholder so Games links don't 404 */}
+        <Route path="/teams/:id" element={<TeamPlaceholder />} />
+
+        {/* Old pages → redirect to Open editor */}
+        <Route path="/games/:slug/roster" element={<Navigate to="../" replace />} />
+        <Route path="/games/:slug/goalies" element={<Navigate to="../" replace />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/games" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
