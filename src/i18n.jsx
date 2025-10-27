@@ -2,30 +2,97 @@ import React from "react";
 
 const translations = {
   en: {
+    // Common
     Standings: "Standings",
     Games: "Games",
     Stats: "Stats",
-    "RLA Hockey League": "RLA Hockey League",
-    "Standings • Games • Live Boxscore": "Standings • Games • Live Boxscore",
-    "All Games →": "All Games →",
     Team: "Team",
     Roster: "Roster",
-    "Recent Games": "Recent Games",
+    "All Games →": "All Games →",
     "Save Team": "Save Team",
+    "RLA Hockey League": "RLA Hockey League",
+    "Standings • Games • Live Boxscore": "Standings • Games • Live Boxscore",
+    "Built with React + Supabase • Realtime edits for boxscores":
+      "Built with React + Supabase • Realtime edits for boxscores",
+
+    // Auth
+    "Email": "Email",
+    "Password": "Password",
+    "Sign in": "Sign in",
+    "Sign up": "Sign up",
+    "Forgot password?": "Forgot password?",
+    "Signed in as": "Signed in as",
+    "Sign out": "Sign out",
+
+    // Games
+    "Date": "Date",
+    "Matchup": "Matchup",
+    "Score": "Score",
+    "Status": "Status",
+    "Final": "Final",
+    "Scheduled": "Scheduled",
+    "Open": "Open",
+    "Reopen": "Reopen",
+    "Delete": "Delete",
+    "Boxscore": "Boxscore",
+    "Goalies": "Goalies",
+
+    // Stats
+    "Goals": "Goals",
+    "Assists": "Assists",
+    "Points": "Points",
+    "Games Played": "Games Played",
+    "Save%": "Save%",
+    "GAA": "GAA",
   },
+
   fr: {
+    // Common
     Standings: "Classement",
     Games: "Matchs",
     Stats: "Statistiques",
-    "RLA Hockey League": "Ligue de hockey RLA",
-    "Standings • Games • Live Boxscore": "Classement • Matchs • Feuille de pointage en direct",
-    "All Games →": "Tous les matchs →",
     Team: "Équipe",
     Roster: "Alignement",
-    "Recent Games": "Matchs récents",
+    "All Games →": "Tous les matchs →",
     "Save Team": "Enregistrer l’équipe",
+    "RLA Hockey League": "Ligue de hockey RLA",
+    "Standings • Games • Live Boxscore":
+      "Classement • Matchs • Feuille de pointage en direct",
+    "Built with React + Supabase • Realtime edits for boxscores":
+      "Construit avec React + Supabase • Édition en direct des feuilles de match",
+
+    // Auth
+    "Email": "Courriel",
+    "Password": "Mot de passe",
+    "Sign in": "Connexion",
+    "Sign up": "Créer un compte",
+    "Forgot password?": "Mot de passe oublié?",
+    "Signed in as": "Connecté comme",
+    "Sign out": "Déconnexion",
+
+    // Games
+    "Date": "Date",
+    "Matchup": "Affiche",
+    "Score": "Pointage",
+    "Status": "Statut",
+    "Final": "Final",
+    "Scheduled": "Prévu",
+    "Open": "Ouvrir",
+    "Reopen": "Rouvrir",
+    "Delete": "Supprimer",
+    "Boxscore": "Feuille de match",
+    "Goalies": "Gardiens",
+
+    // Stats
+    "Goals": "Buts",
+    "Assists": "Passes",
+    "Points": "Points",
+    "Games Played": "Parties jouées",
+    "Save%": "Pourcentage d’arrêts",
+    "GAA": "Moyenne de buts alloués",
   },
 };
+
 
 const I18nContext = React.createContext({
   lang: "en",
