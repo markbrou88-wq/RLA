@@ -1,0 +1,211 @@
+/* ----------- GLOBAL ----------- */
+* {
+  box-sizing: border-box;
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #fafafa;
+  color: #222;
+}
+
+a {
+  color: #3b5fff;
+  text-decoration: none;
+  font-weight: 500;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* ----------- CONTAINERS ----------- */
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.flex-spacer {
+  flex: 1;
+}
+
+.card {
+  background: white;
+  padding: 16px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* ----------- HEADERS ----------- */
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 1.8rem;
+}
+h2 {
+  font-size: 1.4rem;
+}
+
+/* ----------- TABLES ----------- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+th,
+td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+th {
+  background: #f4f5f8;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+tr:hover {
+  background: #f9f9ff;
+}
+
+/* ----------- BUTTONS ----------- */
+button,
+.btn {
+  background: #3b5fff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+button:hover,
+.btn:hover {
+  background: #2443e3;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn.secondary {
+  background: #ddd;
+  color: #222;
+}
+.btn.secondary:hover {
+  background: #ccc;
+}
+
+.btn.danger {
+  background: #d33;
+}
+.btn.danger:hover {
+  background: #b22;
+}
+
+/* ----------- INPUTS ----------- */
+input[type="text"],
+input[type="date"],
+input[type="number"],
+select {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid #3b5fff33;
+}
+
+/* ----------- TEAMS / LOGOS ----------- */
+.team-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+/* ----------- LINKS & NAV ----------- */
+.nav {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.nav a {
+  font-weight: 500;
+  color: #222;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+}
+.nav a:hover {
+  border-color: #3b5fff;
+}
+.nav a.active {
+  color: #3b5fff;
+  border-color: #3b5fff;
+}
+
+/* ----------- MISC ----------- */
+.kicker {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: #666;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.mb8 {
+  margin-bottom: 8px;
+}
+.m0 {
+  margin: 0;
+}
+
+/* ----------- SCORE DISPLAY ----------- */
+.score-display {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #111;
+}
+
+/* ----------- RESPONSIVE ----------- */
+@media (max-width: 600px) {
+  table {
+    font-size: 0.85rem;
+  }
+
+  button,
+  .btn {
+    padding: 4px 10px;
+  }
+
+  .container {
+    padding: 16px 8px;
+  }
+}
