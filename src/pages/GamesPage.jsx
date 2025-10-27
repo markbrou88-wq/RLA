@@ -165,7 +165,7 @@ export default function GamesPage() {
                     <td>{scoreStr(g)}</td>
                     <td>{g.status}</td>
                     <td>
-                      <Link to={`/games/${g.slug}`}>{t("Open")}</Link>
+                      <Link to={`/games/${g.slug}`}>{t("Live") || "Live"}</Link>
                       {" · "}
                       <Link to={`/games/${g.slug}/boxscore`}>{t("Boxscore")}</Link>
                       {" · "}
