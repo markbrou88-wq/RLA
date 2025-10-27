@@ -1,3 +1,4 @@
+// src/pages/GamesPage.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
@@ -55,7 +56,12 @@ export default function GamesPage() {
   const scoreStr = (g) => `${g.home_score ?? 0}–${g.away_score ?? 0}`;
 
   async function handleDelete(gameId) {
-    if (!window.confirm(t("Delete this game? This cannot be undone.") || "Delete this game? This cannot be undone.")) {
+    if (
+      !window.confirm(
+        t("Delete this game? This cannot be undone.") ||
+          "Delete this game? This cannot be undone."
+      )
+    ) {
       return;
     }
     const { error } = await supabase.from("games").delete().eq("id", gameId);
@@ -66,7 +72,7 @@ export default function GamesPage() {
     setGames((cur) => cur.filter((g) => g.id !== gameId));
   }
 
-  // Inline link-style button (to match "Open"/"Boxscore" look)
+  // Inline link-style button to match “Live / Boxscore” look
   const linkButtonStyle = {
     background: "none",
     border: "none",
@@ -82,42 +88,38 @@ export default function GamesPage() {
     <div className="container">
       <div className="card">
         <h2 className="m0">{t("Games")}</h2>
+
         <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: "wrap" }}>
           <input
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            aria-label={t("Date")}
           />
           <select
             value={teamFilterHome}
             onChange={(e) => setTeamFilterHome(e.target.value)}
-            aria-label="Home team"
           >
-            <option value="">{t("Team")}… (Home)</option>
-            {teams.map((t_) => (
-              <option key={t_.id} value={t_.id}>
-                {t_.name}
+            <option value="">{t("Team… (Home)")}</option>
+            {teams.map((tm) => (
+              <option key={tm.id} value={tm.id}>
+                {tm.name}
               </option>
             ))}
           </select>
           <select
             value={teamFilterAway}
             onChange={(e) => setTeamFilterAway(e.target.value)}
-            aria-label="Away team"
           >
-            <option value="">{t("Team")}… (Away)</option>
-            {teams.map((t_) => (
-              <option key={t_.id} value={t_.id}>
-                {t_.name}
+            <option value="">{t("Team… (Away)")}</option>
+            {teams.map((tm) => (
+              <option key={tm.id} value={tm.id}>
+                {tm.name}
               </option>
             ))}
           </select>
         </div>
-      </div>
 
-      <div className="card">
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ overflowX: "auto", marginTop: 12 }}>
           <table>
             <thead>
               <tr>
@@ -125,30 +127,51 @@ export default function GamesPage() {
                 <th>{t("Matchup")}</th>
                 <th style={{ width: 90 }}>{t("Score")}</th>
                 <th style={{ width: 120 }}>{t("Status")}</th>
-                <th style={{ width: 260 }}>{t("Actions") || "Actions"}</th>
+                <th style={{ width: 200 }}>{t("Actions")}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5}>Loading…</td></tr>
+                <tr>
+                  <td colSpan={5} style={{ color: "#888" }}>
+                    {t("Loading…")}
+                  </td>
+                </tr>
               ) : err ? (
-                <tr><td colSpan={5} style={{ color: "crimson" }}>{err}</td></tr>
+                <tr>
+                  <td colSpan={5} style={{ color: "crimson" }}>
+                    {err}
+                  </td>
+                </tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={5} style={{ color: "#888" }}>—</td></tr>
+                <tr>
+                  <td colSpan={5} style={{ color: "#888" }}>
+                    {t("No games found")}
+                  </td>
+                </tr>
               ) : (
                 filtered.map((g) => (
                   <tr key={g.id}>
                     <td>{g.game_date}</td>
                     <td>
+                      {/* Away (left) vs Home (right) */}
                       <span style={{ whiteSpace: "nowrap" }}>
                         {g.away_team?.logo_url && (
                           <img
                             src={g.away_team.logo_url}
                             alt=""
                             className="team-logo"
+                            style={{
+                              width: 18,
+                              height: 18,
+                              verticalAlign: "middle",
+                              marginRight: 6,
+                            }}
                           />
                         )}
-                        <Link to={`/teams/${g.away_team?.id}`}>{g.away_team?.name}</Link>
+                        <Link to={`/teams/${g.away_team?.id}`}>
+                          {g.away_team?.name}
+                        </Link>
                       </span>
                       <span style={{ color: "#777", margin: "0 8px" }}>vs</span>
                       <span style={{ whiteSpace: "nowrap" }}>
@@ -157,9 +180,17 @@ export default function GamesPage() {
                             src={g.home_team.logo_url}
                             alt=""
                             className="team-logo"
+                            style={{
+                              width: 18,
+                              height: 18,
+                              verticalAlign: "middle",
+                              marginRight: 6,
+                            }}
                           />
                         )}
-                        <Link to={`/teams/${g.home_team?.id}`}>{g.home_team?.name}</Link>
+                        <Link to={`/teams/${g.home_team?.id}`}>
+                          {g.home_team?.name}
+                        </Link>
                       </span>
                     </td>
                     <td>{scoreStr(g)}</td>
@@ -167,9 +198,10 @@ export default function GamesPage() {
                     <td>
                       <Link to={`/games/${g.slug}`}>{t("Live") || "Live"}</Link>
                       {" · "}
-                      <Link to={`/games/${g.slug}/boxscore`}>{t("Boxscore")}</Link>
+                      <Link to={`/games/${g.slug}/boxscore`}>
+                        {t("Boxscore")}
+                      </Link>
                       {" · "}
-                      {/* Reopen removed as requested */}
                       <button
                         onClick={() => handleDelete(g.id)}
                         style={linkButtonStyle}
@@ -184,10 +216,6 @@ export default function GamesPage() {
             </tbody>
           </table>
         </div>
-      </div>
-
-      <div className="row" style={{ justifyContent: "flex-end" }}>
-        <Link to="/games" className="btn secondary">{t("All Games →")}</Link>
       </div>
     </div>
   );
