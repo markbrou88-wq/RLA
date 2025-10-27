@@ -1,6 +1,6 @@
 // src/pages/GameDetailPage.jsx
 import React from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import { useI18n } from "../i18n.jsx";
 
@@ -43,7 +43,6 @@ function useClock(defaultMinutes = 15) {
 export default function GameDetailPage() {
   const { t } = useI18n();
   const { slug } = useParams();
-  const nav = useNavigate();
 
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -202,7 +201,7 @@ export default function GameDetailPage() {
       }
     }
     return { home, away };
-  }, [events, game]); // :contentReference[oaicite:4]{index=4}
+  }, [events, game]);
 
   const stampClock = () => setEvtTime(clock.stamp());
 
@@ -216,6 +215,7 @@ export default function GameDetailPage() {
         const { error } = await supabase
           .from("game_rosters")
           .insert({ game_id: game.id, team_id: teamId, player_id: pid });
+        // ignore duplicates (if RLS off, upsert would be cleaner)
         if (error && !String(error.message).includes("duplicate")) throw error;
       } else {
         await supabase
@@ -245,7 +245,7 @@ export default function GameDetailPage() {
     }
   }
 
-  /* ---------- goalie row ensure + bump helpers ---------- */
+  /* ---------- goalie helpers ---------- */
   async function ensureGoalieRow(gameId, teamId, playerId) {
     if (!playerId) return null;
     const { data: found } = await supabase
@@ -279,7 +279,12 @@ export default function GameDetailPage() {
       .select("shots_against, goals_against")
       .eq("id", rowId)
       .single();
-    const next = { shots_against: cur.shots_against, goals_against: cur.goals_against, ...patch };
+    const next = {
+      shots_against:
+        patch.shots_against ?? cur.shots_against ?? 0,
+      goals_against:
+        patch.goals_against ?? cur.goals_against ?? 0,
+    };
     await supabase.from("game_goalies").update(next).eq("id", rowId);
   }
 
@@ -308,8 +313,8 @@ export default function GameDetailPage() {
           .single();
         if (error) throw error;
         setEvents((evs) => [...evs, ins].sort(byPeriodTime));
+
         // add SA to opposite goalie
-        await incGoalie(oppTeamId, oppGoalieId, { shots_against: (NaN as any) });
         const { data: cur } = await supabase
           .from("game_goalies")
           .select("shots_against")
@@ -321,7 +326,7 @@ export default function GameDetailPage() {
           shots_against: (cur?.shots_against ?? 0) + 1,
         });
       } else {
-        // remove most recent shot for that side (if any) and decrement SA
+        // remove most recent shot and decrement SA
         const { data: last } = await supabase
           .from("events")
           .select("id, period, time_mmss")
@@ -362,21 +367,22 @@ export default function GameDetailPage() {
       const defTeamId = evtSide === "home" ? game.away_team_id : game.home_team_id;
       const defGoalieId = evtSide === "home" ? awayGoalieId : homeGoalieId;
 
-      const rows = [];
       if (evtType === "goal") {
         if (!evtPlayerId) {
           alert(t("Select a scorer.") || "Select a scorer.");
           setSaving(false);
           return;
         }
-        rows.push({
-          game_id: game.id,
-          team_id: teamId,
-          player_id: Number(evtPlayerId),
-          period: evtPeriod,
-          time_mmss: evtTime,
-          event: "goal",
-        });
+        const rows = [
+          {
+            game_id: game.id,
+            team_id: teamId,
+            player_id: Number(evtPlayerId),
+            period: evtPeriod,
+            time_mmss: evtTime,
+            event: "goal",
+          },
+        ];
         if (evtA1) {
           rows.push({
             game_id: game.id,
@@ -398,7 +404,6 @@ export default function GameDetailPage() {
           });
         }
 
-        // insert all rows at once
         const { data: inserted, error } = await supabase
           .from("events")
           .insert(rows)
@@ -421,13 +426,15 @@ export default function GameDetailPage() {
           goals_against: nextGA,
         });
 
-        // also reflect score in `games` so list shows live numbers
-        const nextHome = evtSide === "home" ? (game.home_score ?? 0) + 1 : game.home_score ?? 0;
-        const nextAway = evtSide === "away" ? (game.away_score ?? 0) + 1 : game.away_score ?? 0;
-        await supabase
-          .from("games")
-          .update({ home_score: nextHome, away_score: nextAway })
-          .eq("id", game.id);
+        // reflect score in `games` so list shows numbers
+        const nextHome =
+          evtSide === "home" ? (game.home_score ?? 0) + 1 : game.home_score ?? 0;
+        const nextAway =
+          evtSide === "away" ? (game.away_score ?? 0) + 1 : game.away_score ?? 0;
+        await supabase.from("games").update({
+          home_score: nextHome,
+          away_score: nextAway,
+        }).eq("id", game.id);
         setGame((g) =>
           g ? { ...g, home_score: nextHome, away_score: nextAway } : g
         );
@@ -482,7 +489,7 @@ export default function GameDetailPage() {
         const defTeamId = side === "home" ? game.away_team_id : game.home_team_id;
         const defGoalieId = side === "home" ? awayGoalieId : homeGoalieId;
 
-        // decrement GA+SA (not going below zero)
+        // decrement GA+SA (not below zero)
         const { data: cur } = await supabase
           .from("game_goalies")
           .select("shots_against, goals_against")
@@ -502,10 +509,10 @@ export default function GameDetailPage() {
           side === "home" ? Math.max(0, (game.home_score ?? 0) - 1) : game.home_score ?? 0;
         const nextAway =
           side === "away" ? Math.max(0, (game.away_score ?? 0) - 1) : game.away_score ?? 0;
-        await supabase
-          .from("games")
-          .update({ home_score: nextHome, away_score: nextAway })
-          .eq("id", game.id);
+        await supabase.from("games").update({
+          home_score: nextHome,
+          away_score: nextAway,
+        }).eq("id", game.id);
         setGame((g) =>
           g ? { ...g, home_score: nextHome, away_score: nextAway } : g
         );
@@ -515,14 +522,12 @@ export default function GameDetailPage() {
     }
   }
 
-  /* ---------- Finalize (status = final) ---------- */
+  /* ---------- Finalize ---------- */
   async function markFinal() {
     if (!window.confirm(t("Mark this game as Final?") || "Mark this game as Final?")) return;
     try {
       await supabase.from("games").update({ status: "final" }).eq("id", game.id);
       setGame((g) => (g ? { ...g, status: "final" } : g));
-      // back to list? keep on page:
-      // nav("/games");
     } catch (e) {
       alert(e.message);
     }
@@ -537,7 +542,7 @@ export default function GameDetailPage() {
         <Link to="/games">← {t("Back to Games")}</Link>
       </div>
 
-      {/* Top toolbar: LIVE indicator + clock config */}
+      {/* Top toolbar: LIVE indicator + clock config + final */}
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
           <div className="kicker">{t("LIVE")} • {game.game_date}</div>
@@ -555,10 +560,13 @@ export default function GameDetailPage() {
               style={{ width: 60 }}
               title={t("Set period (minutes)")}
             />
+            <button className="btn" onClick={markFinal} disabled={game.status === "final"}>
+              {game.status === "final" ? t("Final") : t("Mark Final")}
+            </button>
           </div>
         </div>
 
-        {/* Add event controls (one row) */}
+        {/* Add event controls */}
         <div className="row" style={{ gap: 12, flexWrap: "wrap", marginTop: 12 }}>
           <select value={evtSide} onChange={(e) => setEvtSide(e.target.value)}>
             <option value="home">{rightTeam?.short_name || "HOME"}</option>
@@ -622,7 +630,7 @@ export default function GameDetailPage() {
               style={{ width: 80 }}
               title={t("Time")}
             />
-            <button className="btn secondary" onClick={stampClock}>
+            <button className="btn secondary" onClick={() => setEvtTime(clock.stamp())}>
               {t("Stamp clock")}
             </button>
           </div>
@@ -677,13 +685,6 @@ export default function GameDetailPage() {
                 ))}
             </select>
           </div>
-
-          {/* Mark Final */}
-          <div style={{ marginLeft: "auto" }}>
-            <button className="btn" onClick={markFinal} disabled={game.status === "final"}>
-              {game.status === "final" ? t("Final") : t("Mark Final")}
-            </button>
-          </div>
         </div>
       </div>
 
@@ -696,6 +697,119 @@ export default function GameDetailPage() {
               <strong>{leftTeam?.name}</strong>
             </div>
           </div>
+
           <div style={{ width: "10%", textAlign: "center", fontSize: 28 }}>
-            {score.away} <span
-::contentReference[oaicite:5]{index=5}
+            {(game.away_score ?? score.away)}{" "}
+            <span style={{ color: "#888" }}>vs</span>{" "}
+            {(game.home_score ?? score.home)}
+          </div>
+
+          <div style={{ width: "45%", textAlign: "right" }}>
+            <div className="row" style={{ gap: 8, alignItems: "center", justifyContent: "flex-end" }}>
+              <strong>{rightTeam?.name}</strong>
+              {rightTeam?.logo_url && <img src={rightTeam.logo_url} alt="" className="team-logo" />}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Events first (at top of the lower area) */}
+      <div className="card">
+        <h3 className="m0">{t("Events")}</h3>
+        <div style={{ overflowX: "auto", marginTop: 8 }}>
+          <table>
+            <thead>
+              <tr>
+                <th style={{ width: 60 }}>{t("Period")}</th>
+                <th style={{ width: 80 }}>{t("Time")}</th>
+                <th style={{ width: 90 }}>{t("Team")}</th>
+                <th style={{ width: 90 }}>{t("Type")}</th>
+                <th>{t("Player")}</th>
+                <th style={{ width: 110 }}>{t("Actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ color: "#888" }}>
+                    {t("—")}
+                  </td>
+                </tr>
+              ) : (
+                events.map((ev) => {
+                  const team =
+                    ev.team_id === game.home_team_id ? rightTeam : leftTeam;
+                  return (
+                    <tr key={ev.id}>
+                      <td>{ev.period}</td>
+                      <td>{ev.time_mmss}</td>
+                      <td>{team?.short_name}</td>
+                      <td>{ev.event}</td>
+                      <td>{playerName(ev.player_id, ev.team_id)}</td>
+                      <td>
+                        <button className="btn small danger" onClick={() => deleteEvent(ev)}>
+                          {t("Delete")}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Full roster pickers (write to game_rosters) */}
+      <div className="row" style={{ gap: 16, alignItems: "stretch", flexWrap: "wrap" }}>
+        {/* Away roster */}
+        <div className="card" style={{ flex: "1 1 420px" }}>
+          <h3 className="m0">
+            {leftTeam?.short_name} {t("Roster")}
+          </h3>
+          <div style={{ marginTop: 8 }}>
+            {awayPlayers.map((p) => {
+              const checked = awayRosterIds.has(p.id);
+              return (
+                <label key={p.id} className="row" style={{ gap: 8, alignItems: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) =>
+                      toggleRoster(game.away_team_id, p.id, e.target.checked)
+                    }
+                  />
+                  <span>{labelPlayer(p)} ({p.position || "-"})</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Home roster */}
+        <div className="card" style={{ flex: "1 1 420px" }}>
+          <h3 className="m0">
+            {rightTeam?.short_name} {t("Roster")}
+          </h3>
+          <div style={{ marginTop: 8 }}>
+            {homePlayers.map((p) => {
+              const checked = homeRosterIds.has(p.id);
+              return (
+                <label key={p.id} className="row" style={{ gap: 8, alignItems: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) =>
+                      toggleRoster(game.home_team_id, p.id, e.target.checked)
+                    }
+                  />
+                  <span>{labelPlayer(p)} ({p.position || "-"})</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
