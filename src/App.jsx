@@ -97,11 +97,18 @@ function Nav() {
 export default function App() {
   return (
     <div style={{ fontFamily: "Inter, system-ui, Arial", maxWidth: 1100, margin: "0 auto", padding: "16px" }}>
-      <h1 style={{ margin: 0 }}>RLA Hockey League</h1>
-      <p style={{ margin: "4px 0 8px", color: "#666" }}>Standings • Games • Live Boxscore</p>
+      {/* Header (title + theme toggle) */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h1 style={{ margin: 0 }}>RLA Hockey League</h1>
+          <p style={{ margin: "4px 0 8px", color: "#666" }}>Standings • Games • Live Boxscore</p>
+        </div>
+        <ThemeToggle />
+      </div>
 
       <AuthBar />
       <Nav />
+
 
       <main style={{ padding: "16px 0" }}>
         <Routes>
