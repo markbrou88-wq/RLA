@@ -1,8 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
+import { useI18n } from "../i18n.jsx";
 
 export default function StandingsPage() {
+  const { t } = useI18n();
+  
   const [rows, setRows] = React.useState([]);
   const [teamById, setTeamById] = React.useState({});
   const [loading, setLoading] = React.useState(true);
