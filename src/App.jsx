@@ -101,21 +101,32 @@ function Nav() {
 }
 
 
-export default function App() {
+function AppInner() {
+  const { t } = useI18n();
+
   return (
     <div style={{ fontFamily: "Inter, system-ui, Arial", maxWidth: 1100, margin: "0 auto", padding: "16px" }}>
-      {/* Header (title + theme toggle) */}
+      {/* Header with Theme + Language */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h1 style={{ margin: 0 }}>RLA Hockey League</h1>
-          <p style={{ margin: "4px 0 8px", color: "#666" }}>Standings • Games • Live Boxscore</p>
+          <h1 style={{ margin: 0 }}>{t("RLA Hockey League")}</h1>
+          <p style={{ margin: "4px 0 8px", color: "#666" }}>{t("Standings • Games • Live Boxscore")}</p>
         </div>
-        <ThemeToggle />
+        <div style={{ display: "flex", gap: 8 }}>
+          <LanguageToggle />
+          {/* you already have ThemeToggle imported earlier */}
+          <ThemeToggle />
+        </div>
       </div>
 
       <AuthBar />
-      <Nav />
 
+      {/* Nav using translated labels */}
+      <nav style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #eee", marginBottom: 8 }}>
+        <NavLink to="/" end>{t("Standings")}</NavLink>
+        <NavLink to="/games">{t("Games")}</NavLink>
+        <NavLink to="/stats">{t("Stats")}</NavLink>
+      </nav>
 
       <main style={{ padding: "16px 0" }}>
         <Routes>
@@ -123,10 +134,8 @@ export default function App() {
           <Route path="/games" element={<GamesPage />} />
           <Route path="/games/:slug" element={<GameDetailPage />} />
           <Route path="/stats" element={<StatsPage />} />
-          <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />  {/* <-- add this */}
+          <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />
           <Route path="/teams/:id" element={<TeamPage />} />
-          
-          
         </Routes>
       </main>
 
@@ -136,3 +145,12 @@ export default function App() {
     </div>
   );
 }
+
+export default function App() {
+  return (
+    <I18nProvider>
+      <AppInner />
+    </I18nProvider>
+  );
+}
+
