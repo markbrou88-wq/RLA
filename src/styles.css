@@ -1,211 +1,200 @@
-/* ----------- GLOBAL ----------- */
-* {
-  box-sizing: border-box;
-  font-family: "Inter", "Segoe UI", sans-serif;
+/* ----------------------------------------------------------
+   THEME VARIABLES
+---------------------------------------------------------- */
+:root {
+  --bg: #fafafa;
+  --text: #222;
+  --muted: #666;
+  --card: #fff;
+  --card-border: #eee;
+  --table-head: #f4f5f8;
+  --hover: #f9f9ff;
+
+  --primary: #3b5fff;
+  --primary-strong: #2443e3;
+
+  --btn-text: #fff;
+
+  --shadow: 0 2px 6px rgba(0,0,0,.06);
 }
 
-body {
-  margin: 0;
-  background: #fafafa;
-  color: #222;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1116;
+    --text: #e9eef7;
+    --muted: #a7b1c2;
+    --card: #151923;
+    --card-border: #262b36;
+    --table-head: #1a1f2b;
+    --hover: #1a2030;
+
+    --primary: #6a8bff;
+    --primary-strong: #8ea5ff;
+
+    --btn-text: #0e1116;
+
+    --shadow: 0 2px 10px rgba(0,0,0,.35);
+  }
 }
 
-a {
-  color: #3b5fff;
-  text-decoration: none;
-  font-weight: 500;
+/* manual override takes priority over OS */
+:root[data-theme="light"] {
+  --bg: #fafafa;
+  --text: #222;
+  --muted: #666;
+  --card: #fff;
+  --card-border: #eee;
+  --table-head: #f4f5f8;
+  --hover: #f9f9ff;
+
+  --primary: #3b5fff;
+  --primary-strong: #2443e3;
+
+  --btn-text: #fff;
+
+  --shadow: 0 2px 6px rgba(0,0,0,.06);
 }
-a:hover {
-  text-decoration: underline;
+:root[data-theme="dark"] {
+  --bg: #0e1116;
+  --text: #e9eef7;
+  --muted: #a7b1c2;
+  --card: #151923;
+  --card-border: #262b36;
+  --table-head: #1a1f2b;
+  --hover: #1a2030;
+
+  --primary: #6a8bff;
+  --primary-strong: #8ea5ff;
+
+  --btn-text: #0e1116;
+
+  --shadow: 0 2px 10px rgba(0,0,0,.35);
 }
 
-/* ----------- CONTAINERS ----------- */
-.container {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 24px 16px;
+/* smooth theme transition */
+html {
+  transition: background-color .2s ease, color .2s ease;
 }
 
-.row {
-  display: flex;
-  align-items: center;
-}
+/* ----------------------------------------------------------
+   GLOBAL
+---------------------------------------------------------- */
+* { box-sizing: border-box; font-family: "Inter","Segoe UI",system-ui,Arial,sans-serif; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+a { color: var(--primary); text-decoration: none; font-weight: 500; }
+a:hover { text-decoration: underline; }
 
-.flex-spacer {
-  flex: 1;
-}
+/* ----------------------------------------------------------
+   LAYOUT
+---------------------------------------------------------- */
+.container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+.row { display: flex; align-items: center; gap: 8px; }
+.flex-spacer { flex: 1; }
 
 .card {
-  background: white;
+  background: var(--card);
   padding: 16px;
   margin-bottom: 16px;
   border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--card-border);
 }
 
-/* ----------- HEADERS ----------- */
-h1,
-h2,
-h3 {
-  margin: 0;
-  font-weight: 600;
-}
+h1,h2,h3 { margin: 0; font-weight: 600; }
+h1 { font-size: 1.8rem; }
+h2 { font-size: 1.4rem; }
 
-h1 {
-  font-size: 1.8rem;
-}
-h2 {
-  font-size: 1.4rem;
-}
+.kicker { font-size: .8rem; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+.mb8 { margin-bottom: 8px; }
+.m0 { margin: 0; }
 
-/* ----------- TABLES ----------- */
+/* ----------------------------------------------------------
+   TABLES
+---------------------------------------------------------- */
 table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
+  background: var(--card);
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--card-border);
 }
-
-th,
-td {
-  padding: 10px 12px;
-  text-align: left;
-  border-bottom: 1px solid #eee;
-}
-
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--card-border); }
 th {
-  background: #f4f5f8;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #333;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  background: var(--table-head);
+  font-size: .9rem; font-weight: 600; color: var(--text);
+  text-transform: uppercase; letter-spacing: .02em;
 }
+tr:hover { background: var(--hover); }
 
-tr:hover {
-  background: #f9f9ff;
+/* ----------------------------------------------------------
+   BUTTONS & INPUTS
+---------------------------------------------------------- */
+button, .btn {
+  background: var(--primary);
+  color: var(--btn-text);
+  border: none; border-radius: 6px;
+  padding: 6px 14px; cursor: pointer;
+  font-size: .9rem; font-weight: 600;
+  transition: background .15s ease, opacity .15s ease;
 }
-
-/* ----------- BUTTONS ----------- */
-button,
-.btn {
-  background: #3b5fff;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 14px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: background 0.2s ease;
-}
-button:hover,
-.btn:hover {
-  background: #2443e3;
-}
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+button:hover, .btn:hover { background: var(--primary-strong); }
+button:disabled { opacity: .6; cursor: not-allowed; }
 
 .btn.secondary {
-  background: #ddd;
-  color: #222;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--card-border);
 }
 .btn.secondary:hover {
-  background: #ccc;
+  background: var(--hover);
 }
 
-.btn.danger {
-  background: #d33;
+.btn.danger { background: #d33; color: #fff; }
+.btn.danger:hover { background: #b22; }
+
+/* inputs */
+input[type="text"], input[type="date"], input[type="number"], select {
+  padding: 6px 10px; border: 1px solid var(--card-border); border-radius: 6px; font-size: .9rem;
+  background: var(--card); color: var(--text);
 }
-.btn.danger:hover {
-  background: #b22;
+input:focus, select:focus { outline: 2px solid color-mix(in oklab, var(--primary), transparent 70%); }
+
+/* ----------------------------------------------------------
+   NAV / LOGOS / SCOREBOARD
+---------------------------------------------------------- */
+.nav { display: flex; gap: 12px; margin-bottom: 16px; }
+.nav a { font-weight: 500; color: var(--text); padding-bottom: 2px; border-bottom: 2px solid transparent; }
+.nav a:hover { border-color: var(--primary); }
+.nav a.active { color: var(--primary); border-color: var(--primary); }
+
+.team-logo { width: 24px; height: 24px; object-fit: contain; vertical-align: middle; margin-right: 6px; }
+
+.scoreboard {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  align-items: center;
+}
+.team { display: flex; align-items: center; gap: 10px; }
+.team-name { font-weight: 700; }
+.abbr { color: var(--muted); font-size: .9rem; }
+
+.score {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.score .vs {
+  font-size: 1rem; color: var(--muted); margin: 0 10px; font-weight: 600;
 }
 
-/* ----------- INPUTS ----------- */
-input[type="text"],
-input[type="date"],
-input[type="number"],
-select {
-  padding: 6px 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
-
-input:focus,
-select:focus {
-  outline: 2px solid #3b5fff33;
-}
-
-/* ----------- TEAMS / LOGOS ----------- */
-.team-logo {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
-  vertical-align: middle;
-  margin-right: 6px;
-}
-
-/* ----------- LINKS & NAV ----------- */
-.nav {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.nav a {
-  font-weight: 500;
-  color: #222;
-  padding-bottom: 2px;
-  border-bottom: 2px solid transparent;
-}
-.nav a:hover {
-  border-color: #3b5fff;
-}
-.nav a.active {
-  color: #3b5fff;
-  border-color: #3b5fff;
-}
-
-/* ----------- MISC ----------- */
-.kicker {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  color: #666;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.mb8 {
-  margin-bottom: 8px;
-}
-.m0 {
-  margin: 0;
-}
-
-/* ----------- SCORE DISPLAY ----------- */
-.score-display {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #111;
-}
-
-/* ----------- RESPONSIVE ----------- */
+/* ----------------------------------------------------------
+   RESPONSIVE
+---------------------------------------------------------- */
 @media (max-width: 600px) {
-  table {
-    font-size: 0.85rem;
-  }
-
-  button,
-  .btn {
-    padding: 4px 10px;
-  }
-
-  .container {
-    padding: 16px 8px;
-  }
+  table { font-size: .85rem; }
+  .container { padding: 16px 8px; }
+  button, .btn { padding: 4px 10px; }
 }
