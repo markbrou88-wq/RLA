@@ -10,7 +10,7 @@ import BoxscorePage from "./pages/BoxscorePage.jsx";  // <-- add this
 import TeamPage from "./pages/TeamPage.jsx"; // add
 import "./styles.css";
 import ThemeToggle from "./components/ThemeToggle";
-import { I18nProvider, useI18n } from "./i18n";
+import { I18nProvider, useI18n } from "./i18n.jsx";
 import LanguageToggle from "./components/LanguageToggle";
 
 function AuthBar() {
