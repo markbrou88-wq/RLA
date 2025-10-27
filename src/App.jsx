@@ -8,8 +8,7 @@ import GameDetailPage from "./pages/GameDetailPage.jsx";
 import StatsPage from "./pages/StatsPage.jsx";
 import BoxscorePage from "./pages/BoxscorePage.jsx";  // <-- add this
 import TeamPage from "./pages/TeamPage.jsx"; // add
-import GameRosterPage from "./pages/GameRosterPage.jsx";
-import GoaliesPage from "./pages/GoaliesPage.jsx";
+
 
 function AuthBar() {
   const [email, setEmail] = React.useState("");
