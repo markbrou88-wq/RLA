@@ -5,262 +5,189 @@ import { useI18n } from "../i18n.jsx";
 
 export default function GamesPage() {
   const { t } = useI18n();
-  
+
+  const [games, setGames] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState("");
 
   const [teams, setTeams] = React.useState([]);
-  const [games, setGames] = React.useState([]);
-
-  // Filters & create fields
-  const [filterDate, setFilterDate] = React.useState(""); // yyyy-mm-dd
-  const [filterHome, setFilterHome] = React.useState("");
-  const [filterAway, setFilterAway] = React.useState("");
-
-  const [newDate, setNewDate] = React.useState("");
-  const [newHomeId, setNewHomeId] = React.useState("");
-  const [newAwayId, setNewAwayId] = React.useState("");
+  const [teamFilterHome, setTeamFilterHome] = React.useState("");
+  const [teamFilterAway, setTeamFilterAway] = React.useState("");
+  const [dateFilter, setDateFilter] = React.useState("");
 
   React.useEffect(() => {
     (async () => {
       setLoading(true);
       setErr("");
 
-      const [tRes, gRes] = await Promise.all([
-        supabase.from("teams").select("id, name, short_name, logo_url").order("name", { ascending: true }),
-        supabase
-          .from("games")
-          .select(`
-            id, slug, game_date, status, home_score, away_score,
-            home_team:teams!games_home_team_id_fkey(id, name, short_name, logo_url),
-            away_team:teams!games_away_team_id_fkey(id, name, short_name, logo_url)
-          `)
-          .order("game_date", { ascending: false })
-      ]);
+      // Teams for filters
+      const { data: ts, error: te } = await supabase
+        .from("teams")
+        .select("id, name, short_name, logo_url")
+        .order("name");
+      if (te) setErr(te.message);
+      setTeams(ts || []);
 
-      if (tRes.error) setErr(tRes.error.message);
-      else setTeams(tRes.data || []);
-
-      if (gRes.error) setErr(gRes.error.message);
-      else setGames(gRes.data || []);
+      // Games with joined home/away teams
+      const { data: gs, error: ge } = await supabase
+        .from("games")
+        .select(`
+          id, slug, game_date, status, home_score, away_score,
+          home_team_id, away_team_id,
+          home_team:teams!games_home_team_id_fkey(id, name, short_name, logo_url),
+          away_team:teams!games_away_team_id_fkey(id, name, short_name, logo_url)
+        `)
+        .order("game_date", { ascending: false });
+      if (ge) setErr(ge.message);
+      setGames(gs || []);
 
       setLoading(false);
     })();
   }, []);
 
-  const reloadGames = async () => {
-    const { data, error } = await supabase
-      .from("games")
-      .select(`
-        id, slug, game_date, status, home_score, away_score,
-        home_team:teams!games_home_team_id_fkey(id, name, short_name, logo_url),
-        away_team:teams!games_away_team_id_fkey(id, name, short_name, logo_url)
-      `)
-      .order("game_date", { ascending: false });
-
-    if (error) {
-      setErr(error.message);
-      return;
-    }
-    setGames(data || []);
-  };
-
-  const createGame = async () => {
-    try {
-      if (!newDate || !newHomeId || !newAwayId) {
-        alert("Pick date, home team, and away team.");
-        return;
-      }
-      if (newHomeId === newAwayId) {
-        alert("Home and away cannot be the same team.");
-        return;
-      }
-      const payload = {
-        game_date: newDate,
-        home_team_id: Number(newHomeId),
-        away_team_id: Number(newAwayId),
-        status: "scheduled"
-      };
-      const { error } = await supabase.from("games").insert(payload);
-      if (error) throw error;
-      setNewDate("");
-      setNewHomeId("");
-      setNewAwayId("");
-      await reloadGames();
-    } catch (e) {
-      alert(e.message || "Create failed");
-    }
-  };
-
-  const reopenGame = async (id) => {
-    const { error } = await supabase.from("games").update({ status: "open" }).eq("id", id);
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    await reloadGames();
-  };
-
-  const deleteGame = async (id) => {
-    if (!window.confirm("Delete this game? This cannot be undone.")) return;
-    const { error } = await supabase.from("games").delete().eq("id", id);
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    await reloadGames();
-  };
-
-  const teamOpt = (t) => (
-    <option key={t.id} value={t.id}>
-      {t.short_name || t.name}
-    </option>
-  );
-
-  // Filters
   const filtered = games.filter((g) => {
-    if (filterDate && g.game_date !== filterDate) return false;
-    if (filterHome && String(g.home_team?.id) !== String(filterHome)) return false;
-    if (filterAway && String(g.away_team?.id) !== String(filterAway)) return false;
+    if (dateFilter && g.game_date !== dateFilter) return false;
+    if (teamFilterHome && String(g.home_team_id) !== teamFilterHome) return false;
+    if (teamFilterAway && String(g.away_team_id) !== teamFilterAway) return false;
     return true;
   });
 
-  if (loading) return <div className="container">Loading…</div>;
+  const scoreStr = (g) => `${g.home_score ?? 0}–${g.away_score ?? 0}`;
+
+  async function handleDelete(gameId) {
+    if (!window.confirm(t("Delete this game? This cannot be undone.") || "Delete this game? This cannot be undone.")) {
+      return;
+    }
+    const { error } = await supabase.from("games").delete().eq("id", gameId);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setGames((cur) => cur.filter((g) => g.id !== gameId));
+  }
+
+  // Inline link-style button (to match "Open"/"Boxscore" look)
+  const linkButtonStyle = {
+    background: "none",
+    border: "none",
+    padding: 0,
+    margin: 0,
+    color: "#0b61ff",
+    textDecoration: "underline",
+    cursor: "pointer",
+    font: "inherit",
+  };
+
   return (
     <div className="container">
-      <div className="row mb8">
-        <h2 className="m0">Games</h2>
-      </div>
-
-      {err && <div style={{ color: "crimson", marginBottom: 8 }}>{err}</div>}
-
-      {/* Filters & Create */}
       <div className="card">
-        <div className="row" style={{ flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <div className="kicker">Filter date</div>
-            <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
-          </div>
-
-          <div>
-            <div className="kicker">Home team</div>
-            <select value={filterHome} onChange={(e) => setFilterHome(e.target.value)}>
-              <option value="">All</option>
-              {teams.map(teamOpt)}
-            </select>
-          </div>
-
-          <div>
-            <div className="kicker">Away team</div>
-            <select value={filterAway} onChange={(e) => setFilterAway(e.target.value)}>
-              <option value="">All</option>
-              {teams.map(teamOpt)}
-            </select>
-          </div>
-
-          <div className="flex-spacer" />
-
-          <div className="kicker" style={{ width: "100%" }}>
-            Create new game
-          </div>
+        <h2 className="m0">{t("Games")}</h2>
+        <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: "wrap" }}>
           <input
             type="date"
-            value={newDate}
-            onChange={(e) => setNewDate(e.target.value)}
-            title="Game date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            aria-label={t("Date")}
           />
-          <select value={newHomeId} onChange={(e) => setNewHomeId(e.target.value)} title="Home team">
-            <option value="">Home…</option>
-            {teams.map(teamOpt)}
+          <select
+            value={teamFilterHome}
+            onChange={(e) => setTeamFilterHome(e.target.value)}
+            aria-label="Home team"
+          >
+            <option value="">{t("Team")}… (Home)</option>
+            {teams.map((t_) => (
+              <option key={t_.id} value={t_.id}>
+                {t_.name}
+              </option>
+            ))}
           </select>
-          <select value={newAwayId} onChange={(e) => setNewAwayId(e.target.value)} title="Away team">
-            <option value="">Away…</option>
-            {teams.map(teamOpt)}
+          <select
+            value={teamFilterAway}
+            onChange={(e) => setTeamFilterAway(e.target.value)}
+            aria-label="Away team"
+          >
+            <option value="">{t("Team")}… (Away)</option>
+            {teams.map((t_) => (
+              <option key={t_.id} value={t_.id}>
+                {t_.name}
+              </option>
+            ))}
           </select>
-          <button className="btn primary" onClick={createGame}>
-            Create
-          </button>
         </div>
       </div>
 
-      {/* Games table */}
-      <div style={{ overflowX: "auto" }}>
-        <table>
-          <thead>
-            <tr>
-              <th style={{ width: 120 }}>Date</th>
-              <th>Matchup</th>
-              <th style={{ width: 90 }}>Score</th>
-              <th style={{ width: 90 }}>Status</th>
-              <th style={{ width: 240 }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
+      <div className="card">
+        <div style={{ overflowX: "auto" }}>
+          <table>
+            <thead>
               <tr>
-                <td colSpan={5} style={{ color: "#888" }}>
-                  No games found.
-                </td>
+                <th style={{ width: 120 }}>{t("Date")}</th>
+                <th>{t("Matchup")}</th>
+                <th style={{ width: 90 }}>{t("Score")}</th>
+                <th style={{ width: 120 }}>{t("Status")}</th>
+                <th style={{ width: 260 }}>{t("Actions") || "Actions"}</th>
               </tr>
-            ) : (
-              filtered.map((g) => (
-                <tr key={g.id}>
-                  <td>{g.game_date}</td>
-                  <td>
-                    {/* Away (left) vs Home (right) */}
-                    <span style={{ whiteSpace: "nowrap" }}>
-                      {/* away */}
-                      {g.away_team?.logo_url && (
-                        <img
-                          src={g.away_team.logo_url}
-                          alt=""
-                          className="team-logo"
-                          style={{ width: 18, height: 18, verticalAlign: "middle", marginRight: 6 }}
-                        />
-                      )}
-                      <Link to={`/teams/${g.away_team?.id}`}>{g.away_team?.name}</Link>
-                    </span>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={5}>Loading…</td></tr>
+              ) : err ? (
+                <tr><td colSpan={5} style={{ color: "crimson" }}>{err}</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={5} style={{ color: "#888" }}>—</td></tr>
+              ) : (
+                filtered.map((g) => (
+                  <tr key={g.id}>
+                    <td>{g.game_date}</td>
+                    <td>
+                      <span style={{ whiteSpace: "nowrap" }}>
+                        {g.away_team?.logo_url && (
+                          <img
+                            src={g.away_team.logo_url}
+                            alt=""
+                            className="team-logo"
+                          />
+                        )}
+                        <Link to={`/teams/${g.away_team?.id}`}>{g.away_team?.name}</Link>
+                      </span>
+                      <span style={{ color: "#777", margin: "0 8px" }}>vs</span>
+                      <span style={{ whiteSpace: "nowrap" }}>
+                        {g.home_team?.logo_url && (
+                          <img
+                            src={g.home_team.logo_url}
+                            alt=""
+                            className="team-logo"
+                          />
+                        )}
+                        <Link to={`/teams/${g.home_team?.id}`}>{g.home_team?.name}</Link>
+                      </span>
+                    </td>
+                    <td>{scoreStr(g)}</td>
+                    <td>{g.status}</td>
+                    <td>
+                      <Link to={`/games/${g.slug}`}>{t("Open")}</Link>
+                      {" · "}
+                      <Link to={`/games/${g.slug}/boxscore`}>{t("Boxscore")}</Link>
+                      {" · "}
+                      {/* Reopen removed as requested */}
+                      <button
+                        onClick={() => handleDelete(g.id)}
+                        style={linkButtonStyle}
+                        title={t("Delete")}
+                      >
+                        {t("Delete")}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-                    <span style={{ color: "#777", margin: "0 8px" }}>vs</span>
-
-                    <span style={{ whiteSpace: "nowrap" }}>
-                      {/* home */}
-                      {g.home_team?.logo_url && (
-                        <img
-                          src={g.home_team.logo_url}
-                          alt=""
-                          className="team-logo"
-                          style={{ width: 18, height: 18, verticalAlign: "middle", marginRight: 6 }}
-                        />
-                      )}
-                      <Link to={`/teams/${g.home_team?.id}`}>{g.home_team?.name}</Link>
-                    </span>
-                  </td>
-                  <td>
-                    {(g.home_score ?? 0)}–{(g.away_score ?? 0)}
-                  </td>
-                  <td>{g.status}</td>
-                  <td>
-                    {/* Only two links now */}
-                    <Link to={`/games/${g.slug}`}>Open</Link>
-                    {" · "}
-                    <Link to={`/games/${g.slug}/boxscore`}>Boxscore</Link>
-
-                    {/* Admin actions */}
-                    {" · "}
-                    <button className="btn" onClick={() => reopenGame(g.id)}>
-                      Reopen
-                    </button>
-                    {" "}
-                    <button className="btn" onClick={() => deleteGame(g.id)}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="row" style={{ justifyContent: "flex-end" }}>
+        <Link to="/games" className="btn secondary">{t("All Games →")}</Link>
       </div>
     </div>
   );
