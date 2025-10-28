@@ -1,87 +1,64 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { supabase } from "../supabaseClient.js";
-import { useI18n } from "../i18n.jsx";
+import React, { useEffect, useState } from "react";
+import { supabase } from "../supabaseClient";
+let useI18n; try { useI18n = require("../i18n").useI18n; } catch { useI18n = () => ({ t:(s)=>s }); }
 
 export default function StandingsPage() {
   const { t } = useI18n();
-  const [rows, setRows] = React.useState([]);
-  const [teamById, setTeamById] = React.useState({});
-  const [loading, setLoading] = React.useState(true);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const load = React.useCallback(async () => {
+  async function load() {
     setLoading(true);
-    const [{ data: sData }, { data: tData }] = await Promise.all([
-      supabase.from("standings_current")
-        .select("team_id, name, gp, w, l, otl, pts, gf, ga, diff")
-        .order("pts", { ascending: false }),
-      supabase.from("teams").select("id, short_name, logo_url")
-    ]);
-
-    const map = Object.fromEntries(
-      (tData || []).map((t) => [t.id, { short_name: t.short_name, logo_url: t.logo_url }])
-    );
-    setTeamById(map);
-    setRows(sData || []);
+    // Uses your existing "standings_current" view
+    const { data, error } = await supabase
+      .from("standings_current")
+      .select("team_id,name,gp,w,l,otl,pts,gf,ga,diff")
+      .order("pts", { ascending: false })
+      .order("diff", { ascending: false });
+    if (!error) setRows(data || []);
     setLoading(false);
-  }, []);
+  }
 
-  React.useEffect(() => { load(); }, [load]);
-
-  React.useEffect(() => {
-    const ch = supabase.channel("standings-auto-refresh")
-      .on("postgres_changes", { event: "*", schema: "public", table: "games" }, () => load())
-      .subscribe();
-    return () => supabase.removeChannel(ch);
-  }, [load]);
-
-  if (loading) return <p>{t("Loading standings…")}</p>;
+  useEffect(() => { load(); }, []);
 
   return (
     <div>
-      <h2>{t("Standings")}</h2>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 720 }}>
-          <thead>
-            <tr>
-              {["Team","GP","W","L","OTL","PTS","GF","GA","+/-"].map(h => (
-                <th key={h} style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: "8px" }}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => {
-              const t = teamById[r.team_id] || {};
-              return (
+      <h2 style={{marginBottom:12}}>{t("Standings")}</h2>
+      {loading ? <div>{t("Loading…")}</div> : (
+        <div className="card">
+          <table>
+            <thead>
+              <tr>
+                <th>{t("Team")}</th>
+                <th>{t("GP")}</th>
+                <th>{t("W")}</th>
+                <th>{t("L")}</th>
+                <th>{t("OTL")}</th>
+                <th>{t("PTS")}</th>
+                <th>{t("GF")}</th>
+                <th>{t("GA")}</th>
+                <th>{t("Diff")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r=>(
                 <tr key={r.team_id}>
-                  <td style={{ padding: "8px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {t.logo_url ? (
-                        <img src={t.logo_url} alt={r.name} width={24} height={24} style={{ objectFit: "contain", borderRadius: 4 }} />
-                      ) : (
-                        <div style={{ width: 24, height: 24, borderRadius: 4, background: "#eee", color: "#666", display: "grid", placeItems: "center", fontSize: 10 }}>
-                          {(t.short_name || r.name).slice(0, 3)}
-                        </div>
-                      )}
-                      <Link to={`/teams/${r.team_id}`} style={{ textDecoration: "none" }}>{r.name}</Link>
-                    </div>
-                  </td>
-                  <td style={{ padding: "8px" }}>{r.gp}</td>
-                  <td style={{ padding: "8px" }}>{r.w}</td>
-                  <td style={{ padding: "8px" }}>{r.l}</td>
-                  <td style={{ padding: "8px" }}>{r.otl}</td>
-                  <td style={{ padding: "8px", fontWeight: "bold" }}>{r.pts}</td>
-                  <td style={{ padding: "8px" }}>{r.gf}</td>
-                  <td style={{ padding: "8px" }}>{r.ga}</td>
-                  <td style={{ padding: "8px", color: r.diff >= 0 ? "green" : "red" }}>{r.diff}</td>
+                  <td>{r.name}</td>
+                  <td>{r.gp}</td>
+                  <td>{r.w}</td>
+                  <td>{r.l}</td>
+                  <td>{r.otl}</td>
+                  <td>{r.pts}</td>
+                  <td>{r.gf}</td>
+                  <td>{r.ga}</td>
+                  <td>{r.diff}</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              ))}
+              {rows.length===0 && <tr><td colSpan={9} style={{opacity:.7}}>{t("No standings yet.")}</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
