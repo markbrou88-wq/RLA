@@ -12,6 +12,7 @@ import "./styles.css";
 import ThemeToggle from "./components/ThemeToggle";
 import { I18nProvider, useI18n } from "./i18n.jsx";
 import LanguageToggle from "./components/LanguageToggle";
+import PlayerPage from "./pages/PlayerPage.jsx"; // <— top of file
 
 function AuthBar() {
   const [email, setEmail] = React.useState("");
@@ -136,6 +137,7 @@ function AppInner() {
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />
           <Route path="/teams/:id" element={<TeamPage />} />
+          <Route path="/players/:id" element={<PlayerPage />} />
         </Routes>
       </main>
 
