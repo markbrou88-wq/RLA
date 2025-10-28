@@ -1,133 +1,180 @@
 // src/pages/StatsPage.jsx
 import React from "react";
 import { supabase } from "../supabaseClient";
-import { NavLink } from "react-router-dom";
+let useI18n;
+try {
+  // Optional – if you don’t use i18n, this will fall back to identity function
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  useI18n = require("../i18n").useI18n;
+} catch {
+  useI18n = () => ({ t: (s) => s });
+}
+
+function formatTOI(seconds) {
+  if (!seconds || seconds <= 0) return "00:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
 export default function StatsPage() {
+  const { t } = useI18n();
   const [tab, setTab] = React.useState("skaters"); // 'skaters' | 'goalies'
   const [skaters, setSkaters] = React.useState([]);
   const [goalies, setGoalies] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
 
   React.useEffect(() => {
-    let isMounted = true;
+    let cancelled = false;
 
     async function load() {
       setLoading(true);
-
-      // Skaters: your current view with GP/G/A/PTS (you called it leaders_current or player_stats_current).
-      // Use the one you are currently using on the page.
-      const { data: sk, error: skErr } = await supabase
-        .from("player_stats_current")
-        .select("player, team, gp, g, a, pts, pim")
-        .order("pts", { ascending: false })
-        .order("g", { ascending: false });
-
-      // Goalies: your goalie stats current view/table
-      const { data: gl, error: glErr } = await supabase
-        .from("goalie_stats_current")
-        .select("player, team, gp, sa, ga, svpct, gaa, toi_seconds, decision, so")
-        .order("svpct", { ascending: false });
-
-      if (!isMounted) return;
-
-      if (skErr) console.error(skErr);
-      if (glErr) console.error(glErr);
-
-      setSkaters(sk || []);
-      setGoalies(gl || []);
-      setLoading(false);
+      setError("");
+      try {
+        if (tab === "skaters") {
+          const { data, error } = await supabase
+            .from("player_stats_current")
+            .select("*")
+            .order("pts", { ascending: false })
+            .order("g", { ascending: false })
+            .order("a", { ascending: false })
+            .order("gp", { ascending: false });
+          if (error) throw error;
+          if (!cancelled) setSkaters(data ?? []);
+        } else {
+          const { data, error } = await supabase
+            .from("goalie_stats_current")
+            .select("*")
+            .order("sv_pct", { ascending: false, nullsFirst: true })
+            .order("gaa", { ascending: true, nullsFirst: true })
+            .order("toi_seconds", { ascending: false });
+          if (error) throw error;
+          if (!cancelled) setGoalies(data ?? []);
+        }
+      } catch (e) {
+        if (!cancelled) setError(e.message || String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
     load();
-    return () => { isMounted = false; };
-  }, []);
-
-  function fmtTime(sec = 0) {
-    const s = Math.max(0, Number(sec) || 0);
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    return `${m}:${String(r).padStart(2, "0")}`;
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [tab]);
 
   return (
     <div>
-      <h2 style={{ marginBottom: 12 }}>Stats</h2>
+      <h2 style={{ marginBottom: 12 }}>{t("Stats")}</h2>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <button
-          className={tab === "skaters" ? "btn primary" : "btn"}
+          className={tab === "skaters" ? "btn btn-primary" : "btn"}
           onClick={() => setTab("skaters")}
         >
-          Skaters
+          {t("Skaters")}
         </button>
         <button
-          className={tab === "goalies" ? "btn primary" : "btn"}
+          className={tab === "goalies" ? "btn btn-primary" : "btn"}
           onClick={() => setTab("goalies")}
         >
-          Goalies
+          {t("Goalies")}
         </button>
       </div>
 
+      {error && (
+        <div className="alert alert-error" style={{ marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+
       {loading ? (
-        <div>Loading…</div>
+        <div>{t("Loading…")}</div>
       ) : tab === "skaters" ? (
         <div className="card">
-          <div className="table">
-            <div className="thead">
-              <div>Player</div>
-              <div>Team</div>
-              <div>GP</div>
-              <div>G</div>
-              <div>A</div>
-              <div>P</div>
-              <div>PIM</div>
-            </div>
-            {skaters.map((r, i) => (
-              <div className="tr" key={i}>
-                <div>{r.player}</div>
-                <div>{r.team}</div>
-                <div>{r.gp}</div>
-                <div>{r.g}</div>
-                <div>{r.a}</div>
-                <div>{r.pts}</div>
-                <div>{r.pim ?? 0}</div>
-              </div>
-            ))}
-          </div>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>{t("Player")}</th>
+                <th>{t("Team")}</th>
+                <th>{t("GP")}</th>
+                <th>{t("G")}</th>
+                <th>{t("A")}</th>
+                <th>{t("P")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {skaters.map((r) => (
+                <tr key={r.player_id}>
+                  <td>{r.player}</td>
+                  <td>{r.team}</td>
+                  <td>{r.gp}</td>
+                  <td>{r.g}</td>
+                  <td>{r.a}</td>
+                  <td>{r.pts}</td>
+                </tr>
+              ))}
+              {skaters.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ color: "#777" }}>
+                    {t("No stats yet.")}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       ) : (
         <div className="card">
-          <div className="table">
-            <div className="thead">
-              <div>Goalie</div>
-              <div>Team</div>
-              <div>GP</div>
-              <div>SA</div>
-              <div>GA</div>
-              <div>SV%</div>
-              <div>GAA</div>
-              <div>TOI</div>
-              <div>Decision</div>
-              <div>SO</div>
-            </div>
-            {goalies.map((g, i) => (
-              <div className="tr" key={i}>
-                <div>{g.player}</div>
-                <div>{g.team}</div>
-                <div>{g.gp ?? 0}</div>
-                <div>{g.sa ?? 0}</div>
-                <div>{g.ga ?? 0}</div>
-                <div>{(g.svpct ?? 0).toFixed(3)}</div>
-                <div>{(g.gaa ?? 0).toFixed(2)}</div>
-                <div>{fmtTime(g.toi_seconds)}</div>
-                <div>{g.decision || ""}</div>
-                <div>{g.so ?? 0}</div>
-              </div>
-            ))}
-          </div>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>{t("Goalie")}</th>
+                <th>{t("Team")}</th>
+                <th>{t("SA")}</th>
+                <th>{t("GA")}</th>
+                <th>{t("SV%")}</th>
+                <th>{t("GAA")}</th>
+                <th>{t("TOI")}</th>
+                <th>{t("W")}</th>
+                <th>{t("L")}</th>
+                <th>{t("OTL")}</th>
+                <th>{t("SO")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {goalies.map((g) => (
+                <tr key={g.player_id}>
+                  <td>{g.goalie}</td>
+                  <td>{g.team}</td>
+                  <td>{g.sa}</td>
+                  <td>{g.ga}</td>
+                  <td>{g.sv_pct != null ? `${g.sv_pct.toFixed ? g.sv_pct.toFixed(1) : g.sv_pct}%` : "—"}</td>
+                  <td>{g.gaa != null ? (typeof g.gaa === "number" ? g.gaa.toFixed(2) : g.gaa) : "—"}</td>
+                  <td>{formatTOI(g.toi_seconds)}</td>
+                  <td>{g.wins}</td>
+                  <td>{g.losses}</td>
+                  <td>{g.otl}</td>
+                  <td>{g.so}</td>
+                </tr>
+              ))}
+              {goalies.length === 0 && (
+                <tr>
+                  <td colSpan={11} style={{ color: "#777" }}>
+                    {t("No stats yet.")}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       )}
+
+      <footer style={{ paddingTop: 12, color: "#777", fontSize: 12 }}>
+        {t("Built with React + Supabase • Realtime edits for boxscores")}
+      </footer>
     </div>
   );
 }
