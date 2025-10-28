@@ -1,167 +1,169 @@
-import React, { useEffect, useState } from "react";
+// src/pages/BoxscorePage.jsx
+import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-let useI18n; try { useI18n = require("../i18n").useI18n; } catch { useI18n = () => ({ t:(s)=>s }); }
+import PlayerLink from "../components/PlayerLink";
+
+function useMaybeI18n() {
+  try {
+    const { useI18n } = require("../i18n");
+    return useI18n();
+  } catch {
+    return { t: (s) => s };
+  }
+}
 
 export default function BoxscorePage() {
-  const { t } = useI18n();
+  const { t } = useMaybeI18n();
   const { slug } = useParams();
-  const [game, setGame] = useState(null);
-  const [events, setEvents] = useState([]);
-  const [homeTeam, setHomeTeam] = useState(null);
-  const [awayTeam, setAwayTeam] = useState(null);
-  const [homeRoster, setHomeRoster] = useState([]);
-  const [awayRoster, setAwayRoster] = useState([]);
-  const [goalies, setGoalies] = useState([]);
 
-  useEffect(() => {
-    (async () => {
+  const [game, setGame] = React.useState(null);
+  const [homeTeam, setHomeTeam] = React.useState(null);
+  const [awayTeam, setAwayTeam] = React.useState(null);
+  const [events, setEvents] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+
+      // 1) Game
       const { data: g } = await supabase
         .from("games")
-        .select(`
-          id, slug, game_date, status, home_score, away_score,
-          home_team_id, away_team_id,
-          home_team:teams!games_home_team_id_fkey(id, name, short_name, logo_url),
-          away_team:teams!games_away_team_id_fkey(id, name, short_name, logo_url)
-        `)
-        .eq("slug", slug).maybeSingle();
-      if (!g) return;
-      setGame(g); setHomeTeam(g.home_team); setAwayTeam(g.away_team);
+        .select("id, slug, game_date, home_team_id, away_team_id, home_score, away_score, status")
+        .or(`slug.eq.${slug},id.eq.${Number(slug) || -1}`)
+        .maybeSingle();
 
-      const [{ data: evs }, { data: hr }, { data: ar }, { data: gs }] = await Promise.all([
-        supabase.from("events").select("id,team_id,player_id,event,period,time_mmss").eq("game_id", g.id).order("period").order("time_mmss"),
-        supabase.from("game_rosters").select("player_id").eq("game_id", g.id).eq("team_id", g.home_team_id),
-        supabase.from("game_rosters").select("player_id").eq("game_id", g.id).eq("team_id", g.away_team_id),
-        supabase.from("game_goalies").select("team_id,player_id,shots_against,goals_against").eq("game_id", g.id),
-      ]);
-      setEvents(evs||[]);
-      setHomeRoster((hr||[]).map(x=>x.player_id));
-      setAwayRoster((ar||[]).map(x=>x.player_id));
-      setGoalies(gs||[]);
-    })();
-  }, [slug]);
+      if (!g) { setLoading(false); return; }
 
-  const [players, setPlayers] = useState({});
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from("players").select("id,name,number,team_id");
-      setPlayers(Object.fromEntries((data||[]).map(p => [p.id, p])));
-    })();
-  }, []);
+      // 2) Teams
+      const { data: teams } = await supabase
+        .from("teams")
+        .select("id, name, short_name, logo_url");
 
-  function nameOf(id) {
-    const p = players[id];
-    return p ? `#${p.number ?? "—"} ${p.name}` : `#${id}`;
+      const tMap = new Map((teams || []).map(x => [x.id, x]));
+      const home = tMap.get(g.home_team_id) || null;
+      const away = tMap.get(g.away_team_id) || null;
+
+      // 3) Events with player info
+      const { data: evs } = await supabase
+        .from("events")
+        .select("id, period, time_mmss, event, player_id, team_id")
+        .eq("game_id", g.id)
+        .order("period", { ascending: true })
+        .order("time_mmss", { ascending: true });
+
+      // preload players used
+      const ids = Array.from(new Set((evs || []).map(e => e.player_id).filter(Boolean)));
+      let pMap = new Map();
+      if (ids.length) {
+        const { data: plist } = await supabase
+          .from("players")
+          .select("id, name, number")
+          .in("id", ids);
+        pMap = new Map((plist || []).map(p => [p.id, p]));
+      }
+
+      if (!cancelled) {
+        setGame(g);
+        setHomeTeam(home);
+        setAwayTeam(away);
+        setEvents((evs || []).map(e => ({
+          ...e,
+          player_name: pMap.get(e.player_id)?.name ?? `#${e.player_id}`,
+          jersey: pMap.get(e.player_id)?.number ?? null,
+          team_code: e.team_id === home?.id ? (home.short_name || "HOME")
+                    : e.team_id === away?.id ? (away.short_name || "AWAY")
+                    : "-",
+        })));
+        setLoading(false);
+      }
     }
 
-  if (!game) return <div>{t("Loading…")}</div>;
+    load();
+    return () => { cancelled = true; };
+  }, [slug]);
 
-  const homeScore = events.filter(e => e.team_id===game.home_team_id && e.event==="goal").length;
-  const awayScore = events.filter(e => e.team_id===game.away_team_id && e.event==="goal").length;
+  if (loading) return <div>{t("Loading…")}</div>;
+  if (!game) return <div>{t("Game not found.")}</div>;
 
   return (
     <div>
-      <div style={{ marginBottom: 8 }}><Link to="/games">← {t("Back to Games")}</Link></div>
-
-      <div className="card" style={{marginBottom:10}}>
-        <div className="row" style={{justifyContent:"space-between", alignItems:"center"}}>
-          <div style={{width:"45%"}} className="row">
-            {awayTeam?.logo_url && <img src={awayTeam.logo_url} alt="" className="team-logo" />}
-            <strong>{awayTeam?.name}</strong>
-          </div>
-          <div style={{width:"10%", textAlign:"center", fontSize:28}}>
-            {awayScore} <span style={{opacity:.6}}>vs</span> {homeScore}
-          </div>
-          <div style={{width:"45%", textAlign:"right"}} className="row">
-            <strong>{homeTeam?.name}</strong>
-            {homeTeam?.logo_url && <img src={homeTeam.logo_url} alt="" className="team-logo" />}
-          </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+        <Link to="/games" style={{ textDecoration: "none" }}>← {t("Back to Games")}</Link>
+        <div style={{ marginLeft: "auto", fontSize: 12, color: "#666" }}>
+          {game.status?.toUpperCase()}
+          {" • "}
+          {new Date(game.game_date).toLocaleDateString()}
         </div>
       </div>
 
-      {/* Rosters */}
-      <div className="row" style={{gap:16, flexWrap:"wrap"}}>
-        <div className="card" style={{flex:"1 1 420px"}}>
-          <h3 className="m0">{awayTeam?.short_name} {t("Roster")}</h3>
-          <ul style={{marginTop:8}}>
-            {awayRoster.length===0 && <li style={{opacity:.7}}>{t("No players selected.")}</li>}
-            {awayRoster.map(pid => <li key={pid}>{nameOf(pid)}</li>)}
-          </ul>
+      {/* Score header */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <TeamHeader team={awayTeam} align="flex-start" />
+        <div style={{ textAlign: "center", fontWeight: 800, fontSize: 28 }}>
+          {game.home_score ?? 0} <span style={{ fontWeight: 400 }}>vs</span> {game.away_score ?? 0}
         </div>
-        <div className="card" style={{flex:"1 1 420px"}}>
-          <h3 className="m0">{homeTeam?.short_name} {t("Roster")}</h3>
-          <ul style={{marginTop:8}}>
-            {homeRoster.length===0 && <li style={{opacity:.7}}>{t("No players selected.")}</li>}
-            {homeRoster.map(pid => <li key={pid}>{nameOf(pid)}</li>)}
-          </ul>
-        </div>
+        <TeamHeader team={homeTeam} align="flex-end" />
       </div>
 
       {/* Events */}
-      <div className="card" style={{marginTop:12}}>
-        <h3 className="m0">{t("Events")}</h3>
-        {events.length===0 ? <div style={{opacity:.7, paddingTop:8}}>{t("No events yet.")}</div> : (
-          <div style={{overflowX:"auto", marginTop:8}}>
-            <table>
-              <thead>
-                <tr>
-                  <th>{t("Period")}</th>
-                  <th>{t("Time")}</th>
-                  <th>{t("Team")}</th>
-                  <th>{t("Type")}</th>
-                  <th>{t("Player")}</th>
+      <section style={{ marginTop: 10 }}>
+        <h3>{t("Events")}</h3>
+        <div style={{ overflowX: "auto", border: "1px solid #eee", borderRadius: 10 }}>
+          <table style={tbl}>
+            <thead style={thead}>
+              <tr>
+                <th style={th}>{t("Period")}</th>
+                <th style={th}>{t("Time")}</th>
+                <th style={th}>{t("Team")}</th>
+                <th style={th}>{t("Type")}</th>
+                <th style={th}>{t("Player")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.length === 0 ? (
+                <tr><td style={td} colSpan={5}>{t("No events yet.")}</td></tr>
+              ) : events.map((e) => (
+                <tr key={e.id}>
+                  <td style={td}>{e.period}</td>
+                  <td style={td}>{e.time_mmss}</td>
+                  <td style={td}>{e.team_code}</td>
+                  <td style={td}>{e.event}</td>
+                  <td style={td}>
+                    {/* CLICKABLE NAME IN BOXCORE */}
+                    <PlayerLink id={e.player_id}>
+                      {e.jersey ? `#${e.jersey} — ` : ""}{e.player_name}
+                    </PlayerLink>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {events.map(e=>{
-                  const team = e.team_id===game.home_team_id ? homeTeam : awayTeam;
-                  return (
-                    <tr key={e.id}>
-                      <td>{e.period}</td>
-                      <td>{e.time_mmss}</td>
-                      <td>{team?.short_name}</td>
-                      <td>{e.event}</td>
-                      <td>{e.player_id ? nameOf(e.player_id) : "—"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
 
-      {/* Goalies quick block */}
-      <div className="card" style={{marginTop:12}}>
-        <h3 className="m0">{t("Goalies")}</h3>
-        {goalies.length===0 ? <div style={{opacity:.7, paddingTop:8}}>{t("No goalie stats yet.")}</div> : (
-          <div style={{overflowX:"auto", marginTop:8}}>
-            <table>
-              <thead>
-                <tr>
-                  <th>{t("Team")}</th>
-                  <th>{t("Goalie")}</th>
-                  <th>{t("SA")}</th>
-                  <th>{t("GA")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {goalies.map(g=>{
-                  const tm = g.team_id===game.home_team_id ? homeTeam : awayTeam;
-                  return (
-                    <tr key={`${g.team_id}-${g.player_id}`}>
-                      <td>{tm?.short_name}</td>
-                      <td>{nameOf(g.player_id)}</td>
-                      <td>{g.shots_against ?? 0}</td>
-                      <td>{g.goals_against ?? 0}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+function TeamHeader({ team, align = "flex-start" }) {
+  if (!team) return <div />;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: align }}>
+      {team.logo_url ? (
+        <img src={team.logo_url} alt={team.short_name || team.name} style={{ width: 36, height: 36, objectFit: "contain" }} />
+      ) : null}
+      <div style={{ textAlign: align === "flex-end" ? "right" : "left" }}>
+        <div style={{ fontWeight: 700 }}>{team.name}</div>
+        <div style={{ color: "#666", fontSize: 12 }}>{team.short_name}</div>
       </div>
     </div>
   );
 }
+
+const tbl = { width: "100%", borderCollapse: "collapse", fontSize: 14 };
+const thead = { background: "var(--table-head, #f4f5f8)" };
+const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #eee", whiteSpace: "nowrap" };
+const td = { padding: "10px 12px", borderBottom: "1px solid #f3f3f3", whiteSpace: "nowrap" };
