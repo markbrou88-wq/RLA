@@ -1,6 +1,9 @@
 import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+// CHANGED: add this import
+import PlayerLink from "../components/PlayerLink";
+
 let useI18n; try { useI18n = require("../i18n").useI18n; } catch { useI18n = () => ({ t:(s)=>s }); }
 
 /* Clock */
