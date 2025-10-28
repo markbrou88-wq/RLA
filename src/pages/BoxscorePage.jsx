@@ -1,169 +1,444 @@
-// src/pages/BoxscorePage.jsx
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import PlayerLink from "../components/PlayerLink";
 
-function useMaybeI18n() {
-  try {
-    const { useI18n } = require("../i18n");
-    return useI18n();
-  } catch {
-    return { t: (s) => s };
-  }
+function SectionCard({ title, children }) {
+  return (
+    <div style={{ border: "1px solid #eee", borderRadius: 8, padding: 16, background: "#fff" }}>
+      {title ? <div style={{ fontWeight: 700, marginBottom: 8 }}>{title}</div> : null}
+      {children}
+    </div>
+  );
+}
+
+function TinyLogo({ url, alt }) {
+  if (!url) return null;
+  return <img src={url} alt={alt || ""} style={{ height: 22, objectFit: "contain", marginLeft: 8 }} />;
+}
+
+function Table({ columns, rows, emptyText = "—" }) {
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            {columns.map((c) => (
+              <th key={c.key} style={{ textAlign: c.align || "left", padding: "6px 8px", borderBottom: "1px solid #eee", fontWeight: 600 }}>
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length} style={{ padding: 10, color: "#888" }}>{emptyText}</td>
+            </tr>
+          ) : (
+            rows.map((r, idx) => (
+              <tr key={r.id || idx}>
+                {columns.map((c) => (
+                  <td key={c.key} style={{ padding: "6px 8px", borderBottom: "1px solid #f3f3f3", textAlign: c.align || "left", whiteSpace: "nowrap" }}>
+                    {typeof c.render === "function" ? c.render(r) : r[c.key]}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export default function BoxscorePage() {
-  const { t } = useMaybeI18n();
   const { slug } = useParams();
 
+  const [loading, setLoading] = React.useState(true);
   const [game, setGame] = React.useState(null);
   const [homeTeam, setHomeTeam] = React.useState(null);
   const [awayTeam, setAwayTeam] = React.useState(null);
+
+  const [lineupHome, setLineupHome] = React.useState([]);
+  const [lineupAway, setLineupAway] = React.useState([]);
+
+  const [goaliesHome, setGoaliesHome] = React.useState([]);
+  const [goaliesAway, setGoaliesAway] = React.useState([]);
+
   const [events, setEvents] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
+  const [score, setScore] = React.useState({ home: 0, away: 0 });
+  const [goalsByPeriod, setGoalsByPeriod] = React.useState({ home: { 1: 0, 2: 0, 3: 0, OT: 0 }, away: { 1: 0, 2: 0, 3: 0, OT: 0 } });
 
   React.useEffect(() => {
-    let cancelled = false;
+    let mounted = true;
 
     async function load() {
       setLoading(true);
 
-      // 1) Game
-      const { data: g } = await supabase
+      // 1) Game by slug
+      const { data: gRows, error: gErr } = await supabase
         .from("games")
-        .select("id, slug, game_date, home_team_id, away_team_id, home_score, away_score, status")
-        .or(`slug.eq.${slug},id.eq.${Number(slug) || -1}`)
+        .select("id, slug, game_date, home_team_id, away_team_id, status, went_ot, home_score, away_score")
+        .eq("slug", slug)
         .maybeSingle();
 
-      if (!g) { setLoading(false); return; }
+      if (gErr) {
+        alert(gErr.message);
+        setLoading(false);
+        return;
+      }
+      if (!gRows) {
+        alert("Game not found.");
+        setLoading(false);
+        return;
+      }
+      const g = gRows;
+      if (!mounted) return;
+      setGame(g);
 
       // 2) Teams
-      const { data: teams } = await supabase
+      const teamIds = [g.home_team_id, g.away_team_id].filter(Boolean);
+      const { data: tRows, error: tErr } = await supabase
         .from("teams")
-        .select("id, name, short_name, logo_url");
+        .select("id, name, short_name, logo_url")
+        .in("id", teamIds);
 
-      const tMap = new Map((teams || []).map(x => [x.id, x]));
-      const home = tMap.get(g.home_team_id) || null;
-      const away = tMap.get(g.away_team_id) || null;
+      if (tErr) {
+        alert(tErr.message);
+        setLoading(false);
+        return;
+      }
+      const home = tRows.find((t) => t.id === g.home_team_id) || null;
+      const away = tRows.find((t) => t.id === g.away_team_id) || null;
+      if (!mounted) return;
+      setHomeTeam(home);
+      setAwayTeam(away);
 
-      // 3) Events with player info
-      const { data: evs } = await supabase
+      // 3) Rosters (join players)
+      const { data: rosterRows, error: rErr } = await supabase
+        .from("game_rosters")
+        .select("team_id, player:players(id, name, number, position)")
+        .eq("game_id", g.id);
+
+      if (rErr) {
+        alert(rErr.message);
+        setLoading(false);
+        return;
+      }
+      const homeList = rosterRows
+        .filter((r) => r.team_id === g.home_team_id)
+        .map((r) => r.player)
+        .sort((a, b) => (a.number ?? 9999) - (b.number ?? 9999));
+      const awayList = rosterRows
+        .filter((r) => r.team_id === g.away_team_id)
+        .map((r) => r.player)
+        .sort((a, b) => (a.number ?? 9999) - (b.number ?? 9999));
+      if (!mounted) return;
+      setLineupHome(homeList);
+      setLineupAway(awayList);
+
+      // 4) Goalies
+      const { data: goalieRows, error: gErr2 } = await supabase
+        .from("game_goalies")
+        .select("team_id, shots_against, goals_against, minutes_seconds, decision, shutout, player:players(id, name, number, position)")
+        .eq("game_id", g.id);
+
+      if (gErr2) {
+        alert(gErr2.message);
+        setLoading(false);
+        return;
+      }
+      const gHome = goalieRows.filter((x) => x.team_id === g.home_team_id);
+      const gAway = goalieRows.filter((x) => x.team_id === g.away_team_id);
+      if (!mounted) return;
+      setGoaliesHome(gHome);
+      setGoaliesAway(gAway);
+
+      // 5) Events (goals/assists/penalties); order by period, then time
+      const { data: eRows, error: eErr } = await supabase
         .from("events")
-        .select("id, period, time_mmss, event, player_id, team_id")
+        .select("id, period, time_mmss, team_id, event, player:players(id, name, number)")
         .eq("game_id", g.id)
         .order("period", { ascending: true })
         .order("time_mmss", { ascending: true });
 
-      // preload players used
-      const ids = Array.from(new Set((evs || []).map(e => e.player_id).filter(Boolean)));
-      let pMap = new Map();
-      if (ids.length) {
-        const { data: plist } = await supabase
-          .from("players")
-          .select("id, name, number")
-          .in("id", ids);
-        pMap = new Map((plist || []).map(p => [p.id, p]));
-      }
-
-      if (!cancelled) {
-        setGame(g);
-        setHomeTeam(home);
-        setAwayTeam(away);
-        setEvents((evs || []).map(e => ({
-          ...e,
-          player_name: pMap.get(e.player_id)?.name ?? `#${e.player_id}`,
-          jersey: pMap.get(e.player_id)?.number ?? null,
-          team_code: e.team_id === home?.id ? (home.short_name || "HOME")
-                    : e.team_id === away?.id ? (away.short_name || "AWAY")
-                    : "-",
-        })));
+      if (eErr) {
+        alert(eErr.message);
         setLoading(false);
+        return;
       }
+      if (!mounted) return;
+      setEvents(eRows);
+
+      // 6) Derived score & goals by period (from 'goal' events)
+      const derived = { home: 0, away: 0 };
+      const byP = { home: { 1: 0, 2: 0, 3: 0, OT: 0 }, away: { 1: 0, 2: 0, 3: 0, OT: 0 } };
+      eRows
+        .filter((x) => x.event === "goal")
+        .forEach((x) => {
+          const side = x.team_id === g.home_team_id ? "home" : "away";
+          derived[side] += 1;
+          const pKey = x.period === 4 ? "OT" : String(x.period);
+          if (!byP[side][pKey]) byP[side][pKey] = 0;
+          byP[side][pKey] += 1;
+        });
+      setScore(derived);
+      setGoalsByPeriod(byP);
+
+      setLoading(false);
     }
 
     load();
-    return () => { cancelled = true; };
+    return () => { mounted = false; };
   }, [slug]);
 
-  if (loading) return <div>{t("Loading…")}</div>;
-  if (!game) return <div>{t("Game not found.")}</div>;
+  if (loading) {
+    return <div style={{ padding: 16 }}>Loading…</div>;
+  }
+  if (!game || !homeTeam || !awayTeam) {
+    return <div style={{ padding: 16 }}>Game not found.</div>;
+  }
+
+  const isFinal = game.status === "final";
+  const dateStr = game.game_date ? new Date(game.game_date).toLocaleDateString() : "";
+
+  const headerStyle = { display: "grid", gridTemplateColumns: "1fr 120px 1fr", alignItems: "center", gap: 12 };
 
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
-        <Link to="/games" style={{ textDecoration: "none" }}>← {t("Back to Games")}</Link>
-        <div style={{ marginLeft: "auto", fontSize: 12, color: "#666" }}>
-          {game.status?.toUpperCase()}
-          {" • "}
-          {new Date(game.game_date).toLocaleDateString()}
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <Link to="/games">← Back to Games</Link>
+        <button onClick={() => window.print()} style={{ padding: "6px 10px" }}>Print / Save PDF</button>
+      </div>
+
+      {/* HEADER */}
+      <div style={{ ...headerStyle, marginBottom: 8 }}>
+        <div style={{ textAlign: "left" }}>
+          <div style={{ fontSize: 14, color: "#666" }}>{dateStr}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontWeight: 700 }}>{awayTeam?.name}</div>
+            <TinyLogo url={awayTeam?.logo_url} alt={awayTeam?.short_name} />
+            <div style={{ fontSize: 12, color: "#888" }}>{awayTeam?.short_name}</div>
+          </div>
+        </div>
+
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontWeight: 700, fontSize: 22 }}>
+            {score.away} vs {score.home}
+          </div>
+          <div style={{ fontSize: 12, color: isFinal ? "#b00020" : "#666" }}>
+            {isFinal ? "FINAL" : "LIVE"} {game.went_ot ? "• OT" : ""}
+          </div>
+        </div>
+
+        <div style={{ textAlign: "right" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+            <div style={{ fontWeight: 700 }}>{homeTeam?.name}</div>
+            <TinyLogo url={homeTeam?.logo_url} alt={homeTeam?.short_name} />
+            <div style={{ fontSize: 12, color: "#888" }}>{homeTeam?.short_name}</div>
+          </div>
         </div>
       </div>
 
-      {/* Score header */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <TeamHeader team={awayTeam} align="flex-start" />
-        <div style={{ textAlign: "center", fontWeight: 800, fontSize: 28 }}>
-          {game.home_score ?? 0} <span style={{ fontWeight: 400 }}>vs</span> {game.away_score ?? 0}
-        </div>
-        <TeamHeader team={homeTeam} align="flex-end" />
+      {/* LINEUPS */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 16,
+          alignItems: "flex-start",
+          marginTop: 12,
+        }}
+      >
+        <SectionCard title={`${awayTeam?.short_name} Lineup`}>
+          <Table
+            columns={[
+              { key: "number", label: "#", align: "right" },
+              { key: "name", label: "Player" },
+              { key: "position", label: "Pos", align: "center" },
+            ]}
+            rows={lineupAway}
+          />
+        </SectionCard>
+
+        <SectionCard title={`${homeTeam?.short_name} Lineup`}>
+          <Table
+            columns={[
+              { key: "number", label: "#", align: "right" },
+              { key: "name", label: "Player" },
+              { key: "position", label: "Pos", align: "center" },
+            ]}
+            rows={lineupHome}
+          />
+        </SectionCard>
       </div>
 
-      {/* Events */}
-      <section style={{ marginTop: 10 }}>
-        <h3>{t("Events")}</h3>
-        <div style={{ overflowX: "auto", border: "1px solid #eee", borderRadius: 10 }}>
-          <table style={tbl}>
-            <thead style={thead}>
-              <tr>
-                <th style={th}>{t("Period")}</th>
-                <th style={th}>{t("Time")}</th>
-                <th style={th}>{t("Team")}</th>
-                <th style={th}>{t("Type")}</th>
-                <th style={th}>{t("Player")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.length === 0 ? (
-                <tr><td style={td} colSpan={5}>{t("No events yet.")}</td></tr>
-              ) : events.map((e) => (
-                <tr key={e.id}>
-                  <td style={td}>{e.period}</td>
-                  <td style={td}>{e.time_mmss}</td>
-                  <td style={td}>{e.team_code}</td>
-                  <td style={td}>{e.event}</td>
-                  <td style={td}>
-                    {/* CLICKABLE NAME IN BOXCORE */}
-                    <PlayerLink id={e.player_id}>
-                      {e.jersey ? `#${e.jersey} — ` : ""}{e.player_name}
-                    </PlayerLink>
-                  </td>
+      {/* GOALIES */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 16,
+          alignItems: "flex-start",
+          marginTop: 12,
+        }}
+      >
+        <SectionCard title={`${awayTeam?.short_name} Goalies`}>
+          <Table
+            columns={[
+              { key: "goalie", label: "Goalie", render: (r) => r.player?.name || "—" },
+              { key: "sa", label: "SA", align: "right", render: (r) => r.shots_against ?? 0 },
+              { key: "ga", label: "GA", align: "right", render: (r) => r.goals_against ?? 0 },
+              {
+                key: "svp", label: "SV%", align: "right",
+                render: (r) => {
+                  const sa = r.shots_against || 0;
+                  const ga = r.goals_against || 0;
+                  if (sa <= 0) return "—";
+                  const sv = (1 - ga / sa) * 100;
+                  return `${sv.toFixed(1)}`;
+                }
+              },
+              {
+                key: "gaa", label: "GAA", align: "right",
+                render: (r) => {
+                  const secs = r.minutes_seconds || 0;
+                  const ga = r.goals_against || 0;
+                  if (secs <= 0) return "—";
+                  const minutes = secs / 60;
+                  const gaa = (ga * 60) / minutes;
+                  return gaa.toFixed(2);
+                }
+              },
+              {
+                key: "toi", label: "TOI", align: "right",
+                render: (r) => {
+                  const s = r.minutes_seconds || 0;
+                  const mm = Math.floor(s / 60);
+                  const ss = String(Math.floor(s % 60)).padStart(2, "0");
+                  return `${mm}:${ss}`;
+                }
+              },
+              { key: "decision", label: "Decision", align: "center", render: (r) => r.decision || "—" },
+              { key: "so", label: "SO", align: "center", render: (r) => (r.shutout ? "1" : "0") },
+            ]}
+            rows={goaliesAway}
+          />
+        </SectionCard>
+
+        <SectionCard title={`${homeTeam?.short_name} Goalies`}>
+          <Table
+            columns={[
+              { key: "goalie", label: "Goalie", render: (r) => r.player?.name || "—" },
+              { key: "sa", label: "SA", align: "right", render: (r) => r.shots_against ?? 0 },
+              { key: "ga", label: "GA", align: "right", render: (r) => r.goals_against ?? 0 },
+              {
+                key: "svp", label: "SV%", align: "right",
+                render: (r) => {
+                  const sa = r.shots_against || 0;
+                  const ga = r.goals_against || 0;
+                  if (sa <= 0) return "—";
+                  const sv = (1 - ga / sa) * 100;
+                  return `${sv.toFixed(1)}`;
+                }
+              },
+              {
+                key: "gaa", label: "GAA", align: "right",
+                render: (r) => {
+                  const secs = r.minutes_seconds || 0;
+                  const ga = r.goals_against || 0;
+                  if (secs <= 0) return "—";
+                  const minutes = secs / 60;
+                  const gaa = (ga * 60) / minutes;
+                  return gaa.toFixed(2);
+                }
+              },
+              {
+                key: "toi", label: "TOI", align: "right",
+                render: (r) => {
+                  const s = r.minutes_seconds || 0;
+                  const mm = Math.floor(s / 60);
+                  const ss = String(Math.floor(s % 60)).padStart(2, "0");
+                  return `${mm}:${ss}`;
+                }
+              },
+              { key: "decision", label: "Decision", align: "center", render: (r) => r.decision || "—" },
+              { key: "so", label: "SO", align: "center", render: (r) => (r.shutout ? "1" : "0") },
+            ]}
+            rows={goaliesHome}
+          />
+        </SectionCard>
+      </div>
+
+      {/* GOALS (expanded events list) */}
+      <div style={{ marginTop: 16 }}>
+        <SectionCard title="Goals">
+          <Table
+            columns={[
+              { key: "team", label: "Team", render: (r) => (r.team_id === game.home_team_id ? homeTeam.short_name : awayTeam.short_name) },
+              { key: "period", label: "Period", align: "center" },
+              { key: "time_mmss", label: "Time", align: "center" },
+              { key: "scorer", label: "Scorer", render: (r) => (r.player?.name ? `#${r.player?.number ?? ""} — ${r.player?.name}` : "—") },
+            ]}
+            rows={events.filter((e) => e.event === "goal")}
+          />
+        </SectionCard>
+      </div>
+
+      {/* PENALTIES (if you track them) */}
+      <div style={{ marginTop: 16 }}>
+        <SectionCard title="Penalties">
+          <Table
+            columns={[
+              { key: "team", label: "Team", render: (r) => (r.team_id === game.home_team_id ? homeTeam.short_name : awayTeam.short_name) },
+              { key: "period", label: "Period", align: "center" },
+              { key: "time_mmss", label: "Time", align: "center" },
+              { key: "player", label: "Player", render: (r) => (r.player?.name ? `#${r.player?.number ?? ""} — ${r.player?.name}` : "—") },
+              { key: "detail", label: "Infraction", render: () => "—" }, // fill if you later add penalty type/minutes
+            ]}
+            rows={events.filter((e) => e.event === "penalty")}
+            emptyText="—"
+          />
+        </SectionCard>
+      </div>
+
+      {/* GOALS BY PERIOD */}
+      <div style={{ marginTop: 16 }}>
+        <SectionCard title="Goals by Period">
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "1px solid #eee" }}>Team</th>
+                  <th style={{ textAlign: "center", padding: "6px 8px", borderBottom: "1px solid #eee" }}>1</th>
+                  <th style={{ textAlign: "center", padding: "6px 8px", borderBottom: "1px solid #eee" }}>2</th>
+                  <th style={{ textAlign: "center", padding: "6px 8px", borderBottom: "1px solid #eee" }}>3</th>
+                  <th style={{ textAlign: "center", padding: "6px 8px", borderBottom: "1px solid #eee" }}>OT</th>
+                  <th style={{ textAlign: "center", padding: "6px 8px", borderBottom: "1px solid #eee" }}>Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function TeamHeader({ team, align = "flex-start" }) {
-  if (!team) return <div />;
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: align }}>
-      {team.logo_url ? (
-        <img src={team.logo_url} alt={team.short_name || team.name} style={{ width: 36, height: 36, objectFit: "contain" }} />
-      ) : null}
-      <div style={{ textAlign: align === "flex-end" ? "right" : "left" }}>
-        <div style={{ fontWeight: 700 }}>{team.name}</div>
-        <div style={{ color: "#666", fontSize: 12 }}>{team.short_name}</div>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ padding: "6px 8px", borderBottom: "1px solid #f3f3f3" }}>{awayTeam?.short_name}</td>
+                  <td style={{ textAlign: "center" }}>{goalsByPeriod.away["1"] || 0}</td>
+                  <td style={{ textAlign: "center" }}>{goalsByPeriod.away["2"] || 0}</td>
+                  <td style={{ textAlign: "center" }}>{goalsByPeriod.away["3"] || 0}</td>
+                  <td style={{ textAlign: "center" }}>{goalsByPeriod.away["OT"] || 0}</td>
+                  <td style={{ textAlign: "center" }}>{score.away}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: "6px 8px", borderBottom: "1px solid #f3f3f3" }}>{homeTeam?.short_name}</td>
+                  <td style={{ textAlign: "center" }}>{goalsByPeriod.home["1"] || 0}</td>
+                  <td style={{ textAlign: "center" }}>{goalsByPeriod.home["2"] || 0}</td>
+                  <td style={{ textAlign: "center" }}>{goalsByPeriod.home["3"] || 0}</td>
+                  <td style={{ textAlign: "center" }}>{goalsByPeriod.home["OT"] || 0}</td>
+                  <td style={{ textAlign: "center" }}>{score.home}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
       </div>
     </div>
   );
 }
-
-const tbl = { width: "100%", borderCollapse: "collapse", fontSize: 14 };
-const thead = { background: "var(--table-head, #f4f5f8)" };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #eee", whiteSpace: "nowrap" };
-const td = { padding: "10px 12px", borderBottom: "1px solid #f3f3f3", whiteSpace: "nowrap" };
