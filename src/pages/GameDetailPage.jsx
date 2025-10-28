@@ -1,498 +1,610 @@
+// src/pages/GameDetailPage.jsx
 import React from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-// CHANGED: add this import
 import PlayerLink from "../components/PlayerLink";
 
-let useI18n; try { useI18n = require("../i18n").useI18n; } catch { useI18n = () => ({ t:(s)=>s }); }
-
-/* Clock */
-function useClock(defaultMinutes = 15) {
-  const [periodLen, setPeriodLen] = React.useState(defaultMinutes);
-  const [secondsLeft, setSecondsLeft] = React.useState(defaultMinutes * 60);
-  const [running, setRunning] = React.useState(false);
-  React.useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => setSecondsLeft(s => (s>0 ? s-1 : 0)), 1000);
-    return () => clearInterval(id);
-  }, [running]);
-  const stamp = React.useCallback(() => {
-    const m = Math.floor(secondsLeft/60), s = secondsLeft%60;
-    return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-  }, [secondsLeft]);
-  const reset = React.useCallback(() => { setSecondsLeft(periodLen*60); setRunning(false); }, [periodLen]);
-  const applyLen = React.useCallback((m) => {
-    const mm = Number(m)||15; setPeriodLen(mm); setSecondsLeft(mm*60);
-  }, []);
-  return { periodLen, setPeriodLen, secondsLeft, setSecondsLeft, running, setRunning, stamp, reset, applyLen };
+function useMaybeI18n() {
+  try {
+    const { useI18n } = require("../i18n");
+    return useI18n();
+  } catch {
+    return { t: (s) => s };
+  }
 }
 
 export default function GameDetailPage() {
-  const { t } = useI18n();
+  const { t } = useMaybeI18n();
   const { slug } = useParams();
 
-  const [loading, setLoading] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
+  // Game + teams
   const [game, setGame] = React.useState(null);
-  const [homeTeam, setHomeTeam] = React.useState(null);
-  const [awayTeam, setAwayTeam] = React.useState(null);
+  const [home, setHome] = React.useState(null);
+  const [away, setAway] = React.useState(null);
 
+  // Players & roster toggles
   const [homePlayers, setHomePlayers] = React.useState([]);
   const [awayPlayers, setAwayPlayers] = React.useState([]);
-  const [homeRosterIds, setHomeRosterIds] = React.useState(new Set());
-  const [awayRosterIds, setAwayRosterIds] = React.useState(new Set());
+  const [rosterIds, setRosterIds] = React.useState(new Set());
 
-  const [homeGoalieId, setHomeGoalieId] = React.useState("");
-  const [awayGoalieId, setAwayGoalieId] = React.useState("");
-
+  // Events
   const [events, setEvents] = React.useState([]);
+  const [saving, setSaving] = React.useState(false);
 
-  const [evtSide, setEvtSide] = React.useState("home"); // home | away
-  const [evtType, setEvtType] = React.useState("goal"); // goal | shot | penalty
-  const [evtPlayerId, setEvtPlayerId] = React.useState("");
-  const [evtA1, setEvtA1] = React.useState("");
-  const [evtA2, setEvtA2] = React.useState("");
-  const [evtPeriod, setEvtPeriod] = React.useState(1);
-  const [evtTime, setEvtTime] = React.useState("15:00");
+  // Clock
+  const [periodLen, setPeriodLen] = React.useState(15); // minutes
+  const [period, setPeriod] = React.useState(1);
+  const [mmss, setMmss] = React.useState("15:00");
+  const [running, setRunning] = React.useState(false);
+  const tickRef = React.useRef(null);
+  const lastStampMsRef = React.useRef(null);
 
-  const clock = useClock(15);
+  // Add-event form
+  const [formTeam, setFormTeam] = React.useState("home"); // "home" | "away"
+  const [formType, setFormType] = React.useState("goal"); // "goal" | "assist" | "shot+"
+  const [formPlayer, setFormPlayer] = React.useState(null);
+  const [formA1, setFormA1] = React.useState(null);
+  const [formA2, setFormA2] = React.useState(null);
 
-  const homeMap = React.useMemo(() => Object.fromEntries(homePlayers.map(p => [p.id, p])), [homePlayers]);
-  const awayMap = React.useMemo(() => Object.fromEntries(awayPlayers.map(p => [p.id, p])), [awayPlayers]);
+  // Goalie on ice
+  const [homeGoalie, setHomeGoalie] = React.useState(null);
+  const [awayGoalie, setAwayGoalie] = React.useState(null);
 
+  // ---------- Load game + teams + everything ----------
   React.useEffect(() => {
-    (async () => {
-      setLoading(true);
+    let cancelled = false;
+
+    async function loadAll() {
+      // 1) Game
       const { data: g } = await supabase
         .from("games")
-        .select(`
-          id, slug, game_date, status, home_score, away_score,
-          home_team_id, away_team_id,
-          home_team:teams!games_home_team_id_fkey(id, name, short_name, logo_url),
-          away_team:teams!games_away_team_id_fkey(id, name, short_name, logo_url)
-        `)
-        .eq("slug", slug).maybeSingle();
-      if (!g) { setLoading(false); return; }
-      setGame(g); setHomeTeam(g.home_team); setAwayTeam(g.away_team);
+        .select("id, slug, game_date, status, home_team_id, away_team_id, home_score, away_score")
+        .or(`slug.eq.${slug},id.eq.${Number(slug) || -1}`)
+        .maybeSingle();
 
-      const [hp, ap] = await Promise.all([
-        supabase.from("players").select("id,name,number,position").eq("team_id", g.home_team_id).order("number"),
-        supabase.from("players").select("id,name,number,position").eq("team_id", g.away_team_id).order("number"),
+      if (!g || cancelled) return;
+
+      // 2) Teams
+      const { data: teams } = await supabase
+        .from("teams")
+        .select("id, name, short_name, logo_url");
+
+      const tMap = new Map((teams || []).map(x => [x.id, x]));
+      const homeTeam = tMap.get(g.home_team_id) || null;
+      const awayTeam = tMap.get(g.away_team_id) || null;
+
+      // 3) Players for each team
+      const [{ data: hp }, { data: ap }] = await Promise.all([
+        supabase.from("players").select("id, name, number").eq("team_id", g.home_team_id).order("number", { ascending: true }),
+        supabase.from("players").select("id, name, number").eq("team_id", g.away_team_id).order("number", { ascending: true }),
       ]);
-      setHomePlayers(hp.data||[]); setAwayPlayers(ap.data||[]);
 
-      const { data: rosterRows } = await supabase
+      // 4) Roster toggles present in game_rosters
+      const { data: rost } = await supabase
         .from("game_rosters")
-        .select("team_id, player_id").eq("game_id", g.id);
+        .select("player_id")
+        .eq("game_id", g.id);
 
-      setHomeRosterIds(new Set((rosterRows||[]).filter(r=>r.team_id===g.home_team_id).map(r=>r.player_id)));
-      setAwayRosterIds(new Set((rosterRows||[]).filter(r=>r.team_id===g.away_team_id).map(r=>r.player_id)));
-
+      // 5) Existing events (for score + table)
       const { data: evs } = await supabase
         .from("events")
-        .select("id, team_id, player_id, period, time_mmss, event")
-        .eq("game_id", g.id).order("period").order("time_mmss");
-      setEvents(evs||[]);
+        .select("id, period, time_mmss, event, player_id, team_id, created_at")
+        .eq("game_id", g.id)
+        .order("period", { ascending: true })
+        .order("time_mmss", { ascending: true });
 
-      // default goalies
-      const hg = (hp.data||[]).find(p => (p.position||"").toUpperCase()==="G");
-      const ag = (ap.data||[]).find(p => (p.position||"").toUpperCase()==="G");
-      setHomeGoalieId(hg?.id||""); setAwayGoalieId(ag?.id||"");
+      // 6) Preload event player names
+      const pids = Array.from(new Set((evs || []).map(e => e.player_id).filter(Boolean)));
+      let pMap = new Map();
+      if (pids.length) {
+        const { data: plist } = await supabase
+          .from("players")
+          .select("id, name, number, team_id")
+          .in("id", pids);
+        pMap = new Map((plist || []).map(p => [p.id, p]));
+      }
 
-      setLoading(false);
-    })();
+      if (!cancelled) {
+        setGame(g);
+        setHome(homeTeam);
+        setAway(awayTeam);
+        setHomePlayers(hp || []);
+        setAwayPlayers(ap || []);
+        setRosterIds(new Set((rost || []).map(r => r.player_id)));
+        setEvents((evs || []).map(e => ({
+          ...e,
+          player_name: pMap.get(e.player_id)?.name ?? `#${e.player_id}`,
+          jersey: pMap.get(e.player_id)?.number ?? null,
+          team_code:
+            e.team_id === homeTeam?.id ? (homeTeam.short_name || "HOME")
+              : e.team_id === awayTeam?.id ? (awayTeam.short_name || "AWAY")
+              : "-",
+        })));
+        // defaults
+        if (hp?.length) setHomeGoalie(hp[0].id);
+        if (ap?.length) setAwayGoalie(ap[0].id);
+        setMmss(`${String(periodLen).padStart(2, "0")}:00`);
+      }
+    }
+
+    loadAll();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
+  // --------- Clock handling ---------
   React.useEffect(() => {
-    if (!game) return;
-    const ch = supabase.channel(`events-${game.id}`)
-      .on("postgres_changes", { event:"*", schema:"public", table:"events", filter:`game_id=eq.${game.id}` },
-        async () => { await refreshEventsAndGame(); })
-      .subscribe();
-    return () => supabase.removeChannel(ch);
-    // eslint-disable-next-line
-  }, [game?.id]);
+    if (!running) return;
+    lastStampMsRef.current = performance.now();
 
-  async function refreshEventsAndGame() {
-    if (!game) return;
-    const [{ data: evs }, { data: g }] = await Promise.all([
-      supabase.from("events").select("id,team_id,player_id,period,time_mmss,event").eq("game_id", game.id).order("period").order("time_mmss"),
-      supabase.from("games").select("id,home_score,away_score,status").eq("id", game.id).single()
-    ]);
-    setEvents(evs || []);
-    if (g) setGame((old) => ({ ...old, home_score: g.home_score, away_score: g.away_score, status: g.status }));
-  }
+    tickRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(tickRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running]);
 
-  function labelPlayer(p) {
-    if (!p) return "—";
-    const num = p.number != null ? `#${p.number} ` : "";
-    return `${num}${p.name}`;
-  }
-  function playerName(pid, teamId) {
-    if (!pid) return "—";
-    const m = teamId === game.home_team_id ? homeMap : awayMap;
-    const p = m[pid];
-    return p ? labelPlayer(p) : `#${pid}`;
-  }
-  function byPeriodTime(a, b) {
-    if (a.period !== b.period) return a.period - b.period;
-    return (a.time_mmss || "").localeCompare(b.time_mmss || "");
-  }
-  const scoreFromEvents = React.useMemo(() => {
-    let h=0,a=0;
-    for (const e of events) if (e.event==="goal") {
-      if (e.team_id===game?.home_team_id) h++; else if (e.team_id===game?.away_team_id) a++;
-    }
-    return {home:h, away:a};
-  }, [events, game]);
+  function tick(now) {
+    const last = lastStampMsRef.current || now;
+    const delta = now - last; // ms
+    lastStampMsRef.current = now;
 
-  const leftTeam = awayTeam;  // away on left
-  const rightTeam = homeTeam; // home on right
-  const sideTeamId = (side) => side==="home" ? game.home_team_id : game.away_team_id;
+    setMmss(prev => {
+      const [m, s] = prev.split(":").map(n => parseInt(n || "0", 10));
+      let total = m * 60 + s;
+      total = Math.max(0, total - Math.round(delta / 1000));
+      return fmtMMSS(total);
+    });
 
-  async function toggleRoster(teamId, pid, checked) {
-    if (!game) return;
-    if (checked) {
-      const { error } = await supabase.from("game_rosters").insert({ game_id: game.id, team_id: teamId, player_id: pid });
-      if (error && !String(error.message).includes("duplicate")) return alert(error.message);
-    } else {
-      const { error } = await supabase.from("game_rosters")
-        .delete().eq("game_id", game.id).eq("team_id", teamId).eq("player_id", pid);
-      if (error) return alert(error.message);
-    }
-    if (teamId===game.home_team_id) setHomeRosterIds(s => { const n=new Set(s); checked?n.add(pid):n.delete(pid); return n; });
-    else setAwayRosterIds(s => { const n=new Set(s); checked?n.add(pid):n.delete(pid); return n; });
+    tickRef.current = requestAnimationFrame(tick);
   }
 
-  async function ensureGoalieRow(gameId, teamId, playerId) {
-    if (!playerId) return null;
-    const { data: found } = await supabase
-      .from("game_goalies").select("id").eq("game_id", gameId).eq("team_id", teamId).eq("player_id", playerId).maybeSingle();
-    if (found) return found.id;
-    const { data, error } = await supabase.from("game_goalies")
-      .insert({ game_id: gameId, team_id: teamId, player_id: playerId, shots_against:0, goals_against:0 })
-      .select("id").single();
-    if (error) throw error;
-    return data.id;
-  }
-  async function incGoalie(teamId, playerId, patch) {
-    const rowId = await ensureGoalieRow(game.id, teamId, playerId);
-    const { data: cur } = await supabase.from("game_goalies")
-      .select("shots_against,goals_against").eq("id", rowId).single();
-    const next = {
-      shots_against: patch.shots_against ?? (cur?.shots_against ?? 0),
-      goals_against: patch.goals_against ?? (cur?.goals_against ?? 0),
-    };
-    await supabase.from("game_goalies").update(next).eq("id", rowId);
+  function fmtMMSS(totalSeconds) {
+    const mm = Math.floor(totalSeconds / 60);
+    const ss = totalSeconds % 60;
+    return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
   }
 
-  async function quickShot(side, delta) {
+  function onStart() {
+    if (running) return;
+    setRunning(true);
+    lastStampMsRef.current = performance.now();
+  }
+
+  async function onStop() {
+    if (!running) return;
+    setRunning(false);
+
+    // accumulate TOI to both goalies on ice since lastStamp
     if (!game) return;
     try {
-      if (delta > 0) {
-        const teamId = sideTeamId(side);
-        const defTeamId = side === "home" ? game.away_team_id : game.home_team_id;
-        const defGoalieId = side === "home" ? awayGoalieId : homeGoalieId;
+      const now = performance.now();
+      const last = lastStampMsRef.current || now;
+      const deltaSec = Math.max(0, Math.round((now - last) / 1000));
 
-        const { data: ins, error } = await supabase.from("events").insert({
-          game_id: game.id, team_id: teamId, player_id: null,
-          period: evtPeriod, time_mmss: evtTime, event: "shot"
-        }).select("id,team_id,player_id,period,time_mmss,event").single();
-        if (error) return alert(error.message);
-        setEvents(e => [...e, ins].sort(byPeriodTime));
-
-        const { data: cur } = await supabase.from("game_goalies")
-          .select("shots_against").eq("game_id", game.id).eq("team_id", defTeamId).eq("player_id", defGoalieId).maybeSingle();
-        await incGoalie(defTeamId, defGoalieId, { shots_against: (cur?.shots_against ?? 0)+1 });
-      } else {
-        const teamId = sideTeamId(side);
-        const defTeamId = side === "home" ? game.away_team_id : game.home_team_id;
-        const defGoalieId = side === "home" ? awayGoalieId : homeGoalieId;
-
-        const { data: last } = await supabase.from("events")
-          .select("id,period,time_mmss").eq("game_id", game.id).eq("team_id", teamId).eq("event", "shot")
-          .order("period", { ascending:false }).order("time_mmss", { ascending:false }).limit(1).maybeSingle();
-        if (last) {
-          await supabase.from("events").delete().eq("id", last.id);
-          setEvents(e => e.filter(x => x.id !== last.id));
-          const { data: cur } = await supabase.from("game_goalies")
-            .select("shots_against").eq("game_id", game.id).eq("team_id", defTeamId).eq("player_id", defGoalieId).maybeSingle();
-          await incGoalie(defTeamId, defGoalieId, { shots_against: Math.max(0, (cur?.shots_against ?? 0)-1) });
-        }
-      }
+      await bumpTOI(deltaSec);
     } catch (e) {
-      alert(e.message);
+      // ignore
     }
   }
 
-  async function addEvent() {
+  async function onReset() {
+    if (running) await onStop();
+    setMmss(`${String(periodLen).padStart(2, "0")}:00`);
+  }
+
+  async function onApplyPeriodLen() {
+    if (running) await onStop();
+    setMmss(`${String(periodLen).padStart(2, "0")}:00`);
+  }
+
+  async function bumpTOI(delta) {
+    if (!delta || !game) return;
+    // Upsert minutes for both goalies on ice in game_goalies
+    const rows = [];
+    if (homeGoalie && home) {
+      rows.push({ game_id: game.id, player_id: homeGoalie, team_id: home.id, minutes_seconds: delta });
+    }
+    if (awayGoalie && away) {
+      rows.push({ game_id: game.id, player_id: awayGoalie, team_id: away.id, minutes_seconds: delta });
+    }
+    for (const r of rows) {
+      await supabase.rpc("increment_goalie_minutes", {
+        p_game_id: r.game_id,
+        p_player_id: r.player_id,
+        p_team_id: r.team_id,
+        p_delta_seconds: r.minutes_seconds,
+      }).catch(async () => {
+        // fallback: upsert then update
+        const { data: gg } = await supabase
+          .from("game_goalies")
+          .select("id, minutes_seconds")
+          .eq("game_id", r.game_id)
+          .eq("player_id", r.player_id)
+          .eq("team_id", r.team_id)
+          .maybeSingle();
+
+        if (!gg) {
+          await supabase.from("game_goalies").insert({
+            game_id: r.game_id,
+            player_id: r.player_id,
+            team_id: r.team_id,
+            minutes_seconds: r.minutes_seconds,
+          });
+        } else {
+          await supabase
+            .from("game_goalies")
+            .update({ minutes_seconds: (gg.minutes_seconds || 0) + r.minutes_seconds })
+            .eq("id", gg.id);
+        }
+      });
+    }
+  }
+
+  // ---------- Helpers ----------
+  const teamIdFor = (side) => (side === "home" ? home?.id : away?.id);
+  const playersFor = (side) => (side === "home" ? homePlayers : awayPlayers);
+
+  // ---------- Roster toggle ----------
+  async function toggleRoster(p) {
     if (!game) return;
+    const has = rosterIds.has(p.id);
+    if (has) {
+      await supabase.from("game_rosters").delete().eq("game_id", game.id).eq("player_id", p.id);
+      const next = new Set([...rosterIds]);
+      next.delete(p.id);
+      setRosterIds(next);
+    } else {
+      await supabase.from("game_rosters").upsert({ game_id: game.id, player_id: p.id, team_id: p.team_id || teamIdFor(p.team_side) }, { onConflict: "game_id,player_id" });
+      const next = new Set([...rosterIds]);
+      next.add(p.id);
+      setRosterIds(next);
+    }
+  }
+
+  // ---------- Score recompute + push to DB ----------
+  async function recomputeAndPushScore(nextEvents) {
+    if (!game) return;
+    const list = nextEvents ?? events;
+    let homeGoals = 0;
+    let awayGoals = 0;
+    for (const e of list) {
+      if (e.event === "goal") {
+        if (e.team_id === home?.id) homeGoals++;
+        if (e.team_id === away?.id) awayGoals++;
+      }
+    }
+    await supabase.from("games").update({ home_score: homeGoals, away_score: awayGoals }).eq("id", game.id);
+    setGame((g) => g ? { ...g, home_score: homeGoals, away_score: awayGoals } : g);
+  }
+
+  // ---------- Add Event ----------
+  async function addEvent() {
+    if (!game || !formPlayer || !formType) return;
     setSaving(true);
     try {
-      const teamId = sideTeamId(evtSide);
-      const defTeamId = evtSide === "home" ? game.away_team_id : game.home_team_id;
-      const defGoalieId = evtSide === "home" ? awayGoalieId : homeGoalieId;
+      const teamId = teamIdFor(formTeam);
+      const rows = [];
+      const base = {
+        game_id: game.id,
+        period,
+        time_mmss: mmss,
+      };
 
-      if (evtType === "goal") {
-        if (!evtPlayerId) { setSaving(false); return alert(t("Select a scorer.")); }
-        const rows = [
-          { game_id: game.id, team_id: teamId, player_id: Number(evtPlayerId), period: evtPeriod, time_mmss: evtTime, event: "goal" }
-        ];
-        if (evtA1) rows.push({ game_id: game.id, team_id: teamId, player_id: Number(evtA1), period: evtPeriod, time_mmss: evtTime, event: "assist" });
-        if (evtA2) rows.push({ game_id: game.id, team_id: teamId, player_id: Number(evtA2), period: evtPeriod, time_mmss: evtTime, event: "assist" });
+      if (formType === "goal") {
+        rows.push({ ...base, event: "goal", player_id: formPlayer, team_id: teamId });
+        if (formA1) rows.push({ ...base, event: "assist", player_id: formA1, team_id: teamId });
+        if (formA2) rows.push({ ...base, event: "assist", player_id: formA2, team_id: teamId });
 
-        const { data: inserted, error } = await supabase.from("events")
-          .insert(rows).select("id,team_id,player_id,period,time_mmss,event");
-        if (error) throw error;
-        setEvents(e => [...e, ...(inserted||[])].sort(byPeriodTime));
-
-        // goalie GA+SA for defending side
-        const { data: cur } = await supabase.from("game_goalies")
-          .select("shots_against,goals_against").eq("game_id", game.id).eq("team_id", defTeamId).eq("player_id", defGoalieId).maybeSingle();
-        await incGoalie(defTeamId, defGoalieId, {
-          shots_against: (cur?.shots_against ?? 0)+1,
-          goals_against: (cur?.goals_against ?? 0)+1
-        });
-
-        // set scores in games so Games list updates immediately (trigger will also keep it correct)
-        await supabase.from("games").update({
-          home_score: evtSide==="home" ? (game.home_score ?? 0)+1 : (game.home_score ?? 0),
-          away_score: evtSide==="away" ? (game.away_score ?? 0)+1 : (game.away_score ?? 0),
-        }).eq("id", game.id);
-        await refreshEventsAndGame();
-      } else {
-        // shot / penalty single row
-        const { data: ins, error } = await supabase.from("events").insert({
-          game_id: game.id, team_id: teamId, player_id: evtPlayerId?Number(evtPlayerId):null,
-          period: evtPeriod, time_mmss: evtTime, event: evtType
-        }).select("id,team_id,player_id,period,time_mmss,event").single();
-        if (error) throw error;
-        setEvents(e => [...e, ins].sort(byPeriodTime));
-
-        if (evtType==="shot") {
-          const { data: cur } = await supabase.from("game_goalies")
-            .select("shots_against").eq("game_id", game.id).eq("team_id", defTeamId).eq("player_id", defGoalieId).maybeSingle();
-          await incGoalie(defTeamId, defGoalieId, { shots_against: (cur?.shots_against ?? 0)+1 });
+        // also bump GA for opposite goalie on ice
+        const oppGoalie = formTeam === "home" ? awayGoalie : homeGoalie;
+        const oppTeamId = formTeam === "home" ? away?.id : home?.id;
+        if (oppGoalie && oppTeamId) {
+          await supabase.rpc("increment_goalie_ga", {
+            p_game_id: game.id,
+            p_player_id: oppGoalie,
+            p_team_id: oppTeamId,
+            p_delta: 1,
+          }).catch(async () => {
+            const { data: gg } = await supabase
+              .from("game_goalies")
+              .select("id, goals_against")
+              .eq("game_id", game.id)
+              .eq("player_id", oppGoalie)
+              .eq("team_id", oppTeamId)
+              .maybeSingle();
+            if (!gg) {
+              await supabase.from("game_goalies").insert({
+                game_id: game.id, player_id: oppGoalie, team_id: oppTeamId, goals_against: 1,
+              });
+            } else {
+              await supabase
+                .from("game_goalies")
+                .update({ goals_against: (gg.goals_against || 0) + 1 })
+                .eq("id", gg.id);
+            }
+          });
+        }
+      } else if (formType === "assist") {
+        rows.push({ ...base, event: "assist", player_id: formPlayer, team_id: teamId });
+      } else if (formType === "shot+") {
+        // Shot against the opposite goalie
+        const oppGoalie = formTeam === "home" ? awayGoalie : homeGoalie;
+        const oppTeamId = formTeam === "home" ? away?.id : home?.id;
+        if (oppGoalie && oppTeamId) {
+          await supabase.rpc("increment_goalie_shots", {
+            p_game_id: game.id,
+            p_player_id: oppGoalie,
+            p_team_id: oppTeamId,
+            p_delta: 1,
+          }).catch(async () => {
+            const { data: gg } = await supabase
+              .from("game_goalies")
+              .select("id, shots_against")
+              .eq("game_id", game.id)
+              .eq("player_id", oppGoalie)
+              .eq("team_id", oppTeamId)
+              .maybeSingle();
+            if (!gg) {
+              await supabase.from("game_goalies").insert({
+                game_id: game.id, player_id: oppGoalie, team_id: oppTeamId, shots_against: 1,
+              });
+            } else {
+              await supabase
+                .from("game_goalies")
+                .update({ shots_against: (gg.shots_against || 0) + 1 })
+                .eq("id", gg.id);
+            }
+          });
+        }
+      } else if (formType === "shot-") {
+        const oppGoalie = formTeam === "home" ? awayGoalie : homeGoalie;
+        const oppTeamId = formTeam === "home" ? away?.id : home?.id;
+        if (oppGoalie && oppTeamId) {
+          await supabase.rpc("increment_goalie_shots", {
+            p_game_id: game.id,
+            p_player_id: oppGoalie,
+            p_team_id: oppTeamId,
+            p_delta: -1,
+          }).catch(async () => {
+            const { data: gg } = await supabase
+              .from("game_goalies")
+              .select("id, shots_against")
+              .eq("game_id", game.id)
+              .eq("player_id", oppGoalie)
+              .eq("team_id", oppTeamId)
+              .maybeSingle();
+            if (gg) {
+              await supabase
+                .from("game_goalies")
+                .update({ shots_against: Math.max(0, (gg.shots_against || 0) - 1) })
+                .eq("id", gg.id);
+            }
+          });
         }
       }
 
-      setEvtA1(""); setEvtA2("");
-    } catch (e) {
-      alert(e.message);
-    } finally { setSaving(false); }
-  }
+      if (rows.length) {
+        await supabase.from("events").insert(rows);
+      }
 
-  async function deleteEvent(ev) {
-    if (!window.confirm(t("Delete this event?"))) return;
-    await supabase.from("events").delete().eq("id", ev.id);
-    // If goal, also decrement goalie + score
-    if (ev.event === "goal") {
-      const side = ev.team_id===game.home_team_id ? "home" : "away";
-      const defTeamId = side==="home" ? game.away_team_id : game.home_team_id;
-      const defGoalieId = side==="home" ? awayGoalieId : homeGoalieId;
-
-      const { data: cur } = await supabase.from("game_goalies")
-        .select("shots_against,goals_against").eq("game_id", game.id).eq("team_id", defTeamId).eq("player_id", defGoalieId).maybeSingle();
-      await incGoalie(defTeamId, defGoalieId, {
-        shots_against: Math.max(0, (cur?.shots_against ?? 0)-1),
-        goals_against: Math.max(0, (cur?.goals_against ?? 0)-1),
-      });
-
-      await supabase.from("games").update({
-        home_score: side==="home" ? Math.max(0,(game.home_score??0)-1) : (game.home_score??0),
-        away_score: side==="away" ? Math.max(0,(game.away_score??0)-1) : (game.away_score??0),
-      }).eq("id", game.id);
+      // reload events and recompute score
+      await refreshEvents();
+    } finally {
+      setSaving(false);
     }
-    await refreshEventsAndGame();
   }
 
+  // ---------- Delete Event ----------
+  async function deleteEvent(evId) {
+    if (!game) return;
+    await supabase.from("events").delete().eq("id", evId);
+    await refreshEvents();
+  }
+
+  async function refreshEvents() {
+    if (!game) return;
+    const { data: evs } = await supabase
+      .from("events")
+      .select("id, period, time_mmss, event, player_id, team_id, created_at")
+      .eq("game_id", game.id)
+      .order("period", { ascending: true })
+      .order("time_mmss", { ascending: true });
+
+    // preload player info
+    const pids = Array.from(new Set((evs || []).map(e => e.player_id).filter(Boolean)));
+    let pMap = new Map();
+    if (pids.length) {
+      const { data: plist } = await supabase
+        .from("players")
+        .select("id, name, number, team_id")
+        .in("id", pids);
+      pMap = new Map((plist || []).map(p => [p.id, p]));
+    }
+
+    const next = (evs || []).map(e => ({
+      ...e,
+      player_name: pMap.get(e.player_id)?.name ?? `#${e.player_id}`,
+      jersey: pMap.get(e.player_id)?.number ?? null,
+      team_code:
+        e.team_id === home?.id ? (home.short_name || "HOME")
+          : e.team_id === away?.id ? (away.short_name || "AWAY")
+          : "-",
+    }));
+    setEvents(next);
+    await recomputeAndPushScore(next);
+  }
+
+  // ---------- Final / Unfinal ----------
   async function toggleFinal() {
     if (!game) return;
-    const next = game.status==="final" ? "open" : "final";
+    const next = game.status === "final" ? "open" : "final";
     await supabase.from("games").update({ status: next }).eq("id", game.id);
-    await refreshEventsAndGame();
+    setGame(g => g ? { ...g, status: next } : g);
   }
 
-  if (loading) return <div>{t("Loading…")}</div>;
-  if (!game) return null;
+  if (!game || !home || !away) {
+    return <div>{t("Loading…")}</div>;
+  }
+
+  const teamOptions = [
+    { value: "home", label: home.short_name || "HOME" },
+    { value: "away", label: away.short_name || "AWAY" },
+  ];
+
+  const playerOptions = playersFor(formTeam);
 
   return (
     <div>
-      <div style={{ marginBottom: 8 }}><Link to="/games">← {t("Back to Games")}</Link></div>
-
-      {/* Header: Live + Clock + Final/Reopen */}
-      <div className="card">
-        <div className="row" style={{justifyContent:"space-between", alignItems:"center"}}>
-          <div className="kicker">{t("LIVE")} • {new Date(game.game_date).toLocaleString()}</div>
-          <div className="row" style={{gap:8, alignItems:"center"}}>
-            <span className="kicker">{t("Clock")}: {clock.stamp()}</span>
-            <button className="btn secondary" onClick={() => clock.setRunning(!clock.running)}>{clock.running? t("Stop") : t("Start")}</button>
-            <button className="btn secondary" onClick={clock.reset}>{t("Reset")}</button>
-            <input type="number" min={1} value={clock.periodLen} onChange={(e)=>clock.applyLen(e.target.value)} style={{width:60}} title={t("Set period (minutes)")} />
-            <button className="btn" onClick={toggleFinal}>{game.status==="final" ? t("Reopen") : t("Final")}</button>
-          </div>
-        </div>
-
-        {/* Add event */}
-        <div className="row" style={{gap:10, flexWrap:"wrap", marginTop:10}}>
-          <select value={evtSide} onChange={(e)=>setEvtSide(e.target.value)}>
-            <option value="away">{awayTeam?.short_name || "AWY"}</option>
-            <option value="home">{homeTeam?.short_name || "HOME"}</option>
-          </select>
-          <select value={evtType} onChange={(e)=>setEvtType(e.target.value)}>
-            <option value="goal">{t("Goal")}</option>
-            <option value="shot">{t("Shot")}</option>
-            <option value="penalty">{t("Penalty")}</option>
-          </select>
-          <select value={evtPlayerId} onChange={(e)=>setEvtPlayerId(e.target.value)}>
-            <option value="">{t("Player")}</option>
-            {(evtSide==="home"?homePlayers:awayPlayers).map(p=>(
-              <option key={p.id} value={p.id}>{labelPlayer(p)}</option>
-            ))}
-          </select>
-          {evtType==="goal" && (
-            <>
-              <select value={evtA1} onChange={(e)=>setEvtA1(e.target.value)}>
-                <option value="">{t("Assist 1")}</option>
-                {(evtSide==="home"?homePlayers:awayPlayers).map(p=>(
-                  <option key={p.id} value={p.id}>{labelPlayer(p)}</option>
-                ))}
-              </select>
-              <select value={evtA2} onChange={(e)=>setEvtA2(e.target.value)}>
-                <option value="">{t("Assist 2")}</option>
-                {(evtSide==="home"?homePlayers:awayPlayers).map(p=>(
-                  <option key={p.id} value={p.id}>{labelPlayer(p)}</option>
-                ))}
-              </select>
-            </>
-          )}
-          <input type="number" min={1} value={evtPeriod} onChange={(e)=>setEvtPeriod(Number(e.target.value))} style={{width:70}} title={t("Period")} />
-          <input type="text" value={evtTime} onChange={(e)=>setEvtTime(e.target.value)} placeholder="MM:SS" style={{width:80}} title={t("Time")} />
-          <button className="btn secondary" onClick={()=>setEvtTime(clock.stamp())}>{t("Stamp clock")}</button>
-          <button className="btn" onClick={addEvent} disabled={saving}>{saving? t("Saving…") : t("Add event")}</button>
-        </div>
-
-        {/* Quick shots +/- bound to goalie SA */}
-        <div className="row" style={{gap:8, marginTop:10, flexWrap:"wrap"}}>
-          <span className="kicker">{t("Quick")}:</span>
-          <button className="btn secondary" onClick={()=>quickShot("away", +1)}>{awayTeam?.short_name} {t("Shot")} +</button>
-          <button className="btn secondary" onClick={()=>quickShot("away", -1)}>{awayTeam?.short_name} {t("Shot")} −</button>
-          <button className="btn secondary" onClick={()=>quickShot("home", +1)}>{homeTeam?.short_name} {t("Shot")} +</button>
-          <button className="btn secondary" onClick={()=>quickShot("home", -1)}>{homeTeam?.short_name} {t("Shot")} −</button>
-        </div>
-
-        {/* Goalie on ice pickers */}
-        <div className="row" style={{gap:12, marginTop:10, flexWrap:"wrap"}}>
-          <div>
-            <div className="kicker">{awayTeam?.short_name} {t("Goalie on ice")}</div>
-            <select value={awayGoalieId} onChange={(e)=>setAwayGoalieId(e.target.value)}>
-              <option value="">{t("Select")}</option>
-              {awayPlayers.filter(p => (p.position||"").toUpperCase()==="G").map(p=>(
-                <option key={p.id} value={p.id}>{labelPlayer(p)}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <div className="kicker">{homeTeam?.short_name} {t("Goalie on ice")}</div>
-            <select value={homeGoalieId} onChange={(e)=>setHomeGoalieId(e.target.value)}>
-              <option value="">{t("Select")}</option>
-              {homePlayers.filter(p => (p.position||"").toUpperCase()==="G").map(p=>(
-                <option key={p.id} value={p.id}>{labelPlayer(p)}</option>
-              ))}
-            </select>
-          </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <Link to="/games" style={{ textDecoration: "none" }}>← {t("Back to Games")}</Link>
+        <div style={{ marginLeft: "auto", fontSize: 12, color: "#666" }}>
+          {t("LIVE")} • {new Date(game.game_date).toLocaleDateString()}
         </div>
       </div>
 
-      {/* Scoreboard (home on right) */}
-      <div className="card">
-        <div className="row" style={{justifyContent:"space-between", alignItems:"center"}}>
-          <div style={{width:"45%"}}>
-            <div className="row" style={{gap:8, alignItems:"center"}}>
-              {awayTeam?.logo_url && <img src={awayTeam.logo_url} alt="" className="team-logo" />}
-              <strong>{awayTeam?.name}</strong>
+      {/* EVENTS FORM */}
+      <section style={card}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 10 }}>
+          <Field label={t("Team")} span={2}>
+            <select value={formTeam} onChange={(e) => setFormTeam(e.target.value)} style={input}>
+              {teamOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </Field>
+          <Field label={t("Type")} span={2}>
+            <select value={formType} onChange={(e) => setFormType(e.target.value)} style={input}>
+              <option value="goal">{t("Goal")}</option>
+              <option value="assist">{t("Assist")}</option>
+              <option value="shot+">{t("Shot +")}</option>
+              <option value="shot-">{t("Shot −")}</option>
+            </select>
+          </Field>
+          <Field label={t("Player")} span={4}>
+            <select value={formPlayer || ""} onChange={(e) => setFormPlayer(Number(e.target.value) || null)} style={input}>
+              <option value="">{t("Select player…")}</option>
+              {playerOptions.map(p => (
+                <option key={p.id} value={p.id}>
+                  {`#${p.number ?? ""} — ${p.name}`}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label={t("Assist 1")} span={2}>
+            <select value={formA1 || ""} onChange={(e) => setFormA1(Number(e.target.value) || null)} style={input}>
+              <option value="">{t("None")}</option>
+              {playerOptions.map(p => <option key={p.id} value={p.id}>{`#${p.number ?? ""} — ${p.name}`}</option>)}
+            </select>
+          </Field>
+          <Field label={t("Assist 2")} span={2}>
+            <select value={formA2 || ""} onChange={(e) => setFormA2(Number(e.target.value) || null)} style={input}>
+              <option value="">{t("None")}</option>
+              {playerOptions.map(p => <option key={p.id} value={p.id}>{`#${p.number ?? ""} — ${p.name}`}</option>)}
+            </select>
+          </Field>
+
+          <Field label={t("Period")} span={1}>
+            <input type="number" value={period} onChange={(e) => setPeriod(Number(e.target.value) || 1)} style={input} />
+          </Field>
+          <Field label={t("Time (MM:SS)")} span={2}>
+            <input value={mmss} onChange={(e) => setMmss(e.target.value)} style={input} />
+          </Field>
+          <Field label=" " span={2}>
+            <button className="btn" onClick={() => setMmss(mmss)}>{t("Stamp clock")}</button>
+          </Field>
+          <Field label=" " span={2}>
+            <button className="btn btn-primary" onClick={addEvent} disabled={saving}>
+              {saving ? t("Saving…") : t("Add event")}
+            </button>
+          </Field>
+
+          {/* QUICK SHOTS */}
+          <Field label={t("Quick:")} span={12}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button className="btn" onClick={() => { setFormTeam("away"); setFormType("shot+"); addEvent(); }}>
+                {(away.short_name || "AWY")} {t("Shot +")}
+              </button>
+              <button className="btn" onClick={() => { setFormTeam("home"); setFormType("shot+"); addEvent(); }}>
+                {(home.short_name || "HOM")} {t("Shot +")}
+              </button>
+              <button className="btn" onClick={() => { setFormTeam("away"); setFormType("shot-"); addEvent(); }}>
+                {(away.short_name || "AWY")} {t("Shot −")}
+              </button>
+              <button className="btn" onClick={() => { setFormTeam("home"); setFormType("shot-"); addEvent(); }}>
+                {(home.short_name || "HOM")} {t("Shot −")}
+              </button>
             </div>
-          </div>
-          <div style={{width:"10%", textAlign:"center", fontSize:28}}>
-            {(game.away_score ?? scoreFromEvents.away)} <span style={{opacity:.6}}>vs</span> {(game.home_score ?? scoreFromEvents.home)}
-          </div>
-          <div style={{width:"45%", textAlign:"right"}}>
-            <div className="row" style={{gap:8, alignItems:"center", justifyContent:"flex-end"}}>
-              <strong>{homeTeam?.name}</strong>
-              {homeTeam?.logo_url && <img src={homeTeam.logo_url} alt="" className="team-logo" />}
+          </Field>
+
+          {/* GOALIES ON ICE */}
+          <Field label={`${away.short_name || "AWAY"} ${t("Goalie on ice")}`} span={4}>
+            <select value={awayGoalie || ""} onChange={(e) => setAwayGoalie(Number(e.target.value) || null)} style={input}>
+              {awayPlayers.map(p => <option key={p.id} value={p.id}>{`#${p.number ?? ""} — ${p.name}`}</option>)}
+            </select>
+          </Field>
+          <Field label={`${home.short_name || "HOME"} ${t("Goalie on ice")}`} span={4}>
+            <select value={homeGoalie || ""} onChange={(e) => setHomeGoalie(Number(e.target.value) || null)} style={input}>
+              {homePlayers.map(p => <option key={p.id} value={p.id}>{`#${p.number ?? ""} — ${p.name}`}</option>)}
+            </select>
+          </Field>
+
+          {/* CLOCK CONTROLS */}
+          <Field label={t("Clock")} span={4}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <strong>{mmss}</strong>
+              {running ? (
+                <button className="btn" onClick={onStop}>{t("Stop")}</button>
+              ) : (
+                <button className="btn" onClick={onStart}>{t("Start")}</button>
+              )}
+              <button className="btn" onClick={onReset}>{t("Reset")}</button>
+              <input
+                type="number"
+                value={periodLen}
+                onChange={(e) => setPeriodLen(Number(e.target.value) || 15)}
+                style={{ ...input, width: 70 }}
+              />
+              <button className="btn" onClick={onApplyPeriodLen}>{t("Apply")}</button>
             </div>
+          </Field>
+        </div>
+      </section>
+
+      {/* SCORE HEADER (side by side) */}
+      <section style={{ ...card, display: "grid", gridTemplateColumns: "1fr 180px 1fr", alignItems: "center", gap: 12 }}>
+        <TeamHeader team={away} align="flex-start" />
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 32, fontWeight: 800 }}>
+            {(game.home_score ?? 0)} <span style={{ fontWeight: 400 }}>vs</span> {(game.away_score ?? 0)}
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <button className="btn" onClick={toggleFinal}>
+              {game.status === "final" ? t("Unfinal") : t("Final")}
+            </button>
           </div>
         </div>
-      </div>
+        <TeamHeader team={home} align="flex-end" />
+      </section>
 
-      {/* Events */}
-      <div className="card">
-        <h3 className="m0">{t("Events")}</h3>
-        <div style={{overflowX:"auto", marginTop:8}}>
-          <table>
-            <thead>
+      {/* EVENTS TABLE */}
+      <section style={card}>
+        <h3 style={{ marginTop: 0 }}>{t("Events")}</h3>
+        <div style={{ overflowX: "auto" }}>
+          <table style={tbl}>
+            <thead style={thead}>
               <tr>
-                <th style={{width:60}}>{t("Period")}</th>
-                <th style={{width:80}}>{t("Time")}</th>
-                <th style={{width:120}}>{t("Team")}</th>
-                <th style={{width:100}}>{t("Type")}</th>
-                <th>{t("Player")}</th>
-                <th style={{width:110}}>{t("Actions")}</th>
+                <th style={th}>{t("Period")}</th>
+                <th style={th}>{t("Time")}</th>
+                <th style={th}>{t("Team")}</th>
+                <th style={th}>{t("Type")}</th>
+                <th style={th}>{t("Player")}</th>
+                <th style={th}></th>
               </tr>
             </thead>
             <tbody>
-              {events.length===0 ? (
-                <tr><td colSpan={6} style={{opacity:.7}}>{t("No events yet.")}</td></tr>
-              ) : events.map(ev => {
-                const team = ev.team_id===game.home_team_id ? homeTeam : awayTeam;
-                return (
-                  <tr key={ev.id}>
-                    <td>{ev.period}</td>
-                    <td>{ev.time_mmss}</td>
-                    <td>{team?.short_name}</td>
-                    <td>{ev.event}</td>
-                    <td>{playerName(ev.player_id, ev.team_id)}</td>
-                    <td><button className="btn small danger" onClick={()=>deleteEvent(ev)}>{t("Delete")}</button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Rosters side-by-side */}
-      <div className="row" style={{gap:16, flexWrap:"wrap"}}>
-        <div className="card" style={{flex:"1 1 420px"}}>
-          <h3 className="m0">{awayTeam?.short_name} {t("Roster")}</h3>
-          <div style={{marginTop:8}}>
-            {awayPlayers.map(p=>{
-              const checked = awayRosterIds.has(p.id);
-              return (
-                <label key={p.id} className="row" style={{gap:8, alignItems:"center"}}>
-                  <input type="checkbox" checked={checked} onChange={(e)=>toggleRoster(game.away_team_id, p.id, e.target.checked)} />
-                  <span>{labelPlayer(p)} ({p.position||"-"})</span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="card" style={{flex:"1 1 420px"}}>
-          <h3 className="m0">{homeTeam?.short_name} {t("Roster")}</h3>
-          <div style={{marginTop:8}}>
-            {homePlayers.map(p=>{
-              const checked = homeRosterIds.has(p.id);
-              return (
-                <label key={p.id} className="row" style={{gap:8, alignItems:"center"}}>
-                  <input type="checkbox" checked={checked} onChange={(e)=>toggleRoster(game.home_team_id, p.id, e.target.checked)} />
-                  <span>{labelPlayer(p)} ({p.position||"-"})</span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+              {events.length === 0 ? (
+                <tr><td style={td} colSpan={6}>{t("No events yet.")}</td></tr>
+              ) : events.map((e) => (
+                <tr key={e.id}>
+                  <td style={td}>{e.period}</td>
+                  <td style={td}>{e.time_mmss}</td>
+                  <td style={td}>{e.team_code}</td>
+                  <td style={td}>{e.eventanalysis
+::contentReference[oaicite:0]{index=0}
