@@ -3,7 +3,6 @@ import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
-// ---------- helpers ----------
 function fmtMMSS(totalSeconds) {
   const mm = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
   const ss = Math.floor(totalSeconds % 60).toString().padStart(2, "0");
@@ -13,27 +12,13 @@ function parseMMSS(mmss) {
   const [m, s] = (mmss || "00:00").split(":").map((x) => parseInt(x || "0", 10));
   return (m || 0) * 60 + (s || 0);
 }
-
-/** Group raw events so a goal + its assists are displayed as a single row. */
 function groupEvents(raw) {
   const key = (e) => `${e.period}|${e.time_mmss}|${e.team_id}|goal`;
   const goals = new Map();
-
-  for (const e of raw) {
-    if (e.event === "goal") {
-      goals.set(key(e), { goal: e, assists: [] });
-    }
-  }
-  for (const e of raw) {
-    if (e.event === "assist") {
-      const k = key(e);
-      if (goals.has(k)) goals.get(k).assists.push(e);
-    }
-  }
+  for (const e of raw) if (e.event === "goal") goals.set(key(e), { goal: e, assists: [] });
+  for (const e of raw) if (e.event === "assist" && goals.has(key(e))) goals.get(key(e)).assists.push(e);
   const others = raw.filter((e) => e.event !== "goal" && e.event !== "assist");
   const rows = [...goals.values(), ...others.map((o) => ({ single: o }))];
-
-  // sort by period asc, time desc (15:00 -> 00:00)
   rows.sort((a, b) => {
     const aP = a.goal ? a.goal.period : a.single.period;
     const bP = b.goal ? b.goal.period : b.single.period;
@@ -47,35 +32,28 @@ function groupEvents(raw) {
 
 export default function GameDetailPage() {
   const { slug } = useParams();
-
   const [loading, setLoading] = React.useState(true);
   const [game, setGame] = React.useState(null);
   const [home, setHome] = React.useState(null);
   const [away, setAway] = React.useState(null);
-
   const [playersHome, setPlayersHome] = React.useState([]);
   const [playersAway, setPlayersAway] = React.useState([]);
-
-  // roster = set of player_id currently IN for this game
   const [roster, setRoster] = React.useState(new Set());
 
   const [events, setEvents] = React.useState([]);
   const [rows, setRows] = React.useState([]);
 
-  // live inputs
-  const [teamSide, setTeamSide] = React.useState("home"); // "home" | "away"
-  const [eventType, setEventType] = React.useState("goal"); // goal|assist|penalty|shot
+  const [teamSide, setTeamSide] = React.useState("home");
+  const [eventType, setEventType] = React.useState("goal");
   const [period, setPeriod] = React.useState(1);
   const [timeMMSS, setTimeMMSS] = React.useState("15:00");
   const [scorerId, setScorerId] = React.useState(null);
   const [a1Id, setA1Id] = React.useState(null);
   const [a2Id, setA2Id] = React.useState(null);
 
-  // goalie on ice for quick shots +/-
   const [goalieHome, setGoalieHome] = React.useState(null);
   const [goalieAway, setGoalieAway] = React.useState(null);
 
-  // clock
   const [clockSecs, setClockSecs] = React.useState(15 * 60);
   const [clockRun, setClockRun] = React.useState(false);
 
@@ -85,25 +63,16 @@ export default function GameDetailPage() {
     return () => clearInterval(t);
   }, [clockRun]);
 
-  // ---------- initial load ----------
   React.useEffect(() => {
     (async () => {
       setLoading(true);
-
-      // game
-      const { data: g, error: ge } = await supabase
-        .from("games")
-        .select("*")
-        .eq("slug", slug)
-        .single();
+      const { data: g, error: ge } = await supabase.from("games").select("*").eq("slug", slug).single();
       if (ge) {
         alert(ge.message);
         setLoading(false);
         return;
       }
       setGame(g);
-
-      // teams
       const [h, a] = await Promise.all([
         supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
@@ -111,31 +80,17 @@ export default function GameDetailPage() {
       setHome(h.data);
       setAway(a.data);
 
-      // rosters (team players)
       const [ph, pa] = await Promise.all([
-        supabase
-          .from("players")
-          .select("*")
-          .eq("team_id", g.home_team_id)
-          .order("number", { ascending: true }),
-        supabase
-          .from("players")
-          .select("*")
-          .eq("team_id", g.away_team_id)
-          .order("number", { ascending: true }),
+        supabase.from("players").select("*").eq("team_id", g.home_team_id).order("number"),
+        supabase.from("players").select("*").eq("team_id", g.away_team_id).order("number"),
       ]);
       setPlayersHome(ph.data || []);
       setPlayersAway(pa.data || []);
 
-      // IN roster for this game
-      const { data: gr } = await supabase
-        .from("game_rosters")
-        .select("player_id")
-        .eq("game_id", g.id);
+      const { data: gr } = await supabase.from("game_rosters").select("player_id").eq("game_id", g.id);
       setRoster(new Set((gr || []).map((r) => r.player_id)));
 
       await reloadEvents(g.id);
-
       setLoading(false);
     })();
   }, [slug]);
@@ -156,7 +111,6 @@ export default function GameDetailPage() {
     setRows(groupEvents(ev || []));
   }
 
-  // ----- helpers for side/team/players -----
   function playersFor(side) {
     return side === "home" ? playersHome : playersAway;
   }
@@ -174,7 +128,6 @@ export default function GameDetailPage() {
     }
     return { hs, as };
   }
-
   async function syncScore(ev) {
     if (!game) return;
     const { hs, as } = computeScore(ev);
@@ -182,22 +135,13 @@ export default function GameDetailPage() {
     setGame((x) => ({ ...x, home_score: hs, away_score: as }));
   }
 
-  // ---------- add event (1 to 3 inserts in a single click) ----------
   async function onAddEvent() {
     if (!game) return;
-
     const team_id = teamIdFor(teamSide);
     if (!team_id) return;
 
-    const base = {
-      game_id: game.id,
-      team_id,
-      period: Number(period),
-      time_mmss: timeMMSS,
-    };
-
+    const base = { game_id: game.id, team_id, period: Number(period), time_mmss: timeMMSS };
     const batch = [];
-
     if (eventType === "goal") {
       if (!scorerId) return alert("Select the scorer.");
       batch.push({ ...base, event: "goal", player_id: scorerId });
@@ -217,13 +161,11 @@ export default function GameDetailPage() {
     const { error } = await supabase.from("events").insert(batch);
     if (error) return alert(error.message);
 
-    // refresh + sync score
     const { data: refreshed } = await supabase.from("events").select("*").eq("game_id", game.id);
     await reloadEvents(game.id);
     await syncScore(refreshed || []);
   }
 
-  // ---------- delete a group (goal + assists) or a single row ----------
   async function deleteGroup(g) {
     const { period, time_mmss, team_id } = g.goal;
     await supabase
@@ -245,16 +187,11 @@ export default function GameDetailPage() {
     await syncScore(refreshed || []);
   }
 
-  // ---------- roster toggle IN/OUT ----------
   async function toggleRoster(player) {
     if (!game) return;
     const on = roster.has(player.id);
     if (on) {
-      await supabase
-        .from("game_rosters")
-        .delete()
-        .eq("game_id", game.id)
-        .eq("player_id", player.id);
+      await supabase.from("game_rosters").delete().eq("game_id", game.id).eq("player_id", player.id);
       const next = new Set(roster);
       next.delete(player.id);
       setRoster(next);
@@ -271,11 +208,9 @@ export default function GameDetailPage() {
     }
   }
 
-  // ---------- quick shots +/- to goalie_on_ice row ----------
   async function deltaShot(side, delta) {
     const pid = side === "home" ? goalieHome : goalieAway;
     if (!pid || !game) return;
-
     const team_id = side === "home" ? game.home_team_id : game.away_team_id;
 
     const { data: row } = await supabase
@@ -286,19 +221,16 @@ export default function GameDetailPage() {
       .maybeSingle();
 
     const shots = Math.max(0, (row?.shots_against || 0) + delta);
-    if (row) {
-      await supabase.from("game_goalies").update({ shots_against: shots }).eq("id", row.id);
-    } else {
+    if (row) await supabase.from("game_goalies").update({ shots_against: shots }).eq("id", row.id);
+    else
       await supabase.from("game_goalies").insert({
         game_id: game.id,
         team_id,
         player_id: pid,
         shots_against: Math.max(0, delta),
       });
-    }
   }
 
-  // ---------- mark final / reopen ----------
   async function markFinal(next) {
     if (!game) return;
     await supabase.from("games").update({ status: next ? "final" : "open" }).eq("id", game.id);
@@ -309,18 +241,29 @@ export default function GameDetailPage() {
 
   const homeScore = game.home_score || 0;
   const awayScore = game.away_score || 0;
-
   const sidePlayers = playersFor(teamSide);
 
+  // --- shared UI styles (alignment + accessible colors) ---
+  const card = { padding: 12, border: "1px solid #e6e9f5", borderRadius: 10, background: "#fff" };
+  const grid6 = { display: "grid", gridTemplateColumns: "repeat(6, minmax(140px, 1fr))", gap: 10 };
+  const pill = (on) => ({
+    padding: "6px 12px",
+    borderRadius: 999,
+    border: `1px solid ${on ? "#2c5fff" : "#c9d6ff"}`,
+    background: on ? "#2c5fff" : "#f6f8ff",
+    color: on ? "#fff" : "#1b2b5c",
+    fontWeight: 600,
+    boxShadow: on ? "0 2px 0 rgba(44,95,255,.2)" : "none",
+  });
+
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: 16 }}>
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
       <Link to="/games">← Back to Games</Link>
 
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
         <div>
           <strong>LIVE •</strong> {new Date(game.game_date).toLocaleDateString()}
         </div>
-
         <div>
           {game.status === "final" ? (
             <button onClick={() => markFinal(false)}>Reopen</button>
@@ -331,8 +274,8 @@ export default function GameDetailPage() {
       </div>
 
       {/* Controls */}
-      <div style={{ marginTop: 12, padding: 12, border: "1px solid #eee", borderRadius: 8 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
+      <div style={{ marginTop: 12, ...card }}>
+        <div style={grid6}>
           <div>
             <div>Team</div>
             <select value={teamSide} onChange={(e) => setTeamSide(e.target.value)}>
@@ -353,10 +296,7 @@ export default function GameDetailPage() {
 
           <div>
             <div>{eventType === "goal" ? "Scorer" : eventType === "assist" ? "Assisting Player" : "Player"}</div>
-            <select
-              value={scorerId || ""}
-              onChange={(e) => setScorerId(e.target.value ? Number(e.target.value) : null)}
-            >
+            <select value={scorerId || ""} onChange={(e) => setScorerId(e.target.value ? Number(e.target.value) : null)}>
               <option value="">—</option>
               {sidePlayers.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -422,7 +362,6 @@ export default function GameDetailPage() {
             </button>
           </div>
 
-          {/* Quick shots +/- */}
           <div style={{ gridColumn: "1 / span 6", display: "flex", gap: 8, marginTop: 6 }}>
             <button onClick={() => deltaShot("home", +1)}>{home.short_name} Shot +</button>
             <button onClick={() => deltaShot("home", -1)}>{home.short_name} Shot –</button>
@@ -430,13 +369,9 @@ export default function GameDetailPage() {
             <button onClick={() => deltaShot("away", -1)}>{away.short_name} Shot –</button>
           </div>
 
-          {/* Goalie on ice (for shot +/– target) */}
           <div>
             <div>{home.short_name} Goalie on ice</div>
-            <select
-              value={goalieHome || ""}
-              onChange={(e) => setGoalieHome(e.target.value ? Number(e.target.value) : null)}
-            >
+            <select value={goalieHome || ""} onChange={(e) => setGoalieHome(e.target.value ? Number(e.target.value) : null)}>
               <option value="">—</option>
               {playersHome.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -447,10 +382,7 @@ export default function GameDetailPage() {
           </div>
           <div>
             <div>{away.short_name} Goalie on ice</div>
-            <select
-              value={goalieAway || ""}
-              onChange={(e) => setGoalieAway(e.target.value ? Number(e.target.value) : null)}
-            >
+            <select value={goalieAway || ""} onChange={(e) => setGoalieAway(e.target.value ? Number(e.target.value) : null)}>
               <option value="">—</option>
               {playersAway.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -460,7 +392,6 @@ export default function GameDetailPage() {
             </select>
           </div>
 
-          {/* Clock */}
           <div>
             <div>Clock</div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -486,78 +417,54 @@ export default function GameDetailPage() {
         </div>
       </div>
 
-      {/* Score line */}
+      {/* Score strip */}
       <div
         style={{
           marginTop: 14,
-          padding: 12,
-          border: "1px solid #eee",
-          borderRadius: 8,
+          ...card,
           display: "grid",
-          gridTemplateColumns: "1fr 100px 1fr",
+          gridTemplateColumns: "1fr 120px 1fr",
           alignItems: "center",
           textAlign: "center",
         }}
       >
         <div>
-          <div style={{ fontWeight: 600 }}>{home.name}</div>
-          <div style={{ color: "#666", fontSize: 12 }}>{home.short_name}</div>
+          <div style={{ fontWeight: 700 }}>{home.name}</div>
+          <div style={{ color: "#667", fontSize: 12 }}>{home.short_name}</div>
+        </div>
+        <div style={{ fontSize: 24, fontWeight: 800 }}>
+          {homeScore} <span style={{ color: "#9aa" }}>vs</span> {awayScore}
         </div>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>
-            {homeScore} <span style={{ color: "#999", fontWeight: 400 }}>vs</span> {awayScore}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontWeight: 600 }}>{away.name}</div>
-          <div style={{ color: "#666", fontSize: 12 }}>{away.short_name}</div>
+          <div style={{ fontWeight: 700 }}>{away.name}</div>
+          <div style={{ color: "#667", fontSize: 12 }}>{away.short_name}</div>
         </div>
       </div>
 
-      {/* Roster toggles (click to mark IN/OUT) */}
-      <div style={{ marginTop: 16, padding: 12, border: "1px solid #eee", borderRadius: 8 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Roster (toggle players IN)</div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      {/* Roster toggles */}
+      <div style={{ marginTop: 16, ...card }}>
+        <div style={{ fontWeight: 800, marginBottom: 8 }}>Roster (toggle players IN)</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <div>
-            <div style={{ color: "#666", marginBottom: 6 }}>{home.name}</div>
+            <div style={{ color: "#667", marginBottom: 8 }}>{home.name}</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {playersHome.map((p) => {
                 const on = roster.has(p.id);
                 return (
-                  <button
-                    key={p.id}
-                    onClick={() => toggleRoster(p)}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 999,
-                      border: `1px solid ${on ? "#3b5fff" : "#ddd"}`,
-                      background: on ? "#eef2ff" : "white",
-                    }}
-                  >
+                  <button key={p.id} onClick={() => toggleRoster(p)} style={pill(on)}>
                     #{p.number} {p.name}
                   </button>
                 );
               })}
             </div>
           </div>
-
           <div>
-            <div style={{ color: "#666", marginBottom: 6 }}>{away.name}</div>
+            <div style={{ color: "#667", marginBottom: 8 }}>{away.name}</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {playersAway.map((p) => {
                 const on = roster.has(p.id);
                 return (
-                  <button
-                    key={p.id}
-                    onClick={() => toggleRoster(p)}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 999,
-                      border: `1px solid ${on ? "#3b5fff" : "#ddd"}`,
-                      background: on ? "#eef2ff" : "white",
-                    }}
-                  >
+                  <button key={p.id} onClick={() => toggleRoster(p)} style={pill(on)}>
                     #{p.number} {p.name}
                   </button>
                 );
@@ -567,10 +474,9 @@ export default function GameDetailPage() {
         </div>
       </div>
 
-      {/* Events (grouped; goals show assists on single line) */}
-      <div style={{ marginTop: 16, padding: 12, border: "1px solid #eee", borderRadius: 8 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Events</div>
-
+      {/* Events */}
+      <div style={{ marginTop: 16, ...card }}>
+        <div style={{ fontWeight: 800, marginBottom: 8 }}>Events</div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ textAlign: "left", color: "#666" }}>
@@ -590,24 +496,17 @@ export default function GameDetailPage() {
                 </td>
               </tr>
             )}
-
             {rows.map((r, i) => {
               if (r.goal) {
-                const teamShort =
-                  r.goal.team_id === home.id ? home.short_name : away.short_name;
+                const teamShort = r.goal.team_id === home.id ? home.short_name : away.short_name;
                 const main =
                   r.goal.players?.name ||
                   (r.goal.players?.number ? `#${r.goal.players.number}` : "—");
                 const assists = r.assists
-                  .map(
-                    (a) =>
-                      a.players?.name ||
-                      (a.players?.number ? `#${a.players.number}` : "—")
-                  )
+                  .map((a) => a.players?.name || (a.players?.number ? `#${a.players.number}` : "—"))
                   .join(", ");
-
                 return (
-                  <tr key={`g${i}`} style={{ borderTop: "1px solid #f1f1f1" }}>
+                  <tr key={`g${i}`} style={{ borderTop: "1px solid #f1f1f5" }}>
                     <td style={{ padding: 8 }}>{r.goal.period}</td>
                     <td style={{ padding: 8 }}>{r.goal.time_mmss}</td>
                     <td style={{ padding: 8 }}>{teamShort}</td>
@@ -624,11 +523,9 @@ export default function GameDetailPage() {
               } else {
                 const e = r.single;
                 const teamShort = e.team_id === home.id ? home.short_name : away.short_name;
-                const nm =
-                  e.players?.name ||
-                  (e.players?.number ? `#${e.players.number}` : "—");
+                const nm = e.players?.name || (e.players?.number ? `#${e.players.number}` : "—");
                 return (
-                  <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f1f1f1" }}>
+                  <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f1f1f5" }}>
                     <td style={{ padding: 8 }}>{e.period}</td>
                     <td style={{ padding: 8 }}>{e.time_mmss}</td>
                     <td style={{ padding: 8 }}>{teamShort}</td>
