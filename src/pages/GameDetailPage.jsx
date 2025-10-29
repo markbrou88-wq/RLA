@@ -1,696 +1,586 @@
 // src/pages/GameDetailPage.jsx
 import React from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
-// ---------- Config (edit here only if your schema differs) ----------
-const ROSTERS_TABLE = "game_rosters";          // public.game_rosters
-const ROSTER_ACTIVE_COL = "active";            // boolean column
-const EVENTS_TABLE = "events";                 // public.events
-const GAMES_TABLE = "games";                   // public.games
-const PLAYERS_TABLE = "players";               // public.players
-const TEAMS_TABLE = "teams";                   // public.teams
-
-// UI helpers
-const Pill = ({ active, children, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`roster-pill ${active ? "in" : "out"}`}
-    type="button"
-  >
-    {children}
-  </button>
-);
-
-const SectionCard = ({ title, right, children }) => (
-  <div className="card">
-    <div className="card-head">
-      <h3>{title}</h3>
-      <div>{right}</div>
-    </div>
-    <div className="card-body">{children}</div>
-  </div>
-);
+function fmtMMSS(totalSeconds) {
+  const mm = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const ss = Math.floor(totalSeconds % 60).toString().padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+function parseMMSS(mmss) {
+  const [m, s] = (mmss || "00:00").split(":").map((x) => parseInt(x || "0", 10));
+  return (m || 0) * 60 + (s || 0);
+}
+function groupEvents(raw) {
+  const key = (e) => `${e.period}|${e.time_mmss}|${e.team_id}|goal`;
+  const goals = new Map();
+  for (const e of raw) if (e.event === "goal") goals.set(key(e), { goal: e, assists: [] });
+  for (const e of raw) if (e.event === "assist" && goals.has(key(e))) goals.get(key(e)).assists.push(e);
+  const others = raw.filter((e) => e.event !== "goal" && e.event !== "assist");
+  const rows = [...goals.values(), ...others.map((o) => ({ single: o }))];
+  rows.sort((a, b) => {
+    const aP = a.goal ? a.goal.period : a.single.period;
+    const bP = b.goal ? b.goal.period : b.single.period;
+    if (aP !== bP) return aP - bP;
+    const aT = parseMMSS(a.goal ? a.goal.time_mmss : a.single.time_mmss);
+    const bT = parseMMSS(b.goal ? b.goal.time_mmss : b.single.time_mmss);
+    return bT - aT;
+  });
+  return rows;
+}
 
 export default function GameDetailPage() {
   const { slug } = useParams();
-  const navigate = useNavigate();
-
-  // ---------- state ----------
   const [loading, setLoading] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
-
   const [game, setGame] = React.useState(null);
-  const [homeTeam, setHomeTeam] = React.useState(null);
-  const [awayTeam, setAwayTeam] = React.useState(null);
+  const [home, setHome] = React.useState(null);
+  const [away, setAway] = React.useState(null);
+  const [playersHome, setPlayersHome] = React.useState([]);
+  const [playersAway, setPlayersAway] = React.useState([]);
+  const [roster, setRoster] = React.useState(new Set());
 
-  const [homePlayers, setHomePlayers] = React.useState([]); // [{id, number, name, position}]
-  const [awayPlayers, setAwayPlayers] = React.useState([]);
-
-  // active roster (player ids) for this game
-  const [homeActive, setHomeActive] = React.useState(new Set());
-  const [awayActive, setAwayActive] = React.useState(new Set());
-
-  // events
   const [events, setEvents] = React.useState([]);
+  const [rows, setRows] = React.useState([]);
 
-  // event form
-  const [efTeam, setEfTeam] = React.useState("home"); // 'home'|'away'
-  const [efType, setEfType] = React.useState("goal"); // goal|assist|penalty
-  const [efScorer, setEfScorer] = React.useState(null);
-  const [efAssist1, setEfAssist1] = React.useState(null);
-  const [efAssist2, setEfAssist2] = React.useState(null);
-  const [efPeriod, setEfPeriod] = React.useState(1);
-  const [efTime, setEfTime] = React.useState("15:00");
+  const [teamSide, setTeamSide] = React.useState("home");
+  const [eventType, setEventType] = React.useState("goal");
+  const [period, setPeriod] = React.useState(1);
+  const [timeMMSS, setTimeMMSS] = React.useState("15:00");
+  const [scorerId, setScorerId] = React.useState(null);
+  const [a1Id, setA1Id] = React.useState(null);
+  const [a2Id, setA2Id] = React.useState(null);
 
-  // scoreboard/clock
-  const [clockRunning, setClockRunning] = React.useState(false);
-  const [clock, setClock] = React.useState(900); // seconds; default 15:00
-  const [periodLenMin, setPeriodLenMin] = React.useState(15);
+  const [goalieHome, setGoalieHome] = React.useState(null);
+  const [goalieAway, setGoalieAway] = React.useState(null);
 
-  // ---------- derived ----------
-  const gameId = game?.id;
-  const homeId = homeTeam?.id;
-  const awayId = awayTeam?.id;
+  const [clockSecs, setClockSecs] = React.useState(15 * 60);
+  const [clockRun, setClockRun] = React.useState(false);
 
-  // map helpers
-  const homePlayersMap = React.useMemo(
-    () => new Map(homePlayers.map((p) => [p.id, p])),
-    [homePlayers]
-  );
-  const awayPlayersMap = React.useMemo(
-    () => new Map(awayPlayers.map((p) => [p.id, p])),
-    [awayPlayers]
-  );
-
-  // ---------- effects ----------
   React.useEffect(() => {
-    let mounted = true;
+    let t;
+    if (clockRun) t = setInterval(() => setClockSecs((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [clockRun]);
+
+  React.useEffect(() => {
     (async () => {
       setLoading(true);
-
-      // 1) load game + teams
-      const { data: g, error: ge } = await supabase
-        .from(GAMES_TABLE)
-        .select(
-          "id, slug, status, game_date, home_team_id, away_team_id, home_score, away_score"
-        )
-        .eq("slug", slug)
-        .single();
-
+      const { data: g, error: ge } = await supabase.from("games").select("*").eq("slug", slug).single();
       if (ge) {
         alert(ge.message);
         setLoading(false);
         return;
       }
-
-      if (!mounted) return;
-
       setGame(g);
+      const [h, a] = await Promise.all([
+        supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
+        supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
+      ]);
+      setHome(h.data);
+      setAway(a.data);
 
-      const { data: teams, error: te } = await supabase
-        .from(TEAMS_TABLE)
-        .select("id, name, short_name, logo_url")
-        .in("id", [g.home_team_id, g.away_team_id]);
+      const [ph, pa] = await Promise.all([
+        supabase.from("players").select("*").eq("team_id", g.home_team_id).order("number"),
+        supabase.from("players").select("*").eq("team_id", g.away_team_id).order("number"),
+      ]);
+      setPlayersHome(ph.data || []);
+      setPlayersAway(pa.data || []);
 
-      if (te) {
-        alert(te.message);
-        setLoading(false);
-        return;
-      }
+      const { data: gr } = await supabase.from("game_rosters").select("player_id").eq("game_id", g.id);
+      setRoster(new Set((gr || []).map((r) => r.player_id)));
 
-      const ht = teams.find((t) => t.id === g.home_team_id);
-      const at = teams.find((t) => t.id === g.away_team_id);
-      setHomeTeam(ht);
-      setAwayTeam(at);
-
-      // 2) load players by team
-      const { data: hp, error: hpe } = await supabase
-        .from(PLAYERS_TABLE)
-        .select("id, number, name, position, team_id")
-        .eq("team_id", g.home_team_id)
-        .order("number", { ascending: true });
-
-      if (hpe) {
-        alert(hpe.message);
-        setLoading(false);
-        return;
-      }
-      setHomePlayers(hp ?? []);
-
-      const { data: ap, error: ape } = await supabase
-        .from(PLAYERS_TABLE)
-        .select("id, number, name, position, team_id")
-        .eq("team_id", g.away_team_id)
-        .order("number", { ascending: true });
-
-      if (ape) {
-        alert(ape.message);
-        setLoading(false);
-        return;
-      }
-
-      setAwayPlayers(ap ?? []);
-
-      // 3) load active roster from game_rosters
-      const { data: ros, error: re } = await supabase
-        .from(ROSTERS_TABLE)
-        .select("player_id, team_id, active")
-        .eq("game_id", g.id);
-
-      if (re) {
-        alert(re.message);
-        setLoading(false);
-        return;
-      }
-      const hActive = new Set(
-        (ros ?? [])
-          .filter((r) => r.team_id === g.home_team_id && r[ROSTER_ACTIVE_COL])
-          .map((r) => r.player_id)
-      );
-      const aActive = new Set(
-        (ros ?? [])
-          .filter((r) => r.team_id === g.away_team_id && r[ROSTER_ACTIVE_COL])
-          .map((r) => r.player_id)
-      );
-
-      setHomeActive(hActive);
-      setAwayActive(aActive);
-
-      // 4) load events for the table
-      await refreshEvents(g.id);
-
+      await reloadEvents(g.id);
       setLoading(false);
-
-      // 5) Realtime on roster row changes
-      const chan = supabase
-        .channel(`roster-${g.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: ROSTERS_TABLE,
-            filter: `game_id=eq.${g.id}`,
-          },
-          async () => {
-            // Reload rosters; simplest + safest
-            const { data: ros2 } = await supabase
-              .from(ROSTERS_TABLE)
-              .select("player_id, team_id, active")
-              .eq("game_id", g.id);
-
-            if (!ros2) return;
-            const hA = new Set(
-              ros2
-                .filter((r) => r.team_id === g.home_team_id && r[ROSTER_ACTIVE_COL])
-                .map((r) => r.player_id)
-            );
-            const aA = new Set(
-              ros2
-                .filter((r) => r.team_id === g.away_team_id && r[ROSTER_ACTIVE_COL])
-                .map((r) => r.player_id)
-            );
-            setHomeActive(hA);
-            setAwayActive(aA);
-          }
-        )
-        .subscribe();
-
-      // 6) Realtime on events
-      const chan2 = supabase
-        .channel(`events-${g.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: EVENTS_TABLE,
-            filter: `game_id=eq.${g.id}`,
-          },
-          () => refreshEvents(g.id)
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(chan);
-        supabase.removeChannel(chan2);
-      };
     })();
-
-    return () => {
-      mounted = false;
-    };
   }, [slug]);
 
-  // simple ticking clock
-  React.useEffect(() => {
-    if (!clockRunning) return;
-    const id = setInterval(() => {
-      setClock((c) => Math.max(0, c - 1));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [clockRunning]);
-
-  async function refreshEvents(gid = gameId) {
-    if (!gid) return;
-    const { data, error } = await supabase
-      .from(EVENTS_TABLE)
+  async function reloadEvents(gameId) {
+    const { data: ev } = await supabase
+      .from("events")
       .select(
-        "id, game_id, team_id, player_id, period, time_mmss, event, assist1_id, assist2_id, players!events_player_id_fkey(name,number), a1:players!events_assist1_id_fkey(name,number), a2:players!events_assist2_id_fkey(name,number)"
+        `
+        id, game_id, team_id, player_id, period, time_mmss, event,
+        players!events_player_id_fkey ( id, name, number )
+      `
       )
-      .eq("game_id", gid)
+      .eq("game_id", gameId)
       .order("period", { ascending: true })
-      .order("time_mmss", { ascending: true });
-
-    if (!error) setEvents(data ?? []);
+      .order("time_mmss", { ascending: false });
+    setEvents(ev || []);
+    setRows(groupEvents(ev || []));
   }
 
-  // ---------- formatting ----------
-  function fmtClock(secs) {
-    const m = Math.floor(secs / 60)
-      .toString()
-      .padStart(2, "0");
-    const s = (secs % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
+  function playersFor(side) {
+    return side === "home" ? playersHome : playersAway;
+  }
+  function teamIdFor(side) {
+    return side === "home" ? game?.home_team_id : game?.away_team_id;
   }
 
-  // ---------- roster toggle ----------
-  async function togglePlayer(player, team) {
-    if (!gameId) return;
-    const isHome = team === "home";
-    const teamId = isHome ? homeId : awayId;
-    const activeSet = isHome ? new Set(homeActive) : new Set(awayActive);
-    const isActive = activeSet.has(player.id);
-    const nextActive = !isActive;
-
-    // Optimistic UI
-    if (nextActive) activeSet.add(player.id);
-    else activeSet.delete(player.id);
-    isHome ? setHomeActive(activeSet) : setAwayActive(activeSet);
-
-    setSaving(true);
-    const { error } = await supabase
-      .from(ROSTERS_TABLE)
-      .upsert(
-        [
-          {
-            game_id: gameId,
-            team_id: teamId,
-            player_id: player.id,
-            [ROSTER_ACTIVE_COL]: nextActive,
-          },
-        ],
-        { onConflict: "game_id,player_id" }
-      )
-      .select();
-
-    if (error) {
-      alert(error.message);
-      // rollback optimistic
-      const rollback = new Set(isHome ? homeActive : awayActive);
-      isHome ? setHomeActive(rollback) : setAwayActive(rollback);
+  function computeScore(ev) {
+    let hs = 0,
+      as = 0;
+    for (const e of ev) {
+      if (e.event !== "goal") continue;
+      if (e.team_id === game.home_team_id) hs += 1;
+      else if (e.team_id === game.away_team_id) as += 1;
     }
-    setSaving(false);
+    return { hs, as };
+  }
+  async function syncScore(ev) {
+    if (!game) return;
+    const { hs, as } = computeScore(ev);
+    await supabase.from("games").update({ home_score: hs, away_score: as }).eq("id", game.id);
+    setGame((x) => ({ ...x, home_score: hs, away_score: as }));
   }
 
-  // ---------- add event ----------
-  async function addEvent() {
-    if (!gameId) return;
-    const teamId = efTeam === "home" ? homeId : awayId;
-    if (!teamId || !efScorer) return;
+  async function onAddEvent() {
+    if (!game) return;
+    const team_id = teamIdFor(teamSide);
+    if (!team_id) return;
 
-    setSaving(true);
-    const ins = {
-      game_id: gameId,
-      team_id: teamId,
-      event: efType, // 'goal'|'assist'|'penalty'
-      player_id: efScorer,
-      assist1_id: efAssist1 || null,
-      assist2_id: efAssist2 || null,
-      period: efPeriod,
-      time_mmss: efTime,
-    };
-    const { error } = await supabase.from(EVENTS_TABLE).insert([ins]);
-    setSaving(false);
+    const base = { game_id: game.id, team_id, period: Number(period), time_mmss: timeMMSS };
+    const batch = [];
+    if (eventType === "goal") {
+      if (!scorerId) return alert("Select the scorer.");
+      batch.push({ ...base, event: "goal", player_id: scorerId });
+      if (a1Id) batch.push({ ...base, event: "assist", player_id: a1Id });
+      if (a2Id) batch.push({ ...base, event: "assist", player_id: a2Id });
+    } else if (eventType === "assist") {
+      if (!scorerId) return alert("Select the assisting player.");
+      batch.push({ ...base, event: "assist", player_id: scorerId });
+    } else if (eventType === "penalty") {
+      if (!scorerId) return alert("Select penalized player.");
+      batch.push({ ...base, event: "penalty", player_id: scorerId });
+    } else if (eventType === "shot") {
+      if (!scorerId) return alert("Select shooter.");
+      batch.push({ ...base, event: "shot", player_id: scorerId });
+    }
+
+    const { error } = await supabase.from("events").insert(batch);
+    if (error) return alert(error.message);
+
+    const { data: refreshed } = await supabase.from("events").select("*").eq("game_id", game.id);
+    await reloadEvents(game.id);
+    await syncScore(refreshed || []);
+  }
+
+  async function deleteGroup(g) {
+    const { period, time_mmss, team_id } = g.goal;
+    await supabase
+      .from("events")
+      .delete()
+      .eq("game_id", game.id)
+      .eq("period", period)
+      .eq("time_mmss", time_mmss)
+      .eq("team_id", team_id);
+
+    const { data: refreshed } = await supabase.from("events").select("*").eq("game_id", game.id);
+    await reloadEvents(game.id);
+    await syncScore(refreshed || []);
+  }
+  async function deleteSingle(row) {
+    await supabase.from("events").delete().eq("id", row.single.id);
+    const { data: refreshed } = await supabase.from("events").select("*").eq("game_id", game.id);
+    await reloadEvents(game.id);
+    await syncScore(refreshed || []);
+  }
+
+  // IN GameDetailPage.jsx
+
+// --- ROSTER HELPERS (drop-in replacement) ---
+
+async function reloadRoster(gameId) {
+  const { data: gr, error: grErr } = await supabase
+    .from("game_rosters")
+    .select("player_id")
+    .eq("game_id", gameId);
+
+  if (grErr) {
+    alert(grErr.message);
+    return;
+  }
+  setRoster(new Set((gr || []).map((r) => r.player_id)));
+}
+
+async function toggleRoster(player) {
+  if (!game) return;
+
+  const on = roster.has(player.id);
+  if (on) {
+    // remove row -> player OUT
+    const { error } = await supabase
+      .from("game_rosters")
+      .delete()
+      .eq("game_id", game.id)
+      .eq("player_id", player.id);
+
     if (error) {
       alert(error.message);
       return;
     }
-    // refreshEvents triggered by realtime; still do local for snappy feel
-    await refreshEvents();
-  }
-
-  async function deleteEvent(id) {
-    if (!id) return;
-    await supabase.from(EVENTS_TABLE).delete().eq("id", id);
-  }
-
-  // ---------- final / reopen ----------
-  async function markFinal(next = true) {
-    if (!gameId) return;
+  } else {
+    // insert row if missing -> player IN
     const { error } = await supabase
-      .from(GAMES_TABLE)
-      .update({ status: next ? "final" : "open" })
-      .eq("id", gameId);
-    if (error) alert(error.message);
-    else setGame((g) => ({ ...g, status: next ? "final" : "open" }));
+      .from("game_rosters")
+      .upsert(
+        {
+          game_id: game.id,
+          team_id: player.team_id,
+          player_id: player.id,
+        },
+        // Make sure this matches the unique index you have (see SQL below)
+        { onConflict: "game_id,player_id" }
+      );
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
   }
 
-  // ---------- computed helpers ----------
-  function scorerOptions(isHome) {
-    const arr = isHome ? homePlayers : awayPlayers;
-    return arr.map((p) => (
-      <option key={p.id} value={p.id}>
-        #{p.number} — {p.name}
-      </option>
-    ));
+  await reloadRoster(game.id);
+}
+
+// (optional) call reloadRoster anywhere you need to re-sync cached roster;
+// e.g., it's already called after initial load in your effect.
+
+
+
+  async function deltaShot(side, delta) {
+    const pid = side === "home" ? goalieHome : goalieAway;
+    if (!pid || !game) return;
+    const team_id = side === "home" ? game.home_team_id : game.away_team_id;
+
+    const { data: row } = await supabase
+      .from("game_goalies")
+      .select("*")
+      .eq("game_id", game.id)
+      .eq("player_id", pid)
+      .maybeSingle();
+
+    const shots = Math.max(0, (row?.shots_against || 0) + delta);
+    if (row) await supabase.from("game_goalies").update({ shots_against: shots }).eq("id", row.id);
+    else
+      await supabase.from("game_goalies").insert({
+        game_id: game.id,
+        team_id,
+        player_id: pid,
+        shots_against: Math.max(0, delta),
+      });
   }
 
-  function renderEventRow(ev) {
-    const isHome = ev.team_id === homeId;
-    const scorer =
-      (isHome ? homePlayersMap : awayPlayersMap).get(ev.player_id) || {};
-    const a1 =
-      ev.assist1_id &&
-      ((isHome ? homePlayersMap : awayPlayersMap).get(ev.assist1_id) || {});
-    const a2 =
-      ev.assist2_id &&
-      ((isHome ? homePlayersMap : awayPlayersMap).get(ev.assist2_id) || {});
-
-    return (
-      <tr key={ev.id}>
-        <td>{ev.period}</td>
-        <td>{ev.time_mmss}</td>
-        <td style={{ fontWeight: 600, color: isHome ? "#2d5fff" : "#b32d2d" }}>
-          {isHome ? homeTeam?.short_name : awayTeam?.short_name}
-        </td>
-        <td>{ev.event}</td>
-        <td>
-          {scorer.number ? `#${scorer.number} — ` : ""}
-          {scorer.name}
-          {(a1?.name || a2?.name) && (
-            <span style={{ color: "#667", marginLeft: 6 }}>
-              {" "}
-              (A: {a1?.name ?? "-"}
-              {a2?.name ? `, ${a2.name}` : ""})
-            </span>
-          )}
-        </td>
-        <td style={{ textAlign: "right" }}>
-          <button className="link-danger" onClick={() => deleteEvent(ev.id)}>
-            Delete
-          </button>
-        </td>
-      </tr>
-    );
+  async function markFinal(next) {
+    if (!game) return;
+    await supabase.from("games").update({ status: next ? "final" : "open" }).eq("id", game.id);
+    setGame((g) => ({ ...g, status: next ? "final" : "open" }));
   }
 
-  // ---------- styles ----------
-  // These go well with your existing styles.css, but are scoped and safe.
-  const styles = `
-  .page-wrap {max-width: 1100px; margin: 0 auto; padding: 16px;}
-  .subtle { color:#666; font-size:12px; }
-  .grid { display:grid; gap:12px; }
-  .grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .grid.cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .card { background:#fff; border:1px solid #eee; border-radius:10px; padding:14px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
-  .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
-  .scorebar { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border:1px solid #eee; border-radius:10px; background:#fafbff; }
-  .team-side { width:48%; display:flex; align-items:center; gap:10px; justify-content:flex-start; }
-  .team-side.right { justify-content:flex-end; flex-direction:row-reverse; }
-  .score { font-size:28px; font-weight:800; letter-spacing:1px; }
-  .mid-vs { font-weight:700; color:#999; }
-  .roster-pill { border-radius:999px; padding:8px 12px; font-size:13px; border:1px solid #d7d9e0; background:#f6f7fb; color:#374151; cursor:pointer; }
-  .roster-pill.in { background:#0f6; color:#064; border-color:#0a5; }
-  .roster-pill.out { background:#f4f5fa; color:#555; }
-  .link-danger { color:#b11; background:transparent; border:0; cursor:pointer; }
-  .kbtn { padding:8px 12px; border-radius:8px; border:1px solid #d6d6e2; background:#fff; cursor:pointer; }
-  .kbtn.primary { background:#3b5fff; color:#fff; border-color:#3b5fff; }
-  .kbtn.ghost { background:#f4f6ff; border-color:#dee3ff; color:#2a3aff; }
-  .mini { font-size:12px; padding:6px 10px }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th, td { border-bottom:1px solid #f0f0f5; padding:10px 8px; }
-  th { text-align:left; color:#555; font-weight:600; }
-  `;
+  if (loading || !game || !home || !away) return <div style={{ padding: 16 }}>Loading…</div>;
 
-  if (loading) {
-    return (
-      <div className="page-wrap">
-        <p>Loading…</p>
-      </div>
-    );
-  }
+  const homeScore = game.home_score || 0;
+  const awayScore = game.away_score || 0;
+  const sidePlayers = playersFor(teamSide);
+
+  // --- shared UI styles (alignment + accessible colors) ---
+  const card = { padding: 12, border: "1px solid #e6e9f5", borderRadius: 10, background: "#fff" };
+  const grid6 = { display: "grid", gridTemplateColumns: "repeat(6, minmax(140px, 1fr))", gap: 10 };
+  const pill = (on) => ({
+    padding: "6px 12px",
+    borderRadius: 999,
+    border: `1px solid ${on ? "#2c5fff" : "#c9d6ff"}`,
+    background: on ? "#2c5fff" : "#f6f8ff",
+    color: on ? "#fff" : "#1b2b5c",
+    fontWeight: 600,
+    boxShadow: on ? "0 2px 0 rgba(44,95,255,.2)" : "none",
+  });
 
   return (
-    <div className="page-wrap">
-      <style>{styles}</style>
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
+      <Link to="/games">← Back to Games</Link>
 
-      <div className="row" style={{ marginBottom: 8 }}>
-        <Link to="/games" className="kbtn mini">
-          ← Back to Games
-        </Link>
-        <span className="subtle">
-          <strong>{game?.status?.toUpperCase()}</strong> •{" "}
-          {new Date(game?.game_date).toLocaleDateString()}
-        </span>
-        <div style={{ marginLeft: "auto" }} className="row">
-          {game?.status === "final" ? (
-            <button className="kbtn ghost mini" onClick={() => markFinal(false)}>
-              Reopen
-            </button>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
+        <div>
+          <strong>LIVE •</strong> {new Date(game.game_date).toLocaleDateString()}
+        </div>
+        <div>
+          {game.status === "final" ? (
+            <button onClick={() => markFinal(false)}>Reopen</button>
           ) : (
-            <button className="kbtn primary mini" onClick={() => markFinal(true)}>
-              Final
-            </button>
+            <button onClick={() => markFinal(true)}>Final</button>
           )}
         </div>
       </div>
 
-      {/* ======= Controls ======= */}
-      <SectionCard
-        title="Live controls"
-        right={saving ? <span className="subtle">Saving…</span> : null}
-      >
-        <div className="grid cols-6" style={{ marginBottom: 10 }}>
+      {/* Controls */}
+      <div style={{ marginTop: 12, ...card }}>
+        <div style={grid6}>
           <div>
-            <div className="subtle">Team</div>
-            <select
-              value={efTeam}
-              onChange={(e) => setEfTeam(e.target.value)}
-              className="kbtn"
-            >
-              <option value="home">{homeTeam?.short_name}</option>
-              <option value="away">{awayTeam?.short_name}</option>
+            <div>Team</div>
+            <select value={teamSide} onChange={(e) => setTeamSide(e.target.value)}>
+              <option value="home">{home.short_name || "Home"}</option>
+              <option value="away">{away.short_name || "Away"}</option>
             </select>
           </div>
+
           <div>
-            <div className="subtle">Type</div>
-            <select
-              value={efType}
-              onChange={(e) => setEfType(e.target.value)}
-              className="kbtn"
-            >
+            <div>Type</div>
+            <select value={eventType} onChange={(e) => setEventType(e.target.value)}>
               <option value="goal">Goal</option>
               <option value="assist">Assist</option>
               <option value="penalty">Penalty</option>
+              <option value="shot">Shot</option>
             </select>
           </div>
+
           <div>
-            <div className="subtle">Scorer</div>
-            <select
-              className="kbtn"
-              value={efScorer ?? ""}
-              onChange={(e) => setEfScorer(Number(e.target.value))}
-            >
+            <div>{eventType === "goal" ? "Scorer" : eventType === "assist" ? "Assisting Player" : "Player"}</div>
+            <select value={scorerId || ""} onChange={(e) => setScorerId(e.target.value ? Number(e.target.value) : null)}>
               <option value="">—</option>
-              {scorerOptions(efTeam === "home")}
-            </select>
-          </div>
-          <div>
-            <div className="subtle">Assist 1</div>
-            <select
-              className="kbtn"
-              value={efAssist1 ?? ""}
-              onChange={(e) => setEfAssist1(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">None</option>
-              {scorerOptions(efTeam === "home")}
-            </select>
-          </div>
-          <div>
-            <div className="subtle">Assist 2</div>
-            <select
-              className="kbtn"
-              value={efAssist2 ?? ""}
-              onChange={(e) => setEfAssist2(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">None</option>
-              {scorerOptions(efTeam === "home")}
-            </select>
-          </div>
-          <div>
-            <div className="subtle">Period</div>
-            <select
-              className="kbtn"
-              value={efPeriod}
-              onChange={(e) => setEfPeriod(Number(e.target.value))}
-            >
-              {[1, 2, 3, 4].map((p) => (
-                <option key={p} value={p}>
-                  {p}
+              {sidePlayers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  #{p.number} — {p.name}
                 </option>
               ))}
             </select>
           </div>
-        </div>
 
-        <div className="row" style={{ gap: 12, marginBottom: 4 }}>
           <div>
-            <div className="subtle">Time (MM:SS)</div>
-            <input
-              className="kbtn"
-              value={efTime}
-              onChange={(e) => setEfTime(e.target.value)}
-              style={{ width: 90, textAlign: "center" }}
-            />
+            <div>Assist 1</div>
+            <select
+              value={a1Id || ""}
+              onChange={(e) => setA1Id(e.target.value ? Number(e.target.value) : null)}
+              disabled={eventType !== "goal"}
+            >
+              <option value="">None</option>
+              {sidePlayers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  #{p.number} — {p.name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <button className="kbtn ghost" onClick={() => setEfTime(fmtClock(clock))}>
-            Stamp clock
-          </button>
+          <div>
+            <div>Assist 2</div>
+            <select
+              value={a2Id || ""}
+              onChange={(e) => setA2Id(e.target.value ? Number(e.target.value) : null)}
+              disabled={eventType !== "goal"}
+            >
+              <option value="">None</option>
+              {sidePlayers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  #{p.number} — {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <button className="kbtn primary" onClick={addEvent}>
-            Add event
-          </button>
+          <div>
+            <div>Period</div>
+            <select value={period} onChange={(e) => setPeriod(Number(e.target.value))}>
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+              <option value={4}>OT</option>
+            </select>
+          </div>
 
-          <div style={{ marginLeft: "auto" }} className="row">
-            <div className="subtle">Clock</div>
-            <div className="row">
-              <div className="kbtn mini" style={{ width: 76, textAlign: "center" }}>
-                {fmtClock(clock)}
-              </div>
-              <button
-                className="kbtn mini"
-                onClick={() => setClockRunning((v) => !v)}
-                title={clockRunning ? "Stop" : "Start"}
-              >
-                {clockRunning ? "Stop" : "Start"}
-              </button>
-              <button
-                className="kbtn mini"
-                onClick={() => setClock(periodLenMin * 60)}
-                title="Reset"
-              >
-                Reset
-              </button>
+          <div>
+            <div>Time (MM:SS)</div>
+            <input value={timeMMSS} onChange={(e) => setTimeMMSS(e.target.value)} />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "end", gap: 6 }}>
+            <button type="button" onClick={() => setTimeMMSS(fmtMMSS(clockSecs))}>
+              Stamp clock
+            </button>
+            <button onClick={onAddEvent} style={{ background: "#3b5fff", color: "#fff" }}>
+              Add event
+            </button>
+          </div>
+
+          <div style={{ gridColumn: "1 / span 6", display: "flex", gap: 8, marginTop: 6 }}>
+            <button onClick={() => deltaShot("home", +1)}>{home.short_name} Shot +</button>
+            <button onClick={() => deltaShot("home", -1)}>{home.short_name} Shot –</button>
+            <button onClick={() => deltaShot("away", +1)}>{away.short_name} Shot +</button>
+            <button onClick={() => deltaShot("away", -1)}>{away.short_name} Shot –</button>
+          </div>
+
+          <div>
+            <div>{home.short_name} Goalie on ice</div>
+            <select value={goalieHome || ""} onChange={(e) => setGoalieHome(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">—</option>
+              {playersHome.map((p) => (
+                <option key={p.id} value={p.id}>
+                  #{p.number} — {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <div>{away.short_name} Goalie on ice</div>
+            <select value={goalieAway || ""} onChange={(e) => setGoalieAway(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">—</option>
+              {playersAway.map((p) => (
+                <option key={p.id} value={p.id}>
+                  #{p.number} — {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <div>Clock</div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <strong>{fmtMMSS(clockSecs)}</strong>
+              <button onClick={() => setClockRun((r) => !r)}>{clockRun ? "Stop" : "Start"}</button>
+              <button onClick={() => setClockSecs(15 * 60)}>Reset</button>
             </div>
-            <div className="row">
-              <div className="kbtn mini" title="Set period length">
-                <input
-                  type="number"
-                  min={1}
-                  value={periodLenMin}
-                  onChange={(e) => setPeriodLenMin(Number(e.target.value))}
-                  style={{ width: 48, border: 0, background: "transparent", textAlign: "right" }}
-                />{" "}
-                min
-              </div>
-              <button className="kbtn mini" onClick={() => setClock(periodLenMin * 60)}>
-                Apply
-              </button>
-            </div>
           </div>
-        </div>
-      </SectionCard>
-
-      {/* ======= Score bar ======= */}
-      <div className="scorebar" style={{ margin: "12px 0" }}>
-        <div className="team-side">
-          {homeTeam?.logo_url && (
-            <img src={homeTeam.logo_url} alt="" style={{ height: 24 }} />
-          )}
           <div>
-            <div style={{ fontWeight: 700 }}>{homeTeam?.name}</div>
-            <div className="subtle">{homeTeam?.short_name}</div>
-          </div>
-        </div>
-        <div className="score">
-          {game?.home_score ?? 0} <span className="mid-vs">vs</span> {game?.away_score ?? 0}
-        </div>
-        <div className="team-side right">
-          {awayTeam?.logo_url && (
-            <img src={awayTeam.logo_url} alt="" style={{ height: 24 }} />
-          )}
-          <div>
-            <div style={{ fontWeight: 700, textAlign: "right" }}>{awayTeam?.name}</div>
-            <div className="subtle" style={{ textAlign: "right" }}>
-              {awayTeam?.short_name}
+            <div>Set period (minutes)</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                type="number"
+                min={1}
+                max={30}
+                value={Math.round(clockSecs / 60)}
+                onChange={(e) => setClockSecs(Math.max(0, Number(e.target.value || 0) * 60))}
+                style={{ width: 70 }}
+              />
+              <button onClick={() => setTimeMMSS(fmtMMSS(clockSecs))}>Apply</button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ======= Roster toggle ======= */}
-      <SectionCard title="Roster (toggle players IN)">
-        <div className="row" style={{ marginBottom: 8, color: "#667" }}>
-          <strong style={{ color: "#2a3aff" }}>{homeTeam?.short_name}</strong> &nbsp; / &nbsp;
-          <strong style={{ color: "#b22" }}>{awayTeam?.short_name}</strong>
+      {/* Score strip */}
+      <div
+        style={{
+          marginTop: 14,
+          ...card,
+          display: "grid",
+          gridTemplateColumns: "1fr 120px 1fr",
+          alignItems: "center",
+          textAlign: "center",
+        }}
+      >
+        <div>
+          <div style={{ fontWeight: 700 }}>{home.name}</div>
+          <div style={{ color: "#667", fontSize: 12 }}>{home.short_name}</div>
         </div>
+        <div style={{ fontSize: 24, fontWeight: 800 }}>
+          {homeScore} <span style={{ color: "#9aa" }}>vs</span> {awayScore}
+        </div>
+        <div>
+          <div style={{ fontWeight: 700 }}>{away.name}</div>
+          <div style={{ color: "#667", fontSize: 12 }}>{away.short_name}</div>
+        </div>
+      </div>
 
-        <div className="grid cols-2" style={{ gap: 16 }}>
+      {/* Roster toggles */}
+      <div style={{ marginTop: 16, ...card }}>
+        <div style={{ fontWeight: 800, marginBottom: 8 }}>Roster (toggle players IN)</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <div>
-            <div className="subtle" style={{ marginBottom: 6 }}>
-              {homeTeam?.name}
-            </div>
-            <div className="row" style={{ gap: 8 }}>
-              {homePlayers.map((p) => (
-                <Pill
-                  key={p.id}
-                  active={homeActive.has(p.id)}
-                  onClick={() => togglePlayer(p, "home")}
-                >{`#${p.number} ${p.name}`}</Pill>
-              ))}
+            <div style={{ color: "#667", marginBottom: 8 }}>{home.name}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {playersHome.map((p) => {
+                const on = roster.has(p.id);
+                return (
+                  <button key={p.id} onClick={() => toggleRoster(p)} style={pill(on)}>
+                    #{p.number} {p.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div>
-            <div className="subtle" style={{ marginBottom: 6, textAlign: "right" }}>
-              {awayTeam?.name}
-            </div>
-            <div className="row" style={{ gap: 8, justifyContent: "flex-end" }}>
-              {awayPlayers.map((p) => (
-                <Pill
-                  key={p.id}
-                  active={awayActive.has(p.id)}
-                  onClick={() => togglePlayer(p, "away")}
-                >{`#${p.number} ${p.name}`}</Pill>
-              ))}
+            <div style={{ color: "#667", marginBottom: 8 }}>{away.name}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {playersAway.map((p) => {
+                const on = roster.has(p.id);
+                return (
+                  <button key={p.id} onClick={() => toggleRoster(p)} style={pill(on)}>
+                    #{p.number} {p.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
-        <div className="subtle" style={{ marginTop: 8 }}>
-          • Green = IN for this game • Gray = OUT • Changes are saved & broadcast in realtime (and
-          your Boxscore pulls directly from this list).
-        </div>
-      </SectionCard>
+      </div>
 
-      {/* ======= Events ======= */}
-      <SectionCard title="Events">
-        <table>
+      {/* Events */}
+      <div style={{ marginTop: 16, ...card }}>
+        <div style={{ fontWeight: 800, marginBottom: 8 }}>Events</div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr>
-              <th>Period</th>
-              <th>Time</th>
-              <th>Team</th>
-              <th>Type</th>
-              <th>Player / Assists</th>
-              <th style={{ textAlign: "right" }}>Actions</th>
+            <tr style={{ textAlign: "left", color: "#666" }}>
+              <th style={{ padding: 8 }}>Period</th>
+              <th style={{ padding: 8 }}>Time</th>
+              <th style={{ padding: 8 }}>Team</th>
+              <th style={{ padding: 8 }}>Type</th>
+              <th style={{ padding: 8 }}>Player / Assists</th>
+              <th style={{ padding: 8, textAlign: "right" }}>Actions</th>
             </tr>
           </thead>
-          <tbody>{events.map((ev) => renderEventRow(ev))}</tbody>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={6} style={{ padding: 12, color: "#888" }}>
+                  —
+                </td>
+              </tr>
+            )}
+            {rows.map((r, i) => {
+              if (r.goal) {
+                const teamShort = r.goal.team_id === home.id ? home.short_name : away.short_name;
+                const main =
+                  r.goal.players?.name ||
+                  (r.goal.players?.number ? `#${r.goal.players.number}` : "—");
+                const assists = r.assists
+                  .map((a) => a.players?.name || (a.players?.number ? `#${a.players.number}` : "—"))
+                  .join(", ");
+                return (
+                  <tr key={`g${i}`} style={{ borderTop: "1px solid #f1f1f5" }}>
+                    <td style={{ padding: 8 }}>{r.goal.period}</td>
+                    <td style={{ padding: 8 }}>{r.goal.time_mmss}</td>
+                    <td style={{ padding: 8 }}>{teamShort}</td>
+                    <td style={{ padding: 8 }}>goal</td>
+                    <td style={{ padding: 8 }}>
+                      <strong>{main}</strong>
+                      {assists && <span style={{ color: "#666" }}> (A: {assists})</span>}
+                    </td>
+                    <td style={{ padding: 8, textAlign: "right" }}>
+                      <button onClick={() => deleteGroup(r)}>Delete</button>
+                    </td>
+                  </tr>
+                );
+              } else {
+                const e = r.single;
+                const teamShort = e.team_id === home.id ? home.short_name : away.short_name;
+                const nm = e.players?.name || (e.players?.number ? `#${e.players.number}` : "—");
+                return (
+                  <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f1f1f5" }}>
+                    <td style={{ padding: 8 }}>{e.period}</td>
+                    <td style={{ padding: 8 }}>{e.time_mmss}</td>
+                    <td style={{ padding: 8 }}>{teamShort}</td>
+                    <td style={{ padding: 8 }}>{e.event}</td>
+                    <td style={{ padding: 8 }}>{nm}</td>
+                    <td style={{ padding: 8, textAlign: "right" }}>
+                      <button onClick={() => deleteSingle(r)}>Delete</button>
+                    </td>
+                  </tr>
+                );
+              }
+            })}
+          </tbody>
         </table>
-      </SectionCard>
+      </div>
     </div>
   );
 }
