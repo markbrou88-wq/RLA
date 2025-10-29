@@ -16,6 +16,12 @@ function TinyLogo({ url, alt }) {
   return <img src={url} alt={alt || ""} style={{ height: 22, objectFit: "contain", marginLeft: 8 }} />;
 }
 
+function PlayerLink({ player }) {
+  if (!player) return "—";
+  const num = player.number != null ? `#${player.number} — ` : "";
+  return <Link to={`/players/${player.id}`}>{num}{player.name}</Link>;
+}
+
 function Table({ columns, rows, emptyText = "—" }) {
   return (
     <div style={{ overflowX: "auto" }}>
@@ -23,7 +29,15 @@ function Table({ columns, rows, emptyText = "—" }) {
         <thead>
           <tr>
             {columns.map((c) => (
-              <th key={c.key} style={{ textAlign: c.align || "left", padding: "6px 8px", borderBottom: "1px solid #eee", fontWeight: 600 }}>
+              <th
+                key={c.key}
+                style={{
+                  textAlign: c.align || "left",
+                  padding: "6px 8px",
+                  borderBottom: "1px solid #eee",
+                  fontWeight: 600
+                }}
+              >
                 {c.label}
               </th>
             ))}
@@ -38,7 +52,15 @@ function Table({ columns, rows, emptyText = "—" }) {
             rows.map((r, idx) => (
               <tr key={r.id || idx}>
                 {columns.map((c) => (
-                  <td key={c.key} style={{ padding: "6px 8px", borderBottom: "1px solid #f3f3f3", textAlign: c.align || "left", whiteSpace: "nowrap" }}>
+                  <td
+                    key={c.key}
+                    style={{
+                      padding: "6px 8px",
+                      borderBottom: "1px solid #f3f3f3",
+                      textAlign: c.align || "left",
+                      whiteSpace: "nowrap"
+                    }}
+                  >
                     {typeof c.render === "function" ? c.render(r) : r[c.key]}
                   </td>
                 ))}
@@ -66,8 +88,12 @@ export default function BoxscorePage() {
   const [goaliesAway, setGoaliesAway] = React.useState([]);
 
   const [events, setEvents] = React.useState([]);
+  const [groupedGoals, setGroupedGoals] = React.useState([]);
   const [score, setScore] = React.useState({ home: 0, away: 0 });
-  const [goalsByPeriod, setGoalsByPeriod] = React.useState({ home: { 1: 0, 2: 0, 3: 0, OT: 0 }, away: { 1: 0, 2: 0, 3: 0, OT: 0 } });
+  const [goalsByPeriod, setGoalsByPeriod] = React.useState({
+    home: { 1: 0, 2: 0, 3: 0, OT: 0 },
+    away: { 1: 0, 2: 0, 3: 0, OT: 0 }
+  });
 
   React.useEffect(() => {
     let mounted = true;
@@ -82,16 +108,9 @@ export default function BoxscorePage() {
         .eq("slug", slug)
         .maybeSingle();
 
-      if (gErr) {
-        alert(gErr.message);
-        setLoading(false);
-        return;
-      }
-      if (!gRows) {
-        alert("Game not found.");
-        setLoading(false);
-        return;
-      }
+      if (gErr) { alert(gErr.message); setLoading(false); return; }
+      if (!gRows) { alert("Game not found."); setLoading(false); return; }
+
       const g = gRows;
       if (!mounted) return;
       setGame(g);
@@ -103,11 +122,8 @@ export default function BoxscorePage() {
         .select("id, name, short_name, logo_url")
         .in("id", teamIds);
 
-      if (tErr) {
-        alert(tErr.message);
-        setLoading(false);
-        return;
-      }
+      if (tErr) { alert(tErr.message); setLoading(false); return; }
+
       const home = tRows.find((t) => t.id === g.home_team_id) || null;
       const away = tRows.find((t) => t.id === g.away_team_id) || null;
       if (!mounted) return;
@@ -120,11 +136,8 @@ export default function BoxscorePage() {
         .select("team_id, player:players(id, name, number, position)")
         .eq("game_id", g.id);
 
-      if (rErr) {
-        alert(rErr.message);
-        setLoading(false);
-        return;
-      }
+      if (rErr) { alert(rErr.message); setLoading(false); return; }
+
       const homeList = rosterRows
         .filter((r) => r.team_id === g.home_team_id)
         .map((r) => r.player)
@@ -143,11 +156,8 @@ export default function BoxscorePage() {
         .select("team_id, shots_against, goals_against, minutes_seconds, decision, shutout, player:players(id, name, number, position)")
         .eq("game_id", g.id);
 
-      if (gErr2) {
-        alert(gErr2.message);
-        setLoading(false);
-        return;
-      }
+      if (gErr2) { alert(gErr2.message); setLoading(false); return; }
+
       const gHome = goalieRows.filter((x) => x.team_id === g.home_team_id);
       const gAway = goalieRows.filter((x) => x.team_id === g.away_team_id);
       if (!mounted) return;
@@ -162,28 +172,38 @@ export default function BoxscorePage() {
         .order("period", { ascending: true })
         .order("time_mmss", { ascending: true });
 
-      if (eErr) {
-        alert(eErr.message);
-        setLoading(false);
-        return;
-      }
+      if (eErr) { alert(eErr.message); setLoading(false); return; }
       if (!mounted) return;
       setEvents(eRows);
 
       // 6) Derived score & goals by period (from 'goal' events)
       const derived = { home: 0, away: 0 };
       const byP = { home: { 1: 0, 2: 0, 3: 0, OT: 0 }, away: { 1: 0, 2: 0, 3: 0, OT: 0 } };
-      eRows
-        .filter((x) => x.event === "goal")
-        .forEach((x) => {
-          const side = x.team_id === g.home_team_id ? "home" : "away";
-          derived[side] += 1;
-          const pKey = x.period === 4 ? "OT" : String(x.period);
-          if (!byP[side][pKey]) byP[side][pKey] = 0;
-          byP[side][pKey] += 1;
-        });
+      eRows.filter((x) => x.event === "goal").forEach((x) => {
+        const side = x.team_id === g.home_team_id ? "home" : "away";
+        derived[side] += 1;
+        const pKey = x.period === 4 ? "OT" : String(x.period);
+        if (!byP[side][pKey]) byP[side][pKey] = 0;
+        byP[side][pKey] += 1;
+      });
       setScore(derived);
       setGoalsByPeriod(byP);
+
+      // 7) Group goals with up to two assists (same team, period, time)
+      const assists = eRows.filter((e) => e.event === "assist");
+      const goals = eRows.filter((e) => e.event === "goal");
+
+      const grouped = goals.map((gEvent) => {
+        const a = assists.filter(
+          (x) =>
+            x.team_id === gEvent.team_id &&
+            x.period === gEvent.period &&
+            x.time_mmss === gEvent.time_mmss
+        ).slice(0, 2); // keep at most 2
+        return { ...gEvent, assists: a };
+      });
+
+      setGroupedGoals(grouped);
 
       setLoading(false);
     }
@@ -192,16 +212,11 @@ export default function BoxscorePage() {
     return () => { mounted = false; };
   }, [slug]);
 
-  if (loading) {
-    return <div style={{ padding: 16 }}>Loading…</div>;
-  }
-  if (!game || !homeTeam || !awayTeam) {
-    return <div style={{ padding: 16 }}>Game not found.</div>;
-  }
+  if (loading) return <div style={{ padding: 16 }}>Loading…</div>;
+  if (!game || !homeTeam || !awayTeam) return <div style={{ padding: 16 }}>Game not found.</div>;
 
   const isFinal = game.status === "final";
   const dateStr = game.game_date ? new Date(game.game_date).toLocaleDateString() : "";
-
   const headerStyle = { display: "grid", gridTemplateColumns: "1fr 120px 1fr", alignItems: "center", gap: 12 };
 
   return (
@@ -254,7 +269,7 @@ export default function BoxscorePage() {
           <Table
             columns={[
               { key: "number", label: "#", align: "right" },
-              { key: "name", label: "Player" },
+              { key: "name", label: "Player", render: (p) => <PlayerLink player={p} /> },
               { key: "position", label: "Pos", align: "center" },
             ]}
             rows={lineupAway}
@@ -265,7 +280,7 @@ export default function BoxscorePage() {
           <Table
             columns={[
               { key: "number", label: "#", align: "right" },
-              { key: "name", label: "Player" },
+              { key: "name", label: "Player", render: (p) => <PlayerLink player={p} /> },
               { key: "position", label: "Pos", align: "center" },
             ]}
             rows={lineupHome}
@@ -286,7 +301,7 @@ export default function BoxscorePage() {
         <SectionCard title={`${awayTeam?.short_name} Goalies`}>
           <Table
             columns={[
-              { key: "goalie", label: "Goalie", render: (r) => r.player?.name || "—" },
+              { key: "goalie", label: "Goalie", render: (r) => <PlayerLink player={r.player} /> },
               { key: "sa", label: "SA", align: "right", render: (r) => r.shots_against ?? 0 },
               { key: "ga", label: "GA", align: "right", render: (r) => r.goals_against ?? 0 },
               {
@@ -329,7 +344,7 @@ export default function BoxscorePage() {
         <SectionCard title={`${homeTeam?.short_name} Goalies`}>
           <Table
             columns={[
-              { key: "goalie", label: "Goalie", render: (r) => r.player?.name || "—" },
+              { key: "goalie", label: "Goalie", render: (r) => <PlayerLink player={r.player} /> },
               { key: "sa", label: "SA", align: "right", render: (r) => r.shots_against ?? 0 },
               { key: "ga", label: "GA", align: "right", render: (r) => r.goals_against ?? 0 },
               {
@@ -370,7 +385,7 @@ export default function BoxscorePage() {
         </SectionCard>
       </div>
 
-      {/* GOALS (expanded events list) */}
+      {/* GOALS with assists on the same row */}
       <div style={{ marginTop: 16 }}>
         <SectionCard title="Goals">
           <Table
@@ -378,9 +393,24 @@ export default function BoxscorePage() {
               { key: "team", label: "Team", render: (r) => (r.team_id === game.home_team_id ? homeTeam.short_name : awayTeam.short_name) },
               { key: "period", label: "Period", align: "center" },
               { key: "time_mmss", label: "Time", align: "center" },
-              { key: "scorer", label: "Scorer", render: (r) => (r.player?.name ? `#${r.player?.number ?? ""} — ${r.player?.name}` : "—") },
+              { key: "scorer", label: "Scorer", render: (r) => <PlayerLink player={r.player} /> },
+              {
+                key: "assists",
+                label: "Assists",
+                render: (r) => {
+                  if (!r.assists || r.assists.length === 0) return "—";
+                  const [a1, a2] = r.assists;
+                  return (
+                    <span>
+                      {a1 ? <PlayerLink player={a1.player} /> : null}
+                      {a1 && a2 ? " • " : ""}
+                      {a2 ? <PlayerLink player={a2.player} /> : null}
+                    </span>
+                  );
+                }
+              }
             ]}
-            rows={events.filter((e) => e.event === "goal")}
+            rows={groupedGoals}
           />
         </SectionCard>
       </div>
@@ -393,7 +423,7 @@ export default function BoxscorePage() {
               { key: "team", label: "Team", render: (r) => (r.team_id === game.home_team_id ? homeTeam.short_name : awayTeam.short_name) },
               { key: "period", label: "Period", align: "center" },
               { key: "time_mmss", label: "Time", align: "center" },
-              { key: "player", label: "Player", render: (r) => (r.player?.name ? `#${r.player?.number ?? ""} — ${r.player?.name}` : "—") },
+              { key: "player", label: "Player", render: (r) => <PlayerLink player={r.player} /> },
               { key: "detail", label: "Infraction", render: () => "—" }, // fill if you later add penalty type/minutes
             ]}
             rows={events.filter((e) => e.event === "penalty")}
