@@ -187,26 +187,61 @@ export default function GameDetailPage() {
     await syncScore(refreshed || []);
   }
 
-  async function toggleRoster(player) {
-    if (!game) return;
-    const on = roster.has(player.id);
-    if (on) {
-      await supabase.from("game_rosters").delete().eq("game_id", game.id).eq("player_id", player.id);
-      const next = new Set(roster);
-      next.delete(player.id);
-      setRoster(next);
-    } else {
-      await supabase.from("game_rosters").upsert({
-        game_id: game.id,
-        team_id: player.team_id,
-        player_id: player.id,
-        active: true,
-      });
-      const next = new Set(roster);
-      next.add(player.id);
-      setRoster(next);
+  // IN GameDetailPage.jsx
+
+async function reloadRoster(gameId) {
+  const { data: gr, error: grErr } = await supabase
+    .from("game_rosters")
+    .select("player_id")
+    .eq("game_id", gameId);
+
+  if (grErr) {
+    alert(grErr.message);
+    return;
+  }
+  setRoster(new Set((gr || []).map((r) => r.player_id)));
+}
+
+async function toggleRoster(player) {
+  if (!game) return;
+  const on = roster.has(player.id);
+
+  if (on) {
+    // Remove from roster
+    const { error } = await supabase
+      .from("game_rosters")
+      .delete()
+      .eq("game_id", game.id)
+      .eq("player_id", player.id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+  } else {
+    // Add to roster (stable upsert)
+    const { error } = await supabase
+      .from("game_rosters")
+      .upsert(
+        {
+          game_id: game.id,
+          team_id: player.team_id,
+          player_id: player.id,
+          active: true, // harmless if you have it; ignored if column doesn't exist
+        },
+        { onConflict: "game_id,player_id" }
+      );
+
+    if (error) {
+      alert(error.message);
+      return;
     }
   }
+
+  // Always re-read roster from DB so it survives navigations/refresh
+  await reloadRoster(game.id);
+}
+
 
   async function deltaShot(side, delta) {
     const pid = side === "home" ? goalieHome : goalieAway;
