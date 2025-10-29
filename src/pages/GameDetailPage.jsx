@@ -1,28 +1,21 @@
+// src/pages/GameDetailPage.jsx
 import React from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
-function fmtMMSS(s) {
-  const mm = Math.floor(s / 60)
-    .toString()
-    .padStart(2, "0");
-  const ss = Math.floor(s % 60)
-    .toString()
-    .padStart(2, "0");
+// ---------- helpers ----------
+function fmtMMSS(totalSeconds) {
+  const mm = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const ss = Math.floor(totalSeconds % 60).toString().padStart(2, "0");
   return `${mm}:${ss}`;
 }
-
 function parseMMSS(mmss) {
   const [m, s] = (mmss || "00:00").split(":").map((x) => parseInt(x || "0", 10));
   return (m || 0) * 60 + (s || 0);
 }
 
-/**
- * Group raw events so a goal with 0–2 assists shows on a single line.
- * We key by (period, time_mmss, team_id, 'goal').
- */
+/** Group raw events so a goal + its assists are displayed as a single row. */
 function groupEvents(raw) {
-  // goals first
   const key = (e) => `${e.period}|${e.time_mmss}|${e.team_id}|goal`;
   const goals = new Map();
 
@@ -33,52 +26,52 @@ function groupEvents(raw) {
   }
   for (const e of raw) {
     if (e.event === "assist") {
-      // Attach to the most recent goal @ same stamp/team/period
-      const k = `${e.period}|${e.time_mmss}|${e.team_id}|goal`;
+      const k = key(e);
       if (goals.has(k)) goals.get(k).assists.push(e);
     }
   }
-  // also return non-goal rows (penalties, etc.) as singletons
   const others = raw.filter((e) => e.event !== "goal" && e.event !== "assist");
-  const rows = [];
-  for (const g of goals.values()) rows.push(g);
-  for (const o of others) rows.push({ single: o });
-  // sort by period asc, time desc (e.g. 15:00 to 00:00)
+  const rows = [...goals.values(), ...others.map((o) => ({ single: o }))];
+
+  // sort by period asc, time desc (15:00 -> 00:00)
   rows.sort((a, b) => {
     const aP = a.goal ? a.goal.period : a.single.period;
     const bP = b.goal ? b.goal.period : b.single.period;
     if (aP !== bP) return aP - bP;
     const aT = parseMMSS(a.goal ? a.goal.time_mmss : a.single.time_mmss);
     const bT = parseMMSS(b.goal ? b.goal.time_mmss : b.single.time_mmss);
-    return bT - aT; // show most recent first
+    return bT - aT;
   });
   return rows;
 }
 
 export default function GameDetailPage() {
   const { slug } = useParams();
-  const nav = useNavigate();
 
   const [loading, setLoading] = React.useState(true);
   const [game, setGame] = React.useState(null);
   const [home, setHome] = React.useState(null);
   const [away, setAway] = React.useState(null);
+
   const [playersHome, setPlayersHome] = React.useState([]);
   const [playersAway, setPlayersAway] = React.useState([]);
-  const [roster, setRoster] = React.useState(new Set()); // set of player_id in game
+
+  // roster = set of player_id currently IN for this game
+  const [roster, setRoster] = React.useState(new Set());
+
   const [events, setEvents] = React.useState([]);
   const [rows, setRows] = React.useState([]);
 
   // live inputs
   const [teamSide, setTeamSide] = React.useState("home"); // "home" | "away"
-  const [eventType, setEventType] = React.useState("goal"); // goal | assist | penalty | shot
+  const [eventType, setEventType] = React.useState("goal"); // goal|assist|penalty|shot
   const [period, setPeriod] = React.useState(1);
   const [timeMMSS, setTimeMMSS] = React.useState("15:00");
   const [scorerId, setScorerId] = React.useState(null);
   const [a1Id, setA1Id] = React.useState(null);
   const [a2Id, setA2Id] = React.useState(null);
 
-  // goalie on ice + quick shots
+  // goalie on ice for quick shots +/-
   const [goalieHome, setGoalieHome] = React.useState(null);
   const [goalieAway, setGoalieAway] = React.useState(null);
 
@@ -88,19 +81,16 @@ export default function GameDetailPage() {
 
   React.useEffect(() => {
     let t;
-    if (clockRun) {
-      t = setInterval(() => {
-        setClockSecs((s) => Math.max(0, s - 1));
-      }, 1000);
-    }
+    if (clockRun) t = setInterval(() => setClockSecs((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
   }, [clockRun]);
 
+  // ---------- initial load ----------
   React.useEffect(() => {
     (async () => {
       setLoading(true);
 
-      // ---------- load game ----------
+      // game
       const { data: g, error: ge } = await supabase
         .from("games")
         .select("*")
@@ -113,14 +103,15 @@ export default function GameDetailPage() {
       }
       setGame(g);
 
-      const [homeTeam, awayTeam] = await Promise.all([
+      // teams
+      const [h, a] = await Promise.all([
         supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
       ]);
-      setHome(homeTeam.data || null);
-      setAway(awayTeam.data || null);
+      setHome(h.data);
+      setAway(a.data);
 
-      // ---------- load players ----------
+      // rosters (team players)
       const [ph, pa] = await Promise.all([
         supabase
           .from("players")
@@ -136,20 +127,17 @@ export default function GameDetailPage() {
       setPlayersHome(ph.data || []);
       setPlayersAway(pa.data || []);
 
-      // ---------- load roster toggles ----------
-      // Table assumed: game_rosters(game_id, player_id, team_id, active boolean default true)
+      // IN roster for this game
       const { data: gr } = await supabase
         .from("game_rosters")
         .select("player_id")
         .eq("game_id", g.id);
       setRoster(new Set((gr || []).map((r) => r.player_id)));
 
-      // ---------- load events ----------
       await reloadEvents(g.id);
 
       setLoading(false);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   async function reloadEvents(gameId) {
@@ -157,23 +145,18 @@ export default function GameDetailPage() {
       .from("events")
       .select(
         `
-        id,
-        game_id,
-        team_id,
-        player_id,
-        period,
-        time_mmss,
-        event,
+        id, game_id, team_id, player_id, period, time_mmss, event,
         players!events_player_id_fkey ( id, name, number )
       `
       )
       .eq("game_id", gameId)
       .order("period", { ascending: true })
-      .order("time_mmss", { ascending: false }); // 15:00 … 00:00
+      .order("time_mmss", { ascending: false });
     setEvents(ev || []);
     setRows(groupEvents(ev || []));
   }
 
+  // ----- helpers for side/team/players -----
   function playersFor(side) {
     return side === "home" ? playersHome : playersAway;
   }
@@ -195,74 +178,54 @@ export default function GameDetailPage() {
   async function syncScore(ev) {
     if (!game) return;
     const { hs, as } = computeScore(ev);
-    await supabase
-      .from("games")
-      .update({ home_score: hs, away_score: as })
-      .eq("id", game.id);
+    await supabase.from("games").update({ home_score: hs, away_score: as }).eq("id", game.id);
     setGame((x) => ({ ...x, home_score: hs, away_score: as }));
   }
 
-  // ----------------- LIVE: insert event(s) -----------------
+  // ---------- add event (1 to 3 inserts in a single click) ----------
   async function onAddEvent() {
     if (!game) return;
 
     const team_id = teamIdFor(teamSide);
     if (!team_id) return;
 
-    // always insert the main event (goal | assist | penalty | shot)
-    const batch = [];
-
-    const time_stamp = timeMMSS;
     const base = {
       game_id: game.id,
       team_id,
       period: Number(period),
-      time_mmss: time_stamp,
+      time_mmss: timeMMSS,
     };
 
+    const batch = [];
+
     if (eventType === "goal") {
-      if (!scorerId) {
-        alert("Select the scorer.");
-        return;
-      }
+      if (!scorerId) return alert("Select the scorer.");
       batch.push({ ...base, event: "goal", player_id: scorerId });
       if (a1Id) batch.push({ ...base, event: "assist", player_id: a1Id });
       if (a2Id) batch.push({ ...base, event: "assist", player_id: a2Id });
     } else if (eventType === "assist") {
-      if (!scorerId) {
-        alert("Select a player for assist.");
-        return;
-      }
+      if (!scorerId) return alert("Select the assisting player.");
       batch.push({ ...base, event: "assist", player_id: scorerId });
     } else if (eventType === "penalty") {
-      if (!scorerId) {
-        alert("Select penalized player.");
-        return;
-      }
+      if (!scorerId) return alert("Select penalized player.");
       batch.push({ ...base, event: "penalty", player_id: scorerId });
     } else if (eventType === "shot") {
-      if (!scorerId) {
-        alert("Select shooter.");
-        return;
-      }
+      if (!scorerId) return alert("Select shooter.");
       batch.push({ ...base, event: "shot", player_id: scorerId });
     }
 
     const { error } = await supabase.from("events").insert(batch);
-    if (error) {
-      alert(error.message);
-      return;
-    }
+    if (error) return alert(error.message);
+
+    // refresh + sync score
+    const { data: refreshed } = await supabase.from("events").select("*").eq("game_id", game.id);
     await reloadEvents(game.id);
-    await syncScore((await supabase.from("events").select("*").eq("game_id", game.id)).data);
+    await syncScore(refreshed || []);
   }
 
-  // ----------------- LIVE: delete a row or “group” (goal + assists) -----------------
+  // ---------- delete a group (goal + assists) or a single row ----------
   async function deleteGroup(g) {
-    // delete by same stamp/team/period for goal + its assists
-    const period = g.goal.period;
-    const time_mmss = g.goal.time_mmss;
-    const team_id = g.goal.team_id;
+    const { period, time_mmss, team_id } = g.goal;
     await supabase
       .from("events")
       .delete()
@@ -270,25 +233,23 @@ export default function GameDetailPage() {
       .eq("period", period)
       .eq("time_mmss", time_mmss)
       .eq("team_id", team_id);
+
+    const { data: refreshed } = await supabase.from("events").select("*").eq("game_id", game.id);
     await reloadEvents(game.id);
-    await syncScore(
-      (await supabase.from("events").select("*").eq("game_id", game.id)).data
-    );
+    await syncScore(refreshed || []);
   }
   async function deleteSingle(row) {
     await supabase.from("events").delete().eq("id", row.single.id);
+    const { data: refreshed } = await supabase.from("events").select("*").eq("game_id", game.id);
     await reloadEvents(game.id);
-    await syncScore(
-      (await supabase.from("events").select("*").eq("game_id", game.id)).data
-    );
+    await syncScore(refreshed || []);
   }
 
-  // ----------------- Roster toggles -----------------
+  // ---------- roster toggle IN/OUT ----------
   async function toggleRoster(player) {
     if (!game) return;
-    const inNow = roster.has(player.id);
-    if (inNow) {
-      // remove
+    const on = roster.has(player.id);
+    if (on) {
       await supabase
         .from("game_rosters")
         .delete()
@@ -298,27 +259,25 @@ export default function GameDetailPage() {
       next.delete(player.id);
       setRoster(next);
     } else {
-      await supabase
-        .from("game_rosters")
-        .upsert({
-          game_id: game.id,
-          team_id: player.team_id,
-          player_id: player.id,
-          active: true,
-        });
+      await supabase.from("game_rosters").upsert({
+        game_id: game.id,
+        team_id: player.team_id,
+        player_id: player.id,
+        active: true,
+      });
       const next = new Set(roster);
       next.add(player.id);
       setRoster(next);
     }
   }
 
-  // ----------------- Quick shots +/- to goalie_on_ice -----------------
+  // ---------- quick shots +/- to goalie_on_ice row ----------
   async function deltaShot(side, delta) {
     const pid = side === "home" ? goalieHome : goalieAway;
     if (!pid || !game) return;
-    // Table: game_goalies (game_id, team_id, player_id, shots_against, goals_against, minutes_seconds, decision, shutout)
+
     const team_id = side === "home" ? game.home_team_id : game.away_team_id;
-    // upsert row
+
     const { data: row } = await supabase
       .from("game_goalies")
       .select("*")
@@ -328,10 +287,7 @@ export default function GameDetailPage() {
 
     const shots = Math.max(0, (row?.shots_against || 0) + delta);
     if (row) {
-      await supabase
-        .from("game_goalies")
-        .update({ shots_against: shots })
-        .eq("id", row.id);
+      await supabase.from("game_goalies").update({ shots_against: shots }).eq("id", row.id);
     } else {
       await supabase.from("game_goalies").insert({
         game_id: game.id,
@@ -342,7 +298,7 @@ export default function GameDetailPage() {
     }
   }
 
-  // ----------------- Final / Reopen -----------------
+  // ---------- mark final / reopen ----------
   async function markFinal(next) {
     if (!game) return;
     await supabase.from("games").update({ status: next ? "final" : "open" }).eq("id", game.id);
@@ -362,8 +318,7 @@ export default function GameDetailPage() {
 
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
         <div>
-          <strong>LIVE •</strong>{" "}
-          {new Date(game.game_date).toLocaleDateString()}
+          <strong>LIVE •</strong> {new Date(game.game_date).toLocaleDateString()}
         </div>
 
         <div>
@@ -376,14 +331,7 @@ export default function GameDetailPage() {
       </div>
 
       {/* Controls */}
-      <div
-        style={{
-          marginTop: 12,
-          padding: 12,
-          border: "1px solid #eee",
-          borderRadius: 8,
-        }}
-      >
+      <div style={{ marginTop: 12, padding: 12, border: "1px solid #eee", borderRadius: 8 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
           <div>
             <div>Team</div>
@@ -474,7 +422,7 @@ export default function GameDetailPage() {
             </button>
           </div>
 
-          {/* Quick — shots +/- hook goalie_on_ice */}
+          {/* Quick shots +/- */}
           <div style={{ gridColumn: "1 / span 6", display: "flex", gap: 8, marginTop: 6 }}>
             <button onClick={() => deltaShot("home", +1)}>{home.short_name} Shot +</button>
             <button onClick={() => deltaShot("home", -1)}>{home.short_name} Shot –</button>
@@ -482,7 +430,7 @@ export default function GameDetailPage() {
             <button onClick={() => deltaShot("away", -1)}>{away.short_name} Shot –</button>
           </div>
 
-          {/* Goalies on ice */}
+          {/* Goalie on ice (for shot +/– target) */}
           <div>
             <div>{home.short_name} Goalie on ice</div>
             <select
@@ -566,18 +514,9 @@ export default function GameDetailPage() {
         </div>
       </div>
 
-      {/* Roster toggles */}
-      <div
-        style={{
-          marginTop: 16,
-          padding: 12,
-          border: "1px solid #eee",
-          borderRadius: 8,
-        }}
-      >
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>
-          Roster (toggle players IN)
-        </div>
+      {/* Roster toggles (click to mark IN/OUT) */}
+      <div style={{ marginTop: 16, padding: 12, border: "1px solid #eee", borderRadius: 8 }}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>Roster (toggle players IN)</div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
@@ -628,15 +567,8 @@ export default function GameDetailPage() {
         </div>
       </div>
 
-      {/* Events (grouped; goal shows assists on single line) */}
-      <div
-        style={{
-          marginTop: 16,
-          padding: 12,
-          border: "1px solid #eee",
-          borderRadius: 8,
-        }}
-      >
+      {/* Events (grouped; goals show assists on single line) */}
+      <div style={{ marginTop: 16, padding: 12, border: "1px solid #eee", borderRadius: 8 }}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>Events</div>
 
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -661,17 +593,24 @@ export default function GameDetailPage() {
 
             {rows.map((r, i) => {
               if (r.goal) {
-                const t = r.goal.team_id === home.id ? home.short_name : away.short_name;
-                const main = r.goal.players?.name || `#${r.goal.players?.number}`;
+                const teamShort =
+                  r.goal.team_id === home.id ? home.short_name : away.short_name;
+                const main =
+                  r.goal.players?.name ||
+                  (r.goal.players?.number ? `#${r.goal.players.number}` : "—");
                 const assists = r.assists
-                  .map((a) => (a.players?.name ? a.players.name : `#${a.players?.number}`))
+                  .map(
+                    (a) =>
+                      a.players?.name ||
+                      (a.players?.number ? `#${a.players.number}` : "—")
+                  )
                   .join(", ");
 
                 return (
                   <tr key={`g${i}`} style={{ borderTop: "1px solid #f1f1f1" }}>
                     <td style={{ padding: 8 }}>{r.goal.period}</td>
                     <td style={{ padding: 8 }}>{r.goal.time_mmss}</td>
-                    <td style={{ padding: 8 }}>{t}</td>
+                    <td style={{ padding: 8 }}>{teamShort}</td>
                     <td style={{ padding: 8 }}>goal</td>
                     <td style={{ padding: 8 }}>
                       <strong>{main}</strong>
@@ -684,13 +623,15 @@ export default function GameDetailPage() {
                 );
               } else {
                 const e = r.single;
-                const t = e.team_id === home.id ? home.short_name : away.short_name;
-                const nm = e.players?.name || `#${e.players?.number}` || "—";
+                const teamShort = e.team_id === home.id ? home.short_name : away.short_name;
+                const nm =
+                  e.players?.name ||
+                  (e.players?.number ? `#${e.players.number}` : "—");
                 return (
                   <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f1f1f1" }}>
                     <td style={{ padding: 8 }}>{e.period}</td>
                     <td style={{ padding: 8 }}>{e.time_mmss}</td>
-                    <td style={{ padding: 8 }}>{t}</td>
+                    <td style={{ padding: 8 }}>{teamShort}</td>
                     <td style={{ padding: 8 }}>{e.event}</td>
                     <td style={{ padding: 8 }}>{nm}</td>
                     <td style={{ padding: 8, textAlign: "right" }}>
