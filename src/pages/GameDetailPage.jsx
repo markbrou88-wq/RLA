@@ -3,6 +3,7 @@ import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
+/* ----------------- small helpers ----------------- */
 function fmtMMSS(totalSeconds) {
   const mm = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
   const ss = Math.floor(totalSeconds % 60).toString().padStart(2, "0");
@@ -30,19 +31,27 @@ function groupEvents(raw) {
   return rows;
 }
 
+/* ================================================== */
+/*                  COMPONENT START                    */
+/* ================================================== */
 export default function GameDetailPage() {
   const { slug } = useParams();
+
+  /* ---- base state ---- */
   const [loading, setLoading] = React.useState(true);
   const [game, setGame] = React.useState(null);
   const [home, setHome] = React.useState(null);
   const [away, setAway] = React.useState(null);
+
   const [playersHome, setPlayersHome] = React.useState([]);
   const [playersAway, setPlayersAway] = React.useState([]);
+
   const [roster, setRoster] = React.useState(new Set());
 
   const [events, setEvents] = React.useState([]);
   const [rows, setRows] = React.useState([]);
 
+  /* ---- live controls ---- */
   const [teamSide, setTeamSide] = React.useState("home");
   const [eventType, setEventType] = React.useState("goal");
   const [period, setPeriod] = React.useState(1);
@@ -54,6 +63,7 @@ export default function GameDetailPage() {
   const [goalieHome, setGoalieHome] = React.useState(null);
   const [goalieAway, setGoalieAway] = React.useState(null);
 
+  /* clock */
   const [clockSecs, setClockSecs] = React.useState(15 * 60);
   const [clockRun, setClockRun] = React.useState(false);
 
@@ -62,6 +72,34 @@ export default function GameDetailPage() {
     if (clockRun) t = setInterval(() => setClockSecs((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
   }, [clockRun]);
+
+  /* ---- goalie running totals (SA/GA) to show in boxes) ---- */
+  // Map<playerId, {sa:number, ga:number, id:number|null}>
+  const [goalieTotals, setGoalieTotals] = React.useState(new Map());
+
+  function setGoalieTotalsFor(pid, data) {
+    setGoalieTotals((m) => {
+      const next = new Map(m);
+      next.set(pid, data);
+      return next;
+    });
+  }
+  async function fetchGoalieRow(gameId, playerId) {
+    if (!playerId) return;
+    const { data, error } = await supabase
+      .from("game_goalies")
+      .select("*")
+      .eq("game_id", gameId)
+      .eq("player_id", playerId)
+      .maybeSingle();
+    if (error) return;
+    setGoalieTotalsFor(playerId, {
+      id: data?.id ?? null,
+      sa: data?.shots_against ?? 0,
+      ga: data?.goals_against ?? 0,
+      team_id: data?.team_id ?? null,
+    });
+  }
 
   React.useEffect(() => {
     (async () => {
@@ -73,6 +111,7 @@ export default function GameDetailPage() {
         return;
       }
       setGame(g);
+
       const [h, a] = await Promise.all([
         supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
@@ -94,6 +133,13 @@ export default function GameDetailPage() {
       setLoading(false);
     })();
   }, [slug]);
+
+  React.useEffect(() => {
+    if (game && goalieHome) fetchGoalieRow(game.id, goalieHome);
+  }, [game, goalieHome]);
+  React.useEffect(() => {
+    if (game && goalieAway) fetchGoalieRow(game.id, goalieAway);
+  }, [game, goalieAway]);
 
   async function reloadEvents(gameId) {
     const { data: ev } = await supabase
@@ -135,6 +181,85 @@ export default function GameDetailPage() {
     setGame((x) => ({ ...x, home_score: hs, away_score: as }));
   }
 
+  /* ---------------------- roster ---------------------- */
+  async function reloadRoster(gameId) {
+    const { data: gr, error: grErr } = await supabase
+      .from("game_rosters")
+      .select("player_id")
+      .eq("game_id", gameId);
+    if (grErr) {
+      alert(grErr.message);
+      return;
+    }
+    setRoster(new Set((gr || []).map((r) => r.player_id)));
+  }
+  async function toggleRoster(player) {
+    if (!game) return;
+    const on = roster.has(player.id);
+    if (on) {
+      const { error } = await supabase
+        .from("game_rosters")
+        .delete()
+        .eq("game_id", game.id)
+        .eq("player_id", player.id);
+      if (error) return alert(error.message);
+    } else {
+      const { error } = await supabase.from("game_rosters").upsert(
+        {
+          game_id: game.id,
+          team_id: player.team_id,
+          player_id: player.id,
+        },
+        { onConflict: "game_id,player_id" }
+      );
+      if (error) return alert(error.message);
+    }
+    await reloadRoster(game.id);
+  }
+
+  /* ---------------------- goalie SA/GA helpers ---------------------- */
+  async function upsertGoalieDelta({ pid, team_id, dSA = 0, dGA = 0 }) {
+    if (!pid) return;
+    const { data: row } = await supabase
+      .from("game_goalies")
+      .select("*")
+      .eq("game_id", game.id)
+      .eq("player_id", pid)
+      .maybeSingle();
+
+    if (row) {
+      const sa = Math.max(0, (row.shots_against || 0) + dSA);
+      const ga = Math.max(0, (row.goals_against || 0) + dGA);
+      await supabase.from("game_goalies").update({ shots_against: sa, goals_against: ga }).eq("id", row.id);
+      setGoalieTotalsFor(pid, { id: row.id, sa, ga, team_id: row.team_id });
+    } else {
+      const sa = Math.max(0, dSA);
+      const ga = Math.max(0, dGA);
+      const { data: ins } = await supabase
+        .from("game_goalies")
+        .insert({
+          game_id: game.id,
+          team_id,
+          player_id: pid,
+          shots_against: sa,
+          goals_against: ga,
+        })
+        .select()
+        .single();
+      setGoalieTotalsFor(pid, { id: ins?.id ?? null, sa, ga, team_id });
+    }
+  }
+
+  // +/- shot buttons — linked to the selected goalie on that side
+  async function deltaShot(side, delta) {
+    if (!game) return;
+    const pid = side === "home" ? goalieHome : goalieAway;
+    if (!pid) return alert(`Select the ${side === "home" ? home?.short_name : away?.short_name} goalie first.`);
+    const team_id = side === "home" ? game.home_team_id : game.away_team_id;
+    await upsertGoalieDelta({ pid, team_id, dSA: delta, dGA: 0 });
+  }
+
+  /* ---------------------- add event ---------------------- */
   async function onAddEvent() {
     if (!game) return;
     const team_id = teamIdFor(teamSide);
@@ -147,6 +272,13 @@ export default function GameDetailPage() {
       batch.push({ ...base, event: "goal", player_id: scorerId });
       if (a1Id) batch.push({ ...base, event: "assist", player_id: a1Id });
       if (a2Id) batch.push({ ...base, event: "assist", player_id: a2Id });
+
+      // NEW: link goal to the OPPOSITE goalie (GA+1 and SA+1)
+      const oppPid = teamSide === "home" ? goalieAway : goalieHome;
+      const oppTeam = teamSide === "home" ? game.away_team_id : game.home_team_id;
+      if (oppPid) {
+        await upsertGoalieDelta({ pid: oppPid, team_id: oppTeam, dSA: 1, dGA: 1 });
+      }
     } else if (eventType === "assist") {
       if (!scorerId) return alert("Select the assisting player.");
       batch.push({ ...base, event: "assist", player_id: scorerId });
@@ -156,6 +288,13 @@ export default function GameDetailPage() {
     } else if (eventType === "shot") {
       if (!scorerId) return alert("Select shooter.");
       batch.push({ ...base, event: "shot", player_id: scorerId });
+
+      // Optional: when you log a “shot” event here you could also increment SA
+      // on the opposite goalie the same way as in goal above. If you want that,
+      // uncomment the next 4 lines:
+      // const oppPid = teamSide === "home" ? goalieAway : goalieHome;
+      // const oppTeam = teamSide === "home" ? game.away_team_id : game.home_team_id;
+      // if (oppPid) await upsertGoalieDelta({ pid: oppPid, team_id: oppTeam, dSA: 1 });
     }
 
     const { error } = await supabase.from("events").insert(batch);
@@ -166,6 +305,7 @@ export default function GameDetailPage() {
     await syncScore(refreshed || []);
   }
 
+  /* ---------------------- delete events ---------------------- */
   async function deleteGroup(g) {
     const { period, time_mmss, team_id } = g.goal;
     await supabase
@@ -187,90 +327,6 @@ export default function GameDetailPage() {
     await syncScore(refreshed || []);
   }
 
-  // IN GameDetailPage.jsx
-
-// --- ROSTER HELPERS (drop-in replacement) ---
-
-async function reloadRoster(gameId) {
-  const { data: gr, error: grErr } = await supabase
-    .from("game_rosters")
-    .select("player_id")
-    .eq("game_id", gameId);
-
-  if (grErr) {
-    alert(grErr.message);
-    return;
-  }
-  setRoster(new Set((gr || []).map((r) => r.player_id)));
-}
-
-async function toggleRoster(player) {
-  if (!game) return;
-
-  const on = roster.has(player.id);
-  if (on) {
-    // remove row -> player OUT
-    const { error } = await supabase
-      .from("game_rosters")
-      .delete()
-      .eq("game_id", game.id)
-      .eq("player_id", player.id);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-  } else {
-    // insert row if missing -> player IN
-    const { error } = await supabase
-      .from("game_rosters")
-      .upsert(
-        {
-          game_id: game.id,
-          team_id: player.team_id,
-          player_id: player.id,
-        },
-        // Make sure this matches the unique index you have (see SQL below)
-        { onConflict: "game_id,player_id" }
-      );
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-  }
-
-  await reloadRoster(game.id);
-}
-
-// (optional) call reloadRoster anywhere you need to re-sync cached roster;
-// e.g., it's already called after initial load in your effect.
-
-
-
-  async function deltaShot(side, delta) {
-    const pid = side === "home" ? goalieHome : goalieAway;
-    if (!pid || !game) return;
-    const team_id = side === "home" ? game.home_team_id : game.away_team_id;
-
-    const { data: row } = await supabase
-      .from("game_goalies")
-      .select("*")
-      .eq("game_id", game.id)
-      .eq("player_id", pid)
-      .maybeSingle();
-
-    const shots = Math.max(0, (row?.shots_against || 0) + delta);
-    if (row) await supabase.from("game_goalies").update({ shots_against: shots }).eq("id", row.id);
-    else
-      await supabase.from("game_goalies").insert({
-        game_id: game.id,
-        team_id,
-        player_id: pid,
-        shots_against: Math.max(0, delta),
-      });
-  }
-
   async function markFinal(next) {
     if (!game) return;
     await supabase.from("games").update({ status: next ? "final" : "open" }).eq("id", game.id);
@@ -283,9 +339,19 @@ async function toggleRoster(player) {
   const awayScore = game.away_score || 0;
   const sidePlayers = playersFor(teamSide);
 
-  // --- shared UI styles (alignment + accessible colors) ---
+  /* -------- shared UI (alignment + colors + small buttons) -------- */
   const card = { padding: 12, border: "1px solid #e6e9f5", borderRadius: 10, background: "#fff" };
   const grid6 = { display: "grid", gridTemplateColumns: "repeat(6, minmax(140px, 1fr))", gap: 10 };
+  const smallBtn = {
+    padding: "6px 10px",
+    fontSize: 12,
+    lineHeight: "18px",
+    borderRadius: 8,
+    border: "1px solid #cfd7ff",
+    background: "#f5f7ff",
+  };
+  const primarySmall = { ...smallBtn, background: "#3b5fff", color: "#fff", borderColor: "#3b5fff" };
+
   const pill = (on) => ({
     padding: "6px 12px",
     borderRadius: 999,
@@ -295,6 +361,11 @@ async function toggleRoster(player) {
     fontWeight: 600,
     boxShadow: on ? "0 2px 0 rgba(44,95,255,.2)" : "none",
   });
+
+  const homeSA = goalieHome ? (goalieTotals.get(goalieHome)?.sa ?? 0) : 0;
+  const homeGA = goalieHome ? (goalieTotals.get(goalieHome)?.ga ?? 0) : 0;
+  const awaySA = goalieAway ? (goalieTotals.get(goalieAway)?.sa ?? 0) : 0;
+  const awayGA = goalieAway ? (goalieTotals.get(goalieAway)?.ga ?? 0) : 0;
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
@@ -306,9 +377,13 @@ async function toggleRoster(player) {
         </div>
         <div>
           {game.status === "final" ? (
-            <button onClick={() => markFinal(false)}>Reopen</button>
+            <button style={smallBtn} onClick={() => markFinal(false)}>
+              Reopen
+            </button>
           ) : (
-            <button onClick={() => markFinal(true)}>Final</button>
+            <button style={primarySmall} onClick={() => markFinal(true)}>
+              Final
+            </button>
           )}
         </div>
       </div>
@@ -394,21 +469,15 @@ async function toggleRoster(player) {
           </div>
 
           <div style={{ display: "flex", alignItems: "end", gap: 6 }}>
-            <button type="button" onClick={() => setTimeMMSS(fmtMMSS(clockSecs))}>
+            <button type="button" style={smallBtn} onClick={() => setTimeMMSS(fmtMMSS(clockSecs))}>
               Stamp clock
             </button>
-            <button onClick={onAddEvent} style={{ background: "#3b5fff", color: "#fff" }}>
+            <button style={primarySmall} onClick={onAddEvent}>
               Add event
             </button>
           </div>
 
-          <div style={{ gridColumn: "1 / span 6", display: "flex", gap: 8, marginTop: 6 }}>
-            <button onClick={() => deltaShot("home", +1)}>{home.short_name} Shot +</button>
-            <button onClick={() => deltaShot("home", -1)}>{home.short_name} Shot –</button>
-            <button onClick={() => deltaShot("away", +1)}>{away.short_name} Shot +</button>
-            <button onClick={() => deltaShot("away", -1)}>{away.short_name} Shot –</button>
-          </div>
-
+          {/* Goalie selects (link shot/goal counters to these) */}
           <div>
             <div>{home.short_name} Goalie on ice</div>
             <select value={goalieHome || ""} onChange={(e) => setGoalieHome(e.target.value ? Number(e.target.value) : null)}>
@@ -432,12 +501,17 @@ async function toggleRoster(player) {
             </select>
           </div>
 
+          {/* Clock controls */}
           <div>
             <div>Clock</div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <strong>{fmtMMSS(clockSecs)}</strong>
-              <button onClick={() => setClockRun((r) => !r)}>{clockRun ? "Stop" : "Start"}</button>
-              <button onClick={() => setClockSecs(15 * 60)}>Reset</button>
+              <button style={smallBtn} onClick={() => setClockRun((r) => !r)}>
+                {clockRun ? "Stop" : "Start"}
+              </button>
+              <button style={smallBtn} onClick={() => setClockSecs(15 * 60)}>
+                Reset
+              </button>
             </div>
           </div>
           <div>
@@ -451,8 +525,59 @@ async function toggleRoster(player) {
                 onChange={(e) => setClockSecs(Math.max(0, Number(e.target.value || 0) * 60))}
                 style={{ width: 70 }}
               />
-              <button onClick={() => setTimeMMSS(fmtMMSS(clockSecs))}>Apply</button>
+              <button style={smallBtn} onClick={() => setTimeMMSS(fmtMMSS(clockSecs))}>
+                Apply
+              </button>
             </div>
+          </div>
+
+          {/* SHOTS AGAINST controls — one boxed counter per team */}
+          <div style={{ gridColumn: "1 / span 3", display: "flex", gap: 12, alignItems: "center", marginTop: 6 }}>
+            <div style={{ fontWeight: 700, minWidth: 90 }}>{home.short_name} SA</div>
+            <button style={smallBtn} onClick={() => deltaShot("home", -1)} disabled={!goalieHome}>
+              −
+            </button>
+            <input
+              readOnly
+              value={homeSA}
+              style={{
+                width: 70,
+                textAlign: "center",
+                padding: "6px 8px",
+                borderRadius: 8,
+                border: "1px solid #dbe1ff",
+                background: "#fafbff",
+                fontWeight: 700,
+              }}
+            />
+            <button style={smallBtn} onClick={() => deltaShot("home", +1)} disabled={!goalieHome}>
+              +
+            </button>
+            <div style={{ color: "#6a7199", marginLeft: 8 }}>(GA {homeGA})</div>
+          </div>
+
+          <div style={{ gridColumn: "4 / span 3", display: "flex", gap: 12, alignItems: "center", marginTop: 6 }}>
+            <div style={{ fontWeight: 700, minWidth: 90 }}>{away.short_name} SA</div>
+            <button style={smallBtn} onClick={() => deltaShot("away", -1)} disabled={!goalieAway}>
+              −
+            </button>
+            <input
+              readOnly
+              value={awaySA}
+              style={{
+                width: 70,
+                textAlign: "center",
+                padding: "6px 8px",
+                borderRadius: 8,
+                border: "1px solid #dbe1ff",
+                background: "#fafbff",
+                fontWeight: 700,
+              }}
+            />
+            <button style={smallBtn} onClick={() => deltaShot("away", +1)} disabled={!goalieAway}>
+              +
+            </button>
+            <div style={{ color: "#6a7199", marginLeft: 8 }}>(GA {awayGA})</div>
           </div>
         </div>
       </div>
@@ -556,7 +681,9 @@ async function toggleRoster(player) {
                       {assists && <span style={{ color: "#666" }}> (A: {assists})</span>}
                     </td>
                     <td style={{ padding: 8, textAlign: "right" }}>
-                      <button onClick={() => deleteGroup(r)}>Delete</button>
+                      <button style={smallBtn} onClick={() => deleteGroup(r)}>
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 );
@@ -572,7 +699,9 @@ async function toggleRoster(player) {
                     <td style={{ padding: 8 }}>{e.event}</td>
                     <td style={{ padding: 8 }}>{nm}</td>
                     <td style={{ padding: 8, textAlign: "right" }}>
-                      <button onClick={() => deleteSingle(r)}>Delete</button>
+                      <button style={smallBtn} onClick={() => deleteSingle(r)}>
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 );
