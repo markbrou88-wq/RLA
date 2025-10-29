@@ -189,6 +189,8 @@ export default function GameDetailPage() {
 
   // IN GameDetailPage.jsx
 
+// --- ROSTER HELPERS (drop-in replacement) ---
+
 async function reloadRoster(gameId) {
   const { data: gr, error: grErr } = await supabase
     .from("game_rosters")
@@ -204,10 +206,10 @@ async function reloadRoster(gameId) {
 
 async function toggleRoster(player) {
   if (!game) return;
-  const on = roster.has(player.id);
 
+  const on = roster.has(player.id);
   if (on) {
-    // Remove from roster
+    // remove row -> player OUT
     const { error } = await supabase
       .from("game_rosters")
       .delete()
@@ -219,7 +221,7 @@ async function toggleRoster(player) {
       return;
     }
   } else {
-    // Add to roster (stable upsert)
+    // insert row if missing -> player IN
     const { error } = await supabase
       .from("game_rosters")
       .upsert(
@@ -227,8 +229,8 @@ async function toggleRoster(player) {
           game_id: game.id,
           team_id: player.team_id,
           player_id: player.id,
-          active: true, // harmless if you have it; ignored if column doesn't exist
         },
+        // Make sure this matches the unique index you have (see SQL below)
         { onConflict: "game_id,player_id" }
       );
 
@@ -238,9 +240,12 @@ async function toggleRoster(player) {
     }
   }
 
-  // Always re-read roster from DB so it survives navigations/refresh
   await reloadRoster(game.id);
 }
+
+// (optional) call reloadRoster anywhere you need to re-sync cached roster;
+// e.g., it's already called after initial load in your effect.
+
 
 
   async function deltaShot(side, delta) {
