@@ -45,7 +45,7 @@ export default function RosterPage() {
 
   return (
     <div className="container">
-      <div className="flex gap-2 mb-3">
+      <div className="button-group" style={{ marginBottom: 12 }}>
         <Link className="btn btn-grey" to={`/games/${slug}/live`}>Live</Link>
         <Link className="btn btn-grey" to={`/games/${slug}`}>Boxscore</Link>
       </div>
