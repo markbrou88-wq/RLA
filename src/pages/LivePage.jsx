@@ -30,7 +30,7 @@ export default function LivePage() {
 
   return (
     <div className="container">
-      <div className="flex gap-2 mb-3">
+      <div className="button-group" style={{ marginBottom: 12 }}>
         <Link className="btn btn-grey" to={`/games/${slug}/roster`}>Roster</Link>
         <Link className="btn btn-grey" to={`/games/${slug}`}>Boxscore</Link>
       </div>
@@ -39,7 +39,6 @@ export default function LivePage() {
       <p className="muted">{game.home?.name} vs {game.away?.name}</p>
 
       {/* 👉 Place your existing live controls here (clock, add event, shots, goals, score). */}
-      {/* If you want the compact controls I proposed earlier, tell me and I’ll paste them here. */}
     </div>
   );
 }
