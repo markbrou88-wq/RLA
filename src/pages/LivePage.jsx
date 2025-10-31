@@ -1,9 +1,8 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { getGameBySlug } from "../lib/db.js";
 import { supabase } from "../supabaseClient.js";
 
-// groups goal + assists, sorts by period/time (desc within period)
+// helper: group goal + assists; sort by period asc, time desc
 function groupEvents(raw) {
   const key = (e) => `${e.period}|${e.time_mmss}|${e.team_id}|goal`;
   const goals = new Map();
@@ -24,6 +23,7 @@ function groupEvents(raw) {
 
 export default function LivePage() {
   const { slug } = useParams();
+
   const [game, setGame] = useState(null);
   const [home, setHome] = useState(null);
   const [away, setAway] = useState(null);
@@ -31,28 +31,32 @@ export default function LivePage() {
 
   // initial load
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const g = await getGameBySlug(slug);
+      const { data: g } = await supabase.from("games").select("*").eq("slug", slug).single();
+      if (cancelled) return;
       setGame(g);
       const [h, a] = await Promise.all([
         supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
       ]);
+      if (cancelled) return;
       setHome(h.data);
       setAway(a.data);
       await refreshEvents(g.id);
     })();
+    return () => { cancelled = true; };
   }, [slug]);
 
-  // realtime refresh for events (and game meta)
+  // realtime refresh for events + game meta
   useEffect(() => {
+    if (!game?.id) return;
     const ch = supabase
       .channel(`rt-live-${slug}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
-        if (game?.id) refreshEvents(game.id);
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => refreshEvents(game.id))
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games" }, async () => {
-        setGame(await getGameBySlug(slug));
+        const { data: g } = await supabase.from("games").select("*").eq("slug", slug).single();
+        setGame(g);
       })
       .subscribe();
     return () => supabase.removeChannel(ch);
@@ -64,7 +68,7 @@ export default function LivePage() {
       .select(`
         id, game_id, team_id, player_id, period, time_mmss, event,
         players!events_player_id_fkey ( id, name, number ),
-        teams!events_team_id_fkey ( id, short_name )
+        teams!events_team_id_fkey   ( id, short_name )
       `)
       .eq("game_id", gameId)
       .order("period", { ascending: true })
@@ -79,10 +83,10 @@ export default function LivePage() {
       <h2>Live</h2>
       <p className="muted">{home.name} vs {away.name}</p>
 
-      {/* 👉 Your existing in-game controls (clock/period, shots/goals, "Add event", scores) go here. 
-          Keep roster UI off this page. */}
+      {/* ⬇️ Put your existing live controls here (clock/period, shots/goals, “Add event”, score, etc.) */}
+      {/* IMPORTANT: No roster UI on this page. */}
 
-      {/* Read-only, running event list (no edit column) */}
+      {/* Read-only Events list — NO Actions column, NO roster above */}
       <div className="card" style={{ marginTop: 16 }}>
         <div style={{ paddingBottom: 6, fontWeight: 700 }}>Events</div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -101,8 +105,8 @@ export default function LivePage() {
             )}
             {rows.map((r, i) => {
               if (r.goal) {
-                const main = r.goal.players?.name || (r.goal.players?.number ? `#${r.goal.players.number}` : "—");
                 const teamShort = r.goal.teams?.short_name || "";
+                const main = r.goal.players?.name || (r.goal.players?.number ? `#${r.goal.players.number}` : "—");
                 const assists = r.assists
                   .map(a => a.players?.name || (a.players?.number ? `#${a.players.number}` : "—"))
                   .join(", ");
@@ -112,16 +116,13 @@ export default function LivePage() {
                     <td style={{ padding: 8 }}>{r.goal.time_mmss}</td>
                     <td style={{ padding: 8 }}>{teamShort}</td>
                     <td style={{ padding: 8 }}>goal</td>
-                    <td style={{ padding: 8 }}>
-                      <strong>{main}</strong>
-                      {assists && <span style={{ color: "#666" }}> (A: {assists})</span>}
-                    </td>
+                    <td style={{ padding: 8 }}><strong>{main}</strong>{assists && <span style={{ color: "#666" }}> (A: {assists})</span>}</td>
                   </tr>
                 );
               }
               const e = r.single;
-              const nm = e.players?.name || (e.players?.number ? `#${e.players.number}` : "—");
               const teamShort = e.teams?.short_name || "";
+              const nm = e.players?.name || (e.players?.number ? `#${e.players.number}` : "—");
               return (
                 <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f2f2f2" }}>
                   <td style={{ padding: 8 }}>{e.period}</td>
