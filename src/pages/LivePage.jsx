@@ -9,20 +9,17 @@ export default function LivePage() {
   const [game, setGame] = useState(null);
 
   useEffect(() => {
-    (async () => {
-      const g = await getGameBySlug(slug);
-      setGame(g);
-    })();
+    (async () => setGame(await getGameBySlug(slug)))();
   }, [slug]);
 
-  // Optional realtime refresh on game/events
+  // refresh when events or game change
   useEffect(() => {
     const ch = supabase
       .channel(`rt-live-${slug}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "games" }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "events" }, reload)
       .subscribe();
-    function reload() { getGameBySlug(slug).then(setGame).catch(()=>{}); }
+    function reload() { getGameBySlug(slug).then(setGame).catch(() => {}); }
     return () => supabase.removeChannel(ch);
   }, [slug]);
 
@@ -38,7 +35,8 @@ export default function LivePage() {
       <h2>Live</h2>
       <p className="muted">{game.home?.name} vs {game.away?.name}</p>
 
-      {/* 👉 Place your existing live controls here (clock, add event, shots, goals, score). */}
+      {/* ⬇️ Put your existing live “Add event / Clock / Shots / Goals / Score” block here.
+          We intentionally keep roster/buttons OUT of this page per your request. */}
     </div>
   );
 }
