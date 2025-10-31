@@ -90,6 +90,18 @@ export default function GamesPage() {
     setGames((cur) => cur.filter((g) => g.id !== id));
   }
 
+  // NEW: mark a game as final
+  async function handleMarkFinal(id) {
+    if (!window.confirm(t("Mark this game as FINAL?"))) return;
+    const { error } = await supabase.from("games").update({ status: "final" }).eq("id", id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    // update local state immediately (realtime will also come through if subscribed)
+    setGames((cur) => cur.map((g) => (g.id === id ? { ...g, status: "final" } : g)));
+  }
+
   // a lightweight slug generator; your DB can still override with a trigger if you have one
   function makeSlug(dateIso, homeId, awayId) {
     const d = (dateIso || "").slice(0, 10).replaceAll("-", "");
@@ -239,6 +251,8 @@ export default function GamesPage() {
             const d = new Date(g.game_date || "");
             const statusLabel = g.status;
 
+            const slugOrId = g.slug || g.id; // convenience
+
             return (
               <div
                 key={g.id}
@@ -272,10 +286,28 @@ export default function GamesPage() {
 
                 {/* Actions */}
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button onClick={() => navigate(`/games/${g.slug || g.id}`)}>{t("Live")}</button>
-                  <button onClick={() => navigate(`/games/${g.slug || g.id}/boxscore`)}>
+                  <button onClick={() => navigate(`/games/${slugOrId}/live`)}>{t("Live")}</button>
+                  <button onClick={() => navigate(`/games/${slugOrId}/roster`)}>{t("Roster")}</button>
+                  <button onClick={() => navigate(`/games/${slugOrId}/boxscore`)}>
                     {t("Boxscore")}
                   </button>
+
+                  <button
+                    onClick={() => handleMarkFinal(g.id)}
+                    disabled={g.status === "final"}
+                    style={{
+                      background: g.status === "final" ? "#9ca3af" : "#16a34a",
+                      color: "white",
+                      border: 0,
+                      borderRadius: 6,
+                      padding: "6px 10px",
+                      cursor: g.status === "final" ? "not-allowed" : "pointer",
+                    }}
+                    title={g.status === "final" ? t("Already final") : t("Mark as Final")}
+                  >
+                    {g.status === "final" ? t("Final") : t("Mark as Final")}
+                  </button>
+
                   <button
                     onClick={() => handleDelete(g.id)}
                     style={{
@@ -310,15 +342,4 @@ function TeamChip({ team }) {
       ) : (
         <span style={{ width: 22 }} />
       )}
-      <span style={{ fontWeight: 600 }}>{team.name || "—"}</span>
-    </div>
-  );
-}
-
-const inputS = {
-  height: 36,
-  padding: "0 10px",
-  borderRadius: 8,
-  border: "1px solid #ddd",
-  outline: "none",
-};
+      <span style={{ fontWeight: 6
