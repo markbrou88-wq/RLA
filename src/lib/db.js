@@ -39,6 +39,21 @@ export async function getGoalieLeadersCurrent() {
   if (error) throw error; return data;
 }
 
+export async function getGameBySlug(slug) {
+  const { data, error } = await supabase
+    .from("games")
+    .select(`
+      id, slug, status, game_date,
+      home_team_id, away_team_id, home_score, away_score, went_ot,
+      home:home_team_id ( id, name, short_name, logo_url ),
+      away:away_team_id ( id, name, short_name, logo_url )
+    `)
+    .eq("slug", slug)
+    .single();
+  if (error) throw error;
+  return data;
+
+
 // --------- WRITES (mutations) ----------
 export async function addEvent(evt) {
   // evt: { game_id, team_id, player_id, period, time_mmss, event }
@@ -63,3 +78,12 @@ export async function setScore(gameId, { home_score, away_score }) {
   const { error } = await supabase.from("games").update({ home_score, away_score }).eq("id", gameId);
   if (error) throw error;
 }
+export async function setGameStatus(gameId, status) {
+  const { error } = await supabase.from("games").update({ status }).eq("id", gameId);
+  if (error) throw error;
+}
+
+export async function markGameFinal(gameId) {
+  return setGameStatus(gameId, "final");
+}
+
