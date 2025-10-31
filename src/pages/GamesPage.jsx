@@ -227,6 +227,7 @@ export default function GamesPage() {
         </select>
 
         <button
+          className="btn secondary"
           onClick={() => {
             setFilterDate("");
             setFilterHome("");
@@ -239,11 +240,8 @@ export default function GamesPage() {
 
       {/* Create game */}
       <div
+        className="card"
         style={{
-          border: "1px solid #eee",
-          borderRadius: 10,
-          padding: 12,
-          marginBottom: 16,
           display: "grid",
           gridTemplateColumns: "170px 1fr 1fr auto",
           gap: 10,
@@ -275,7 +273,7 @@ export default function GamesPage() {
           ))}
         </select>
 
-        <button onClick={handleCreate} disabled={saving}>
+        <button className="btn btn-blue" onClick={handleCreate} disabled={saving}>
           {saving ? t("Creating…") : t("Create")}
         </button>
       </div>
@@ -297,10 +295,8 @@ export default function GamesPage() {
             return (
               <div
                 key={g.id}
+                className="card"
                 style={{
-                  border: "1px solid #eee",
-                  borderRadius: 12,
-                  padding: 12,
                   display: "grid",
                   gridTemplateColumns: "1fr auto auto",
                   alignItems: "center",
@@ -310,7 +306,7 @@ export default function GamesPage() {
                 {/* Matchup */}
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <TeamChip team={home} />
-                  <span style={{ color: "#666" }}>{t("at")}</span>
+                  <span className="muted">{t("at")}</span>
                   <TeamChip team={away} />
                 </div>
 
@@ -319,46 +315,34 @@ export default function GamesPage() {
                   <div style={{ fontWeight: 700 }}>
                     {g.home_score} — {g.away_score}
                   </div>
-                  <div style={{ fontSize: 12, color: "#666" }}>
+                  <div style={{ fontSize: 12 }} className="muted">
                     {isNaN(d) ? "" : d.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 12, color: "#666" }}>{statusLabel}</div>
+                  <div style={{ fontSize: 12 }} className="muted">{statusLabel}</div>
                 </div>
 
                 {/* Actions */}
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button onClick={() => navigate(`/games/${slugOrId}/live`)}>{t("Live")}</button>
-                  <button onClick={() => navigate(`/games/${slugOrId}/roster`)}>{t("Roster")}</button>
-                  <button onClick={() => navigate(`/games/${slugOrId}/boxscore`)}>
+                <div className="button-group">
+                  <button className="btn btn-blue" onClick={() => navigate(`/games/${slugOrId}/live`)}>
+                    {t("Live")}
+                  </button>
+                  <button className="btn btn-blue" onClick={() => navigate(`/games/${slugOrId}/roster`)}>
+                    {t("Roster")}
+                  </button>
+                  <button className="btn btn-blue" onClick={() => navigate(`/games/${slugOrId}/boxscore`)}>
                     {t("Boxscore")}
                   </button>
 
                   <button
+                    className={`btn ${g.status === "final" ? "btn-disabled" : "btn-green"}`}
                     onClick={() => handleMarkFinal(g.id)}
                     disabled={g.status === "final"}
-                    style={{
-                      background: g.status === "final" ? "#9ca3af" : "#16a34a",
-                      color: "white",
-                      border: 0,
-                      borderRadius: 6,
-                      padding: "6px 10px",
-                      cursor: g.status === "final" ? "not-allowed" : "pointer",
-                    }}
                     title={g.status === "final" ? t("Already final") : t("Mark as Final")}
                   >
                     {g.status === "final" ? t("Final") : t("Mark as Final")}
                   </button>
 
-                  <button
-                    onClick={() => handleDelete(g.id)}
-                    style={{
-                      background: "crimson",
-                      color: "white",
-                      border: 0,
-                      borderRadius: 6,
-                      padding: "6px 10px",
-                    }}
-                  >
+                  <button className="btn btn-red" onClick={() => handleDelete(g.id)}>
                     {t("Delete")}
                   </button>
                 </div>
