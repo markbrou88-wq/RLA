@@ -7,8 +7,7 @@ import { supabase } from "../supabaseClient.js";
 export default function RosterPage() {
   const { slug } = useParams();
   const [game, setGame] = useState(null);
-  const [rosterMap, setRosterMap] = useState(new Map()); // key: `${team_id}:${player_id}` -> row
-
+  const [rosterMap, setRosterMap] = useState(new Map()); // `${team_id}:${player_id}` -> row
   const [homePlayers, setHomePlayers] = useState([]);
   const [awayPlayers, setAwayPlayers] = useState([]);
 
@@ -62,6 +61,7 @@ export default function RosterPage() {
       <div className="button-group" style={{ marginBottom: 12 }}>
         <Link className="btn btn-grey" to={`/games/${slug}/live`}>Live</Link>
         <Link className="btn btn-grey" to={`/games/${slug}`}>Boxscore</Link>
+        <Link className="btn btn-grey" to="/games">Back to Games</Link>
       </div>
 
       <h2>Roster</h2>
