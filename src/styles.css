@@ -223,6 +223,58 @@ input:focus, select:focus { outline: 2px solid color-mix(in oklab, var(--primary
 .link { color: var(--primary); }
 
 /* ----------------------------------------------------------
+   BUTTON GROUPS (Games list actions)
+---------------------------------------------------------- */
+.button-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.button-group .btn {
+  min-width: 80px;
+  text-align: center;
+}
+
+/* Compact version for inline usage (buttons without .btn class) */
+.button-group button {
+  flex: 0 1 auto;
+  min-width: 70px;
+  white-space: nowrap;
+}
+
+/* Responsive layout for small screens */
+@media (max-width: 700px) {
+  .button-group {
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .button-group .btn,
+  .button-group button {
+    flex: 1 1 45%; /* two buttons per row */
+    min-width: 0;
+  }
+}
+
+/* For very small screens: make it horizontally scrollable instead of stacked */
+@media (max-width: 400px) {
+  .button-group {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .button-group .btn,
+  .button-group button {
+    flex: 0 0 auto;
+  }
+}
+
+
+/* ----------------------------------------------------------
    RESPONSIVE
 ---------------------------------------------------------- */
 @media (max-width: 600px) {
