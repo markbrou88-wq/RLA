@@ -1,5 +1,5 @@
 // src/lib/db.js
-import { supabase } from "./supabaseClient.js";
+import { supabase } from "../supabaseClient.js";
 
 // --------- READS ----------
 export async function getGame(gameIdOrSlug) {
