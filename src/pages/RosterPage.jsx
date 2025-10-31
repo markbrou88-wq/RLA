@@ -1,8 +1,8 @@
 // src/pages/RosterPage.jsx
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { getGameBySlug } from "../lib/db";
-import { supabase } from "../supabaseClient";
+import { getGameBySlug } from "../lib/db.js";
+import { supabase } from "../supabaseClient.js";
 
 export default function RosterPage() {
   const { slug } = useParams();
