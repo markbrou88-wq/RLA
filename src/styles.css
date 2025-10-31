@@ -147,15 +147,20 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   color: var(--text);
   border: 1px solid var(--card-border);
 }
-.btn.secondary:hover {
-  background: var(--hover);
-}
+.btn.secondary:hover { background: var(--hover); }
 
 .btn.danger { background: #d33; color: #fff; }
 .btn.danger:hover { background: #b22; }
 
+/* Variant helpers for quick styling in components */
+.btn-blue   { background: var(--primary); color: var(--btn-text); }
+.btn-green  { background: #16a34a; color: #fff; }
+.btn-red    { background: #ef4444; color: #fff; }
+.btn-grey   { background: #e5e7eb; color: var(--text); }
+.btn-disabled { background: #9ca3af; color: #fff; cursor: not-allowed; }
+
 /* inputs */
-input[type="text"], input[type="date"], input[type="number"], select {
+input[type="text"], input[type="date"], input[type="number"], input[type="datetime-local"], select {
   padding: 6px 10px; border: 1px solid var(--card-border); border-radius: 6px; font-size: .9rem;
   background: var(--card); color: var(--text);
 }
@@ -189,6 +194,33 @@ input:focus, select:focus { outline: 2px solid color-mix(in oklab, var(--primary
 .score .vs {
   font-size: 1rem; color: var(--muted); margin: 0 10px; font-weight: 600;
 }
+
+/* ----------------------------------------------------------
+   ROSTER / CHIPS / UTILITIES (added)
+---------------------------------------------------------- */
+.grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+.chips-wrap { display: flex; flex-wrap: wrap; gap: .5rem; }
+.chip {
+  padding: .35rem .6rem;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+}
+.chip-on {
+  background: var(--primary);
+  color: var(--btn-text);
+  border-color: color-mix(in oklab, var(--primary), #000 20%);
+}
+.chip-active {
+  background: #16a34a;
+  color: #fff;
+  border-color: #15803d;
+}
+
+.muted { color: var(--muted); }
+.link { color: var(--primary); }
 
 /* ----------------------------------------------------------
    RESPONSIVE
