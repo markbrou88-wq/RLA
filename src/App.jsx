@@ -13,6 +13,8 @@ import ThemeToggle from "./components/ThemeToggle";
 import { I18nProvider, useI18n } from "./i18n.jsx";
 import LanguageToggle from "./components/LanguageToggle";
 import PlayerPage from "./pages/PlayerPage.jsx"; // <— top of file
+import LivePage from "./pages/LivePage.jsx";       // NEW
+import RosterPage from "./pages/RosterPage.jsx";   // NEW
 
 function AuthBar() {
   const [email, setEmail] = React.useState("");
@@ -138,6 +140,8 @@ function AppInner() {
           <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />
           <Route path="/teams/:id" element={<TeamPage />} />
           <Route path="/players/:id" element={<PlayerPage />} />
+          <Route path="/games/:slug/live" element={<LivePage />} />      {/* NEW */}
+          <Route path="/games/:slug/roster" element={<RosterPage />} />  {/* NEW */}
         </Routes>
       </main>
 
