@@ -34,6 +34,15 @@ export default function GamesPage() {
   const [newAway, setNewAway] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
+  // helper: consistent sort (latest first)
+  function sortGames(arr) {
+    return [...arr].sort((a, b) => {
+      const ad = a.game_date ? new Date(a.game_date).getTime() : 0;
+      const bd = b.game_date ? new Date(b.game_date).getTime() : 0;
+      return bd - ad;
+    });
+  }
+
   React.useEffect(() => {
     let cancelled = false;
 
@@ -61,7 +70,7 @@ export default function GamesPage() {
       if (!cancelled) {
         setTeams(teamRows);
         setTeamMap(Object.fromEntries(map));
-        setGames(gameRows);
+        setGames(gameRows || []);
         setLoading(false);
       }
     }
@@ -69,6 +78,37 @@ export default function GamesPage() {
     load();
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  // 🔴 Realtime subscription for games (INSERT/UPDATE/DELETE)
+  React.useEffect(() => {
+    const channel = supabase
+      .channel("rt-games")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "games" },
+        (payload) => {
+          setGames((cur) => {
+            if (payload.eventType === "INSERT") {
+              const next = [payload.new, ...cur];
+              return sortGames(next);
+            }
+            if (payload.eventType === "UPDATE") {
+              const next = cur.map((g) => (g.id === payload.new.id ? payload.new : g));
+              return sortGames(next);
+            }
+            if (payload.eventType === "DELETE") {
+              return cur.filter((g) => g.id !== payload.old.id);
+            }
+            return cur;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -87,6 +127,7 @@ export default function GamesPage() {
       alert(error.message);
       return;
     }
+    // local state updates also happen via realtime (DELETE), but keep it snappy:
     setGames((cur) => cur.filter((g) => g.id !== id));
   }
 
@@ -98,7 +139,7 @@ export default function GamesPage() {
       alert(error.message);
       return;
     }
-    // update local state immediately (realtime will also come through if subscribed)
+    // Optimistic update (realtime UPDATE will also confirm)
     setGames((cur) => cur.map((g) => (g.id === id ? { ...g, status: "final" } : g)));
   }
 
@@ -138,7 +179,8 @@ export default function GamesPage() {
       alert(error.message);
       return;
     }
-    setGames((cur) => [data, ...cur]);
+    // Optimistic (realtime INSERT will also add it)
+    setGames((cur) => sortGames([data, ...cur]));
     // reset form
     setNewDate("");
     setNewHome("");
@@ -250,8 +292,7 @@ export default function GamesPage() {
             const away = teamMap[g.away_team_id] || {};
             const d = new Date(g.game_date || "");
             const statusLabel = g.status;
-
-            const slugOrId = g.slug || g.id; // convenience
+            const slugOrId = g.slug || g.id;
 
             return (
               <div
@@ -342,4 +383,15 @@ function TeamChip({ team }) {
       ) : (
         <span style={{ width: 22 }} />
       )}
-      <span style={{ fontWeight: 6
+      <span style={{ fontWeight: 600 }}>{team.name || "—"}</span>
+    </div>
+  );
+}
+
+const inputS = {
+  height: 36,
+  padding: "0 10px",
+  borderRadius: 8,
+  border: "1px solid #ddd",
+  outline: "none",
+};
