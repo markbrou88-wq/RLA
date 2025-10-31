@@ -39,19 +39,6 @@ export async function getGoalieLeadersCurrent() {
   if (error) throw error; return data;
 }
 
-export async function getGameBySlug(slug) {
-  const { data, error } = await supabase
-    .from("games")
-    .select(`
-      id, slug, status, game_date,
-      home_team_id, away_team_id, home_score, away_score, went_ot,
-      home:home_team_id ( id, name, short_name, logo_url ),
-      away:away_team_id ( id, name, short_name, logo_url )
-    `)
-    .eq("slug", slug)
-    .single();
-  if (error) throw error;
-  return data;
 
 
 // --------- WRITES (mutations) ----------
