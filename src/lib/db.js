@@ -82,8 +82,6 @@ export async function setGameStatus(gameId, status) {
   const { error } = await supabase.from("games").update({ status }).eq("id", gameId);
   if (error) throw error;
 }
-
-export async function markGameFinal(gameId) {
-  return setGameStatus(gameId, "final");
-}
+export async function markGameFinal(gameId)    { return setGameStatus(gameId, "final"); }
+export async function reopenGame(gameId)       { return setGameStatus(gameId, "scheduled"); }
 
