@@ -92,6 +92,13 @@ export default function BoxscorePage() {
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
       <Link to="/games">← Back to Games</Link>
 
+      {/* Top actions: Live · Roster · Boxscore */}
+      <div className="button-group" style={{ marginTop: 10, marginBottom: 10 }}>
+        <Link className="btn btn-grey" to={`/games/${slug}/live`}>Live</Link>
+        <Link className="btn btn-grey" to={`/games/${slug}/roster`}>Roster</Link>
+        <span className="btn btn-disabled" aria-disabled="true">Boxscore</span>
+      </div>
+
       <div style={{ textAlign: "center", marginTop: 10, marginBottom: 14 }}>
         <div style={{ fontSize: 22, fontWeight: 800 }}>
           {home.name} {game.home_score ?? 0} — {game.away_score ?? 0} {away.name}
