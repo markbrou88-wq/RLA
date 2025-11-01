@@ -3,24 +3,22 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 
-/* ========================== helpers ========================== */
-
-// time helpers
+/* ========================== small utils ========================== */
 const pad2 = (n) => String(n).padStart(2, "0");
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
-function msToMMSS(ms) {
+const msToMMSS = (ms) => {
   const s = Math.max(0, Math.round(ms / 1000));
   const mm = Math.floor(s / 60);
   const ss = s % 60;
   return `${pad2(mm)}:${pad2(ss)}`;
-}
-function mmssToMs(s) {
+};
+const mmssToMs = (s) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(s || "");
   if (!m) return 0;
   return (parseInt(m[1], 10) * 60 + parseInt(m[2], 10)) * 1000;
-}
+};
 
-// group goal+assists for display
+// event grouping for display
 function groupEvents(raw) {
   const key = (e) => `${e.period}|${e.time_mmss}|${e.team_id}|goal`;
   const goals = new Map();
@@ -34,12 +32,12 @@ function groupEvents(raw) {
     if (aP !== bP) return aP - bP;
     const aT = a.goal ? a.goal.time_mmss : a.single.time_mmss;
     const bT = b.goal ? b.goal.time_mmss : b.single.time_mmss;
-    return bT.localeCompare(aT); // descending time within period
+    return bT.localeCompare(aT);
   });
   return rows;
 }
 
-// bump goalie SA (and later GA if you add a column) in game_stats
+// goalie SA bump
 async function bumpGoalieSA({ game_id, team_id, player_id, deltaSA }) {
   const { data } = await supabase
     .from("game_stats")
@@ -64,8 +62,21 @@ async function bumpGoalieSA({ game_id, team_id, player_id, deltaSA }) {
   }
 }
 
-/* ========================== main page ========================== */
+/* ========================== team color helpers ========================== */
+function colorForTeam(team) {
+  const n = (team?.short_name || team?.name || "").toLowerCase();
+  // tolerant matching for your 3 clubs
+  if (n.includes("black") || n.includes("rln")) return "#111111"; // Red Lite Black
+  if (n.includes("blue") || n.includes("rlb")) return "#2d7ef7"; // Red Lite Blue
+  if (n.includes("red") || n.includes("rlr")) return "#ff2a2a"; // Red Lite Red
+  return "#444"; // fallback
+}
+const textOn = (hex) => {
+  // simple contrast
+  return ["#111", "#222", "#333"].includes(hex) ? "#fff" : "#fff";
+};
 
+/* ========================== main page ========================== */
 export default function LivePage() {
   const { slug } = useParams();
 
@@ -74,37 +85,36 @@ export default function LivePage() {
   const [home, setHome] = useState(null);
   const [away, setAway] = useState(null);
 
-  // players
+  // players dressed
   const [dressedHome, setDressedHome] = useState([]);
   const [dressedAway, setDressedAway] = useState([]);
 
-  // goalie on ice per team id
-  const [goalieOnIce, setGoalieOnIce] = useState({}); // { [teamId]: playerId }
+  // goalie on ice
+  const [goalieOnIce, setGoalieOnIce] = useState({}); // {teamId: playerId}
 
-  // on-ice tokens (UI only): {id, team_id, x%, y%}
-  const [onIce, setOnIce] = useState([]); // not persisted; visual state
+  // on-ice tokens UI only
+  const [onIce, setOnIce] = useState([]); // [{id, team_id, x, y} %]
 
-  // rink orientation (false = default; true = swapped)
+  // rink orientation
   const [flip, setFlip] = useState(false);
 
-  // clock/period
+  // clock
   const [period, setPeriod] = useState(1);
-  const [periodLen, setPeriodLen] = useState(15); // minutes
+  const [periodLen, setPeriodLen] = useState(15);
   const [clock, setClock] = useState("15:00");
   const [running, setRunning] = useState(false);
   const tickRef = useRef(null);
   const lastRef = useRef(null);
 
-  // events/render
+  // events
   const [rows, setRows] = useState([]);
-  const [lastGroupIds, setLastGroupIds] = useState([]); // for undo
+  const [lastGroupIds, setLastGroupIds] = useState([]);
 
-  // goal composer popup
-  const [goalPick, setGoalPick] = useState(null); // { scorer, team_id, side: 'home'|'away' }
+  // goal popup
+  const [goalPick, setGoalPick] = useState(null);
   const [assist1, setAssist1] = useState("");
   const [assist2, setAssist2] = useState("");
 
-  // load game+teams+dressed
   useEffect(() => {
     let dead = false;
     (async () => {
@@ -135,17 +145,16 @@ export default function LivePage() {
       setAway(a.data);
       setDressedHome((homeRoster || []).map((r) => r.players).sort((x, y) => (x.number || 0) - (y.number || 0)));
       setDressedAway((awayRoster || []).map((r) => r.players).sort((x, y) => (x.number || 0) - (y.number || 0)));
-
-      setClock(msToMMSS((g.period_seconds || periodLen * 60) * 1000)); // fallback to UI len
+      setClock(msToMMSS((g.period_seconds || periodLen * 60) * 1000));
       await refreshEvents(g.id);
     })();
     return () => {
       dead = true;
       clearInterval(tickRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  // realtime updates
   useEffect(() => {
     if (!game?.id) return;
     const ch = supabase
@@ -165,7 +174,7 @@ export default function LivePage() {
       .select(`
         id, game_id, team_id, player_id, period, time_mmss, event,
         players!events_player_id_fkey ( id, name, number ),
-        teams!events_team_id_fkey ( id, short_name )
+        teams!events_team_id_fkey ( id, short_name, name )
       `)
       .eq("game_id", gameId)
       .order("period", { ascending: true })
@@ -201,63 +210,40 @@ export default function LivePage() {
     setClock(msToMMSS(periodLen * 60 * 1000));
   }
 
-  // benches
-  const benchHome = dressedHome;
-  const benchAway = dressedAway;
-
-  // helpers
-  const teamShort = (tid) =>
-    tid === home?.id ? home?.short_name || home?.name : tid === away?.id ? away?.short_name || away?.name : "";
-
-  function otherTeamId(tid) {
-    if (!home || !away) return null;
-    return Number(tid) === home.id ? away.id : home.id;
-  }
-
-  // drag / drop
+  // dnd handlers
   function handleDropOnRink(e) {
     e.preventDefault();
     const data = e.dataTransfer.getData("text/plain");
     if (!data) return;
-    const payload = JSON.parse(data); // {id, team_id, from:'bench'|'ice'}
+    const payload = JSON.parse(data); // {id, team_id}
     const rect = e.currentTarget.getBoundingClientRect();
-    // compute % coords with flip consideration
     const x = clamp(((e.clientX - rect.left) / rect.width) * 100, 0, 100);
     const y = clamp(((e.clientY - rect.top) / rect.height) * 100, 0, 100);
-
     setOnIce((cur) => {
       const copy = cur.filter((t) => t.id !== payload.id);
       copy.push({ id: payload.id, team_id: payload.team_id, x: +x.toFixed(2), y: +y.toFixed(2) });
       return copy;
     });
   }
-
   function removeFromIce(id) {
     setOnIce((cur) => cur.filter((t) => t.id !== id));
   }
 
-  // goal zones (top/bottom depending on flip)
+  // goal zones
   function handleDropOnGoal(e, which) {
     e.preventDefault();
     const data = e.dataTransfer.getData("text/plain");
     if (!data) return;
-    const payload = JSON.parse(data); // token
-    // which: 'homeNet' or 'awayNet' (net the token is dropped INTO)
-    // If token is Home and dropped into Away net => home scored
+    const payload = JSON.parse(data);
     const isHomeScorer = payload.team_id === home.id && which === "awayNet";
     const isAwayScorer = payload.team_id === away.id && which === "homeNet";
-    if (!isHomeScorer && !isAwayScorer) return; // ignore
-
-    const side = isHomeScorer ? "home" : "away";
-    setGoalPick({
-      scorer: payload.id,
-      team_id: payload.team_id,
-      side,
-    });
+    if (!isHomeScorer && !isAwayScorer) return;
+    setGoalPick({ scorer: payload.id, team_id: payload.team_id, side: isHomeScorer ? "home" : "away" });
     setAssist1("");
     setAssist2("");
   }
 
+  // confirm goal
   async function confirmGoal() {
     if (!goalPick) return;
     const groupIds = [];
@@ -265,7 +251,6 @@ export default function LivePage() {
     const per = Number(period) || 1;
     const tId = Number(goalPick.team_id);
 
-    // write goal
     const { data: gRow, error: e1 } = await supabase
       .from("events")
       .insert([{ game_id: game.id, team_id: tId, player_id: goalPick.scorer, period: per, time_mmss: tm, event: "goal" }])
@@ -274,7 +259,6 @@ export default function LivePage() {
     if (e1) return alert(e1.message);
     groupIds.push(gRow.id);
 
-    // assists
     for (const a of [assist1, assist2]) {
       if (!a) continue;
       const { data: aRow, error: ea } = await supabase
@@ -286,15 +270,10 @@ export default function LivePage() {
       groupIds.push(aRow.id);
     }
 
-    // bump score
     const isHome = tId === home.id;
-    const update = isHome
-      ? { home_score: (game.home_score || 0) + 1 }
-      : { away_score: (game.away_score || 0) + 1 };
-    await supabase.from("games").update(update).eq("id", game.id);
+    await supabase.from("games").update(isHome ? { home_score: (game.home_score || 0) + 1 } : { away_score: (game.away_score || 0) + 1 }).eq("id", game.id);
 
-    // credit SA to opposing goalie on ice
-    const oppTeam = otherTeamId(tId);
+    const oppTeam = tId === home.id ? away.id : home.id;
     const oppGoalie = goalieOnIce[oppTeam];
     if (oppGoalie) {
       await bumpGoalieSA({ game_id: game.id, team_id: oppTeam, player_id: oppGoalie, deltaSA: 1 });
@@ -306,11 +285,8 @@ export default function LivePage() {
 
   async function undoLast() {
     if (lastGroupIds.length === 0) return;
-    // fetch the events to know if a goal existed
     const { data: evts } = await supabase.from("events").select("*").in("id", lastGroupIds);
-    // delete them
     await supabase.from("events").delete().in("id", lastGroupIds);
-    // if goal was part of group, decrement score
     const goalEvt = evts.find((e) => e.event === "goal");
     if (goalEvt) {
       const isHome = goalEvt.team_id === home.id;
@@ -318,12 +294,9 @@ export default function LivePage() {
         .from("games")
         .update(isHome ? { home_score: Math.max(0, (game.home_score || 0) - 1) } : { away_score: Math.max(0, (game.away_score || 0) - 1) })
         .eq("id", game.id);
-      // optional: reduce SA for opp goalie (best-effort)
-      const oppTeam = otherTeamId(goalEvt.team_id);
+      const oppTeam = isHome ? away.id : home.id;
       const oppGoalie = goalieOnIce[oppTeam];
-      if (oppGoalie) {
-        await bumpGoalieSA({ game_id: game.id, team_id: oppTeam, player_id: oppGoalie, deltaSA: -1 });
-      }
+      if (oppGoalie) await bumpGoalieSA({ game_id: game.id, team_id: oppTeam, player_id: oppGoalie, deltaSA: -1 });
     }
     setLastGroupIds([]);
   }
@@ -331,181 +304,138 @@ export default function LivePage() {
   function clearOnIce() {
     setOnIce([]);
   }
-
   function swapSides() {
     setFlip((f) => !f);
   }
 
-  // assist candidates = on-ice teammates excluding scorer
+  // assist choices from on-ice teammates
   const assistChoices = useMemo(() => {
     if (!goalPick) return [];
     return onIce
       .filter((t) => t.team_id === goalPick.team_id && t.id !== goalPick.scorer)
       .map((t) => {
-        const p =
-          (t.team_id === home?.id ? benchHome : benchAway).find((pp) => pp.id === t.id) || { id: t.id, name: "#" + t.id };
-        return p;
+        const src = t.team_id === home?.id ? dressedHome : dressedAway;
+        return src.find((pp) => pp.id === t.id) || { id: t.id, name: "#" + t.id };
       });
-  }, [goalPick, onIce, benchHome, benchAway, home?.id]);
+  }, [goalPick, onIce, dressedHome, dressedAway, home?.id]);
 
   if (!game || !home || !away) return null;
 
-  // CSS helpers
+  // colors
+  const homeColor = colorForTeam(home);
+  const awayColor = colorForTeam(away);
+
+  /* ========================== styles ========================== */
+  // Rink: aspect-ratio 2.2:1 to be long-wide; blue deck with subtle grid and yellow lines
   const rinkS = {
     position: "relative",
-    background:
-      "radial-gradient(transparent 50%, rgba(0,0,0,0.02) 51%), linear-gradient(#e9f1ff 0 0)",
-    backgroundSize: "8px 8px, cover",
+    aspectRatio: "2.2 / 1",
+    width: "100%",
     borderRadius: 16,
     border: "1px solid #d6e2ff",
-    height: 480,
-    userSelect: "none",
     overflow: "hidden",
+    background: `repeating-linear-gradient(
+      0deg,
+      #1b5fd6,
+      #1b5fd6 10px,
+      #1a59ca 10px,
+      #1a59ca 20px
+    )`,
+    boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.05)",
+    userSelect: "none",
   };
 
   return (
     <div className="container">
-      {/* Nav */}
-      <div className="button-group" style={{ marginBottom: 10 }}>
+      {/* Top links */}
+      <div className="button-group" style={{ marginBottom: 8 }}>
         <Link className="btn btn-grey" to={`/games/${slug}/roster`}>Roster</Link>
         <Link className="btn btn-grey" to={`/games/${slug}`}>Boxscore</Link>
         <Link className="btn btn-grey" to="/games">Back to Games</Link>
       </div>
 
-      {/* Header */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        {/* Away score box */}
+      {/* Scores + Clock */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10 }}>
         <ScoreBox team={away} score={game.away_score || 0} label="AWAY" />
-        {/* Clock */}
-        <div className="card" style={{ padding: 12, textAlign: "center", minWidth: 260 }}>
+        <div className="card" style={{ padding: 12, textAlign: "center", minWidth: 300 }}>
           <div style={{ fontSize: 32, fontWeight: 800 }}>{clock}</div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 8 }}>
-            <button className="btn btn-grey" onClick={startClock} disabled={running}>Start</button>
-            <button className="btn btn-grey" onClick={stopClock} disabled={!running}>Stop</button>
+          {/* Controls row horizontally */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 8 }}>
+            <button className="btn btn-grey" onClick={() => (running ? stopClock() : startClock())}>
+              {running ? "Stop" : "Start"}
+            </button>
+            <button className="btn btn-grey" onClick={undoLast}>Undo</button>
+            <button className="btn btn-grey" onClick={swapSides}>Swap Sides</button>
+            <button className="btn btn-grey" onClick={clearOnIce}>Clear On-Ice</button>
             <button className="btn btn-grey" onClick={resetClock}>Reset</button>
           </div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
             <span className="muted">Period</span>
-            <input
-              className="input"
-              type="number"
-              min={1}
-              step={1}
-              value={period}
+            <input className="input" type="number" min={1} step={1} value={period}
               onChange={(e) => setPeriod(clamp(parseInt(e.target.value || "1", 10), 1, 9))}
-              style={{ width: 70 }}
-            />
+              style={{ width: 70 }} />
             <span className="muted">Len</span>
-            <input
-              className="input"
-              type="number"
-              min={1}
-              max={30}
-              value={periodLen}
+            <input className="input" type="number" min={1} max={30} value={periodLen}
               onChange={(e) => setPeriodLen(clamp(parseInt(e.target.value || "15", 10), 1, 30))}
-              style={{ width: 70 }}
-            />
+              style={{ width: 70 }} />
             <span className="muted">min</span>
           </div>
         </div>
-        {/* Home score box */}
         <ScoreBox team={home} score={game.home_score || 0} label="HOME" />
       </div>
 
-      {/* Play surface block */}
-      <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 140px", gap: 10 }}>
-        {/* Left bench + rail */}
-        <div>
-          <ToolRail
-            onStartStop={() => (running ? stopClock() : startClock())}
-            running={running}
-            onUndo={undoLast}
-            onSwap={swapSides}
-            onClear={clearOnIce}
-          />
-          <Bench
-            title={away.short_name || away.name}
-            players={benchAway}
-            color="#e74c3c"
-            onTokenDragStart={(p) =>
-              JSON.stringify({ id: p.id, team_id: away.id, from: "bench" })
-            }
-          />
-        </div>
-
-        {/* Rink */}
+      {/* Benches + Rink */}
+      <div style={{ display: "grid", gridTemplateColumns: "160px 1fr 160px", gap: 10, marginTop: 10 }}>
+        <Bench title={away.short_name || away.name} players={dressedAway} color={awayColor} />
         <div
           style={rinkS}
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDropOnRink}
         >
-          {/* goal zones */}
-          {/* Top net (y small) */}
-          <GoalCrease
-            top
-            flipped={flip}
-            label="G"
-            onDrop={(e) => handleDropOnGoal(e, flip ? "awayNet" : "homeNet")}
-          />
-          {/* Bottom net */}
-          <GoalCrease
-            bottom
-            flipped={flip}
-            label="G"
-            onDrop={(e) => handleDropOnGoal(e, flip ? "homeNet" : "awayNet")}
-          />
+          {/* Yellow board stripes + center line */}
+          <div style={yl({ top: 0 })} />
+          <div style={yl({ bottom: 0 })} />
+          <div style={yl({ top: "50%", translateY: "-50%" })} />
 
-          {/* Goalie selects */}
+          {/* Goal creases (yellow) */}
+          <GoalCrease top flipped={flip} onDrop={(e) => handleDropOnGoal(e, flip ? "awayNet" : "homeNet")} />
+          <GoalCrease bottom flipped={flip} onDrop={(e) => handleDropOnGoal(e, flip ? "homeNet" : "awayNet")} />
+
+          {/* Goalie pickers near creases */}
           <GoaliePicker
             position={flip ? "bottom" : "top"}
             team={home}
             value={goalieOnIce[home.id] || ""}
-            options={benchHome.filter((p) => (p.position || "").toLowerCase().includes("g"))}
+            options={dressedHome.filter((p) => (p.position || "").toLowerCase().includes("g"))}
             onChange={(pid) => setGoalieOnIce((m) => ({ ...m, [home.id]: Number(pid) || "" }))}
           />
           <GoaliePicker
             position={flip ? "top" : "bottom"}
             team={away}
             value={goalieOnIce[away.id] || ""}
-            options={benchAway.filter((p) => (p.position || "").toLowerCase().includes("g"))}
+            options={dressedAway.filter((p) => (p.position || "").toLowerCase().includes("g"))}
             onChange={(pid) => setGoalieOnIce((m) => ({ ...m, [away.id]: Number(pid) || "" }))}
           />
 
-          {/* on-ice tokens */}
+          {/* On-ice tokens */}
           {onIce.map((t) => {
-            const p =
-              (t.team_id === home.id ? benchHome : benchAway).find((pp) => pp.id === t.id) ||
-              { id: t.id, name: "#" + t.id };
+            const p = (t.team_id === home.id ? dressedHome : dressedAway).find((pp) => pp.id === t.id);
+            const col = t.team_id === home.id ? homeColor : awayColor;
             return (
               <IceToken
                 key={`${t.team_id}-${t.id}`}
-                player={p}
+                player={p || { id: t.id, number: "•" }}
                 teamId={t.team_id}
                 x={t.x}
                 y={t.y}
-                color={t.team_id === home.id ? "#2d7ef7" : "#e74c3c"}
-                onDragEnd={(nx, ny) =>
-                  setOnIce((cur) =>
-                    cur.map((it) => (it.id === t.id ? { ...it, x: nx, y: ny } : it))
-                  )
-                }
+                color={col}
+                onDragEnd={(nx, ny) => setOnIce((cur) => cur.map((it) => (it.id === t.id ? { ...it, x: nx, y: ny } : it)))}
                 onSendToBench={() => removeFromIce(t.id)}
               />
             );
           })}
         </div>
-
-        {/* Right bench */}
-        <div>
-          <Bench
-            title={home.short_name || home.name}
-            players={benchHome}
-            color="#2d7ef7"
-            onTokenDragStart={(p) =>
-              JSON.stringify({ id: p.id, team_id: home.id, from: "bench" })
-            }
-          />
-        </div>
+        <Bench title={home.short_name || home.name} players={dressedHome} color={homeColor} />
       </div>
 
       {/* Events */}
@@ -527,14 +457,12 @@ export default function LivePage() {
             )}
             {rows.map((r, idx) => {
               if (r.goal) {
-                const asst = r.assists
-                  .map((a) => a.players?.name || (a.players?.number ? `#${a.players.number}` : "—"))
-                  .join(", ");
+                const asst = r.assists.map((a) => a.players?.name || (a.players?.number ? `#${a.players.number}` : "—")).join(", ");
                 return (
                   <tr key={`g${idx}`} style={{ borderTop: "1px solid #f2f2f2" }}>
                     <td style={{ padding: 8 }}>{r.goal.period}</td>
                     <td style={{ padding: 8 }}>{r.goal.time_mmss}</td>
-                    <td style={{ padding: 8 }}>{r.goal.teams?.short_name || ""}</td>
+                    <td style={{ padding: 8 }}>{r.goal.teams?.short_name || r.goal.teams?.name || ""}</td>
                     <td style={{ padding: 8 }}>goal</td>
                     <td style={{ padding: 8 }}>
                       <strong>{r.goal.players?.name || (r.goal.players?.number ? `#${r.goal.players.number}` : "—")}</strong>
@@ -548,11 +476,9 @@ export default function LivePage() {
                 <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f2f2f2" }}>
                   <td style={{ padding: 8 }}>{e.period}</td>
                   <td style={{ padding: 8 }}>{e.time_mmss}</td>
-                  <td style={{ padding: 8 }}>{e.teams?.short_name || ""}</td>
+                  <td style={{ padding: 8 }}>{e.teams?.short_name || e.teams?.name || ""}</td>
                   <td style={{ padding: 8 }}>{e.event}</td>
-                  <td style={{ padding: 8 }}>
-                    {e.players?.name || (e.players?.number ? `#${e.players.number}` : "—")}
-                  </td>
+                  <td style={{ padding: 8 }}>{e.players?.name || (e.players?.number ? `#${e.players.number}` : "—")}</td>
                 </tr>
               );
             })}
@@ -560,18 +486,18 @@ export default function LivePage() {
         </table>
       </div>
 
-      {/* Goal popup */}
+      {/* Goal confirm modal */}
       {goalPick && (
         <div style={modalWrapS}>
           <div className="card" style={{ width: 520, maxWidth: "calc(100vw - 24px)" }}>
             <div style={{ fontWeight: 800, marginBottom: 8 }}>Confirm Goal</div>
             <div className="muted" style={{ marginBottom: 8 }}>
-              {teamShort(goalPick.team_id)} • {clock} • Period {period}
+              {(home.id === goalPick.team_id ? (home.short_name || home.name) : (away.short_name || away.name))} • {clock} • Period {period}
             </div>
             <div style={{ marginBottom: 8 }}>
               <div className="muted">Scorer</div>
               <div style={{ fontWeight: 700, marginTop: 4 }}>
-                {displayPlayer(goalPick.scorer, goalPick.team_id, benchHome, benchAway)}
+                {displayPlayer(goalPick.scorer, goalPick.team_id, dressedHome, dressedAway)}
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -580,9 +506,7 @@ export default function LivePage() {
                 <select className="input" value={assist1} onChange={(e) => setAssist1(e.target.value)}>
                   <option value="">—</option>
                   {assistChoices.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.number ? `#${p.number} ` : ""}{p.name}
-                    </option>
+                    <option key={p.id} value={p.id}>{p.number ? `#${p.number} ` : ""}{p.name}</option>
                   ))}
                 </select>
               </div>
@@ -591,9 +515,7 @@ export default function LivePage() {
                 <select className="input" value={assist2} onChange={(e) => setAssist2(e.target.value)}>
                   <option value="">—</option>
                   {assistChoices.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.number ? `#${p.number} ` : ""}{p.name}
-                    </option>
+                    <option key={p.id} value={p.id}>{p.number ? `#${p.number} ` : ""}{p.name}</option>
                   ))}
                 </select>
               </div>
@@ -609,7 +531,7 @@ export default function LivePage() {
   );
 }
 
-/* ========================== small components ========================== */
+/* ========================== components ========================== */
 
 function ScoreBox({ team, score, label }) {
   return (
@@ -623,21 +545,8 @@ function ScoreBox({ team, score, label }) {
   );
 }
 
-function ToolRail({ onStartStop, running, onUndo, onSwap, onClear }) {
-  const btn = { display: "flex", alignItems: "center", gap: 8, width: "100%", marginBottom: 8 };
-  return (
-    <div className="card" style={{ marginBottom: 10 }}>
-      <button className="btn btn-grey" style={btn} onClick={onStartStop}>
-        {running ? "Pause ⏸" : "Start ▶"}
-      </button>
-      <button className="btn btn-grey" style={btn} onClick={onUndo}>Undo ⤺</button>
-      <button className="btn btn-grey" style={btn} onClick={onSwap}>Swap Sides ⇄</button>
-      <button className="btn btn-grey" style={btn} onClick={onClear}>Clear On-Ice ⌫</button>
-    </div>
-  );
-}
-
-function Bench({ title, players, color, onTokenDragStart }) {
+function Bench({ title, players, color }) {
+  const txt = textOn(color);
   return (
     <div className="card">
       <div style={{ fontWeight: 700, marginBottom: 8 }}>{title}</div>
@@ -646,17 +555,25 @@ function Bench({ title, players, color, onTokenDragStart }) {
           <div
             key={p.id}
             draggable
-            onDragStart={(e) => e.dataTransfer.setData("text/plain", onTokenDragStart(p))}
+            onDragStart={(e) => e.dataTransfer.setData("text/plain", JSON.stringify({ id: p.id, team_id: (p.team_id || 0) }))}
             className="chip"
             style={{
-              background: "#fff",
-              border: `2px solid ${color}`,
-              color: "#222",
+              width: 54,
+              height: 54,
+              borderRadius: 999,
+              background: color,
+              color: txt,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 800,
+              fontSize: 18,
               cursor: "grab",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
             }}
-            title={`Drag #${p.number || "?"} ${p.name} onto the rink`}
+            title={`Drag #${p.number ?? "?"} onto the rink`}
           >
-            {(p.number != null ? `#${p.number} ` : "") + p.name}
+            {p.number ?? "•"}
           </div>
         ))}
       </div>
@@ -667,11 +584,7 @@ function Bench({ title, players, color, onTokenDragStart }) {
 function IceToken({ player, teamId, x, y, color, onDragEnd, onSendToBench }) {
   const ref = useRef(null);
   function onDragStart(e) {
-    e.dataTransfer.setData("text/plain", JSON.stringify({ id: player.id, team_id: teamId, from: "ice" }));
-    // Set drag image for nicer UX (fallback to default)
-  }
-  function onDrag(e) {
-    // noop
+    e.dataTransfer.setData("text/plain", JSON.stringify({ id: player.id, team_id: teamId }));
   }
   function onDragEndHandler(e) {
     const parent = ref.current?.parentElement?.getBoundingClientRect();
@@ -685,35 +598,35 @@ function IceToken({ player, teamId, x, y, color, onDragEnd, onSendToBench }) {
       ref={ref}
       draggable
       onDragStart={onDragStart}
-      onDrag={onDrag}
       onDragEnd={onDragEndHandler}
       onDoubleClick={onSendToBench}
       style={{
         position: "absolute",
-        left: `calc(${x}% - 20px)`,
-        top: `calc(${y}% - 20px)`,
-        width: 40,
-        height: 40,
+        left: `calc(${x}% - 22px)`,
+        top: `calc(${y}% - 22px)`,
+        width: 44,
+        height: 44,
         borderRadius: 999,
-        background: "#fff",
-        border: `3px solid ${color}`,
+        background: color,
+        color: textOn(color),
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         fontWeight: 800,
+        fontSize: 18,
         cursor: "grab",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
       }}
-      title="Drag to move • Double-click to send back to bench"
+      title="Drag to move • Double-tap to send back to bench"
     >
       {player.number ?? "•"}
     </div>
   );
 }
 
-function GoalCrease({ top, bottom, flipped, label, onDrop }) {
+function GoalCrease({ top, bottom, flipped, onDrop }) {
   const place =
-    top ? (flipped ? { bottom: 10 } : { top: 10 }) : bottom ? (flipped ? { top: 10 } : { bottom: 10 }) : {};
+    top ? (flipped ? { bottom: "6%" } : { top: "6%" }) : bottom ? (flipped ? { top: "6%" } : { bottom: "6%" }) : {};
   return (
     <div
       onDragOver={(e) => e.preventDefault()}
@@ -723,11 +636,11 @@ function GoalCrease({ top, bottom, flipped, label, onDrop }) {
         position: "absolute",
         left: "50%",
         transform: "translateX(-50%)",
-        width: 160,
-        height: 70,
+        width: "20%",
+        height: "14%",
         borderRadius: 12,
-        border: "2px dashed #e33",
-        background: "rgba(255,0,0,0.05)",
+        border: "3px solid #ffd400",
+        background: "rgba(255,212,0,0.10)",
         ...place,
       }}
     />
@@ -735,14 +648,10 @@ function GoalCrease({ top, bottom, flipped, label, onDrop }) {
 }
 
 function GoaliePicker({ position, team, value, options, onChange }) {
-  const place = position === "top"
-    ? { top: 12, left: 12 }
-    : { bottom: 12, right: 12 };
+  const place = position === "top" ? { top: 10, left: 10 } : { bottom: 10, right: 10 };
   return (
     <div style={{ position: "absolute", ...place }}>
-      <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-        {team.short_name || team.name} Goalie
-      </div>
+      <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>{team.short_name || team.name} Goalie</div>
       <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">—</option>
         {options.map((g) => (
@@ -754,12 +663,15 @@ function GoaliePicker({ position, team, value, options, onChange }) {
 }
 
 function displayPlayer(pid, teamId, benchHome, benchAway) {
-  const src = teamId === (benchHome[0]?.team_id ?? -1) ? benchHome : benchAway;
+  const src =
+    benchHome.find((p) => p.id === pid) ? benchHome :
+    benchAway.find((p) => p.id === pid) ? benchAway : [];
   const p = src.find((pp) => pp.id === pid);
   if (!p) return `#${pid}`;
   return `${p.number ? `#${p.number} ` : ""}${p.name}`;
 }
 
+/* overlays */
 const modalWrapS = {
   position: "fixed",
   inset: 0,
@@ -770,3 +682,18 @@ const modalWrapS = {
   padding: 12,
   zIndex: 50,
 };
+
+// yellow line helper
+function yl({ top, bottom, translateY }) {
+  const base = {
+    position: "absolute",
+    left: 0,
+    width: "100%",
+    height: 10,
+    background: "#ffd400",
+    opacity: 0.9,
+  };
+  if (top !== undefined) return { ...base, top };
+  if (bottom !== undefined) return { ...base, bottom };
+  return { ...base, top, transform: `translateY(${translateY || 0})` };
+}
