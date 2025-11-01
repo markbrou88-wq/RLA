@@ -3,9 +3,24 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 
-// ---- helpers ---------------------------------------------------------------
+/* ========================== helpers ========================== */
 
-// group goal+assists for display; order by period asc, time desc
+// time helpers
+const pad2 = (n) => String(n).padStart(2, "0");
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+function msToMMSS(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const mm = Math.floor(s / 60);
+  const ss = s % 60;
+  return `${pad2(mm)}:${pad2(ss)}`;
+}
+function mmssToMs(s) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s || "");
+  if (!m) return 0;
+  return (parseInt(m[1], 10) * 60 + parseInt(m[2], 10)) * 1000;
+}
+
+// group goal+assists for display
 function groupEvents(raw) {
   const key = (e) => `${e.period}|${e.time_mmss}|${e.team_id}|goal`;
   const goals = new Map();
@@ -19,127 +34,118 @@ function groupEvents(raw) {
     if (aP !== bP) return aP - bP;
     const aT = a.goal ? a.goal.time_mmss : a.single.time_mmss;
     const bT = b.goal ? b.goal.time_mmss : b.single.time_mmss;
-    return bT > aT ? 1 : bT < aT ? -1 : 0;
+    return bT.localeCompare(aT); // descending time within period
   });
   return rows;
 }
 
-// MM:SS utilities
-const clamp2 = (n) => String(Math.max(0, Math.min(59, n))).padStart(2, "0");
-function msToMMSS(ms) {
-  const total = Math.max(0, Math.round(ms / 1000));
-  const mm = Math.floor(total / 60);
-  const ss = total % 60;
-  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
-}
-function mmssToMs(s) {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(s || "");
-  if (!m) return 0;
-  return (parseInt(m[1], 10) * 60 + parseInt(m[2], 10)) * 1000;
-}
-
-// safe upsert helper for game_stats goalie row
-async function bumpGoalieStats({ game_id, player_id, team_id, deltaSA = 0, deltaGA = 0 }) {
-  // upsert on (game_id, player_id, team_id)
-  const { data: existing } = await supabase
+// bump goalie SA (and later GA if you add a column) in game_stats
+async function bumpGoalieSA({ game_id, team_id, player_id, deltaSA }) {
+  const { data } = await supabase
     .from("game_stats")
     .select("id, goalie_shots_against")
     .eq("game_id", game_id)
-    .eq("player_id", player_id)
     .eq("team_id", team_id)
+    .eq("player_id", player_id)
     .single();
-
-  if (!existing) {
+  if (!data) {
     await supabase.from("game_stats").insert({
       game_id,
       team_id,
       player_id,
       is_goalie: true,
       goalie_shots_against: Math.max(0, deltaSA),
-      // No dedicated GA column in your schema; GA is often derived from events.
-      // If you add one later, increment it here.
     });
   } else {
     await supabase
       .from("game_stats")
-      .update({
-        goalie_shots_against: Math.max(0, (existing.goalie_shots_against || 0) + deltaSA),
-      })
-      .eq("id", existing.id);
+      .update({ goalie_shots_against: Math.max(0, (data.goalie_shots_against || 0) + deltaSA) })
+      .eq("id", data.id);
   }
-  // GA credit could be derived from events; if you add a GA column, update it here too.
 }
 
-// ---- component -------------------------------------------------------------
+/* ========================== main page ========================== */
 
 export default function LivePage() {
   const { slug } = useParams();
 
+  // game + teams
   const [game, setGame] = useState(null);
   const [home, setHome] = useState(null);
   const [away, setAway] = useState(null);
-  const [players, setPlayers] = useState([]); // both teams
-  const [rows, setRows] = useState([]);
 
-  // current goalies on ice (id or "")
-  const [goalieByTeam, setGoalieByTeam] = useState({});
+  // players
+  const [dressedHome, setDressedHome] = useState([]);
+  const [dressedAway, setDressedAway] = useState([]);
 
-  // ----- clock / period -----
+  // goalie on ice per team id
+  const [goalieOnIce, setGoalieOnIce] = useState({}); // { [teamId]: playerId }
+
+  // on-ice tokens (UI only): {id, team_id, x%, y%}
+  const [onIce, setOnIce] = useState([]); // not persisted; visual state
+
+  // rink orientation (false = default; true = swapped)
+  const [flip, setFlip] = useState(false);
+
+  // clock/period
   const [period, setPeriod] = useState(1);
-  const [periodLenMin, setPeriodLenMin] = useState(15);
-  const [clockMMSS, setClockMMSS] = useState("15:00");
+  const [periodLen, setPeriodLen] = useState(15); // minutes
+  const [clock, setClock] = useState("15:00");
   const [running, setRunning] = useState(false);
-  const timerRef = useRef(null);
-  const lastTickRef = useRef(null);
+  const tickRef = useRef(null);
+  const lastRef = useRef(null);
 
-  // ----- event form -----
-  const [etype, setEtype] = useState("goal");
-  const [teamId, setTeamId] = useState("");
-  const [scorer, setScorer] = useState("");
-  const [a1, setA1] = useState("");
-  const [a2, setA2] = useState("");
-  const [penMin, setPenMin] = useState(2);
-  const [penType, setPenType] = useState("minor");
-  const [note, setNote] = useState("");
-  const [adding, setAdding] = useState(false);
+  // events/render
+  const [rows, setRows] = useState([]);
+  const [lastGroupIds, setLastGroupIds] = useState([]); // for undo
 
-  // initial load
+  // goal composer popup
+  const [goalPick, setGoalPick] = useState(null); // { scorer, team_id, side: 'home'|'away' }
+  const [assist1, setAssist1] = useState("");
+  const [assist2, setAssist2] = useState("");
+
+  // load game+teams+dressed
   useEffect(() => {
     let dead = false;
     (async () => {
       const { data: g } = await supabase.from("games").select("*").eq("slug", slug).single();
-      if (dead) return;
-      setGame(g);
+      if (!g) return;
       const [h, a] = await Promise.all([
         supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
       ]);
+      const [{ data: homeRoster }, { data: awayRoster }] = await Promise.all([
+        supabase
+          .from("game_rosters")
+          .select("players:player_id(id,name,number,position),dressed,team_id")
+          .eq("game_id", g.id)
+          .eq("team_id", g.home_team_id)
+          .eq("dressed", true),
+        supabase
+          .from("game_rosters")
+          .select("players:player_id(id,name,number,position),dressed,team_id")
+          .eq("game_id", g.id)
+          .eq("team_id", g.away_team_id)
+          .eq("dressed", true),
+      ]);
+
       if (dead) return;
+      setGame(g);
       setHome(h.data);
       setAway(a.data);
+      setDressedHome((homeRoster || []).map((r) => r.players).sort((x, y) => (x.number || 0) - (y.number || 0)));
+      setDressedAway((awayRoster || []).map((r) => r.players).sort((x, y) => (x.number || 0) - (y.number || 0)));
 
-      const teamIds = [g.home_team_id, g.away_team_id];
-      const { data: pls } = await supabase
-        .from("players")
-        .select("id, name, number, team_id, position")
-        .in("team_id", teamIds)
-        .order("team_id", { ascending: true })
-        .order("number", { ascending: true });
-      setPlayers(pls || []);
-
-      // defaults
-      setTeamId(String(g.home_team_id));
-      setClockMMSS(msToMMSS(periodLenMin * 60 * 1000));
-
+      setClock(msToMMSS((g.period_seconds || periodLen * 60) * 1000)); // fallback to UI len
       await refreshEvents(g.id);
     })();
     return () => {
       dead = true;
-      clearInterval(timerRef.current);
+      clearInterval(tickRef.current);
     };
   }, [slug]);
 
-  // realtime subscribe
+  // realtime updates
   useEffect(() => {
     if (!game?.id) return;
     const ch = supabase
@@ -147,7 +153,7 @@ export default function LivePage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => refreshEvents(game.id))
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games" }, async () => {
         const { data: g } = await supabase.from("games").select("*").eq("slug", slug).single();
-        setGame(g);
+        if (g) setGame(g);
       })
       .subscribe();
     return () => supabase.removeChannel(ch);
@@ -159,424 +165,608 @@ export default function LivePage() {
       .select(`
         id, game_id, team_id, player_id, period, time_mmss, event,
         players!events_player_id_fkey ( id, name, number ),
-        teams!events_team_id_fkey   ( id, short_name )
+        teams!events_team_id_fkey ( id, short_name )
       `)
       .eq("game_id", gameId)
       .order("period", { ascending: true })
       .order("time_mmss", { ascending: false });
-
     setRows(groupEvents(ev || []));
   }
 
-  // --- clock controls ---
+  // clock controls
   function startClock() {
     if (running) return;
     setRunning(true);
-    lastTickRef.current = Date.now();
-    timerRef.current = setInterval(() => {
+    lastRef.current = Date.now();
+    tickRef.current = setInterval(() => {
       const now = Date.now();
-      const delta = now - (lastTickRef.current || now);
-      lastTickRef.current = now;
-      const ms = mmssToMs(clockMMSS) - delta;
+      const d = now - (lastRef.current || now);
+      lastRef.current = now;
+      const ms = mmssToMs(clock) - d;
       if (ms <= 0) {
-        clearInterval(timerRef.current);
+        setClock("00:00");
+        clearInterval(tickRef.current);
         setRunning(false);
-        setClockMMSS("00:00");
       } else {
-        setClockMMSS(msToMMSS(ms));
+        setClock(msToMMSS(ms));
       }
     }, 250);
   }
   function stopClock() {
-    clearInterval(timerRef.current);
+    clearInterval(tickRef.current);
     setRunning(false);
   }
   function resetClock() {
     stopClock();
-    setClockMMSS(msToMMSS(periodLenMin * 60 * 1000));
-  }
-  function applyPeriodLen() {
-    setClockMMSS(msToMMSS(Math.max(1, periodLenMin) * 60 * 1000));
+    setClock(msToMMSS(periodLen * 60 * 1000));
   }
 
-  // players by selected team (for scorer/assists pickers)
-  const teamPlayers = useMemo(
-    () => players.filter((p) => String(p.team_id) === String(teamId)),
-    [players, teamId]
-  );
+  // benches
+  const benchHome = dressedHome;
+  const benchAway = dressedAway;
 
-  // goalie selects for both teams
-  const homeGoalies = useMemo(
-    () => players.filter((p) => p.team_id === home?.id && (p.position || "").toLowerCase().includes("g")),
-    [players, home?.id]
-  );
-  const awayGoalies = useMemo(
-    () => players.filter((p) => p.team_id === away?.id && (p.position || "").toLowerCase().includes("g")),
-    [players, away?.id]
-  );
+  // helpers
+  const teamShort = (tid) =>
+    tid === home?.id ? home?.short_name || home?.name : tid === away?.id ? away?.short_name || away?.name : "";
 
-  function setGoalie(team, pid) {
-    setGoalieByTeam((m) => ({ ...m, [team]: pid }));
-  }
-
-  // quick adds (both teams)
-  async function quick(type, forTeamId) {
-    setEtype(type);
-    setTeamId(String(forTeamId));
-    if (type === "goal" || type === "shot" || type === "save") return; // user still chooses player
-    await doInsert({ type, forTeamId });
-  }
-
-  // compute opposite team id
   function otherTeamId(tid) {
     if (!home || !away) return null;
     return Number(tid) === home.id ? away.id : home.id;
   }
 
-  // insert event(s)
-  async function doInsert(opts) {
-    const tId = Number(opts?.forTeamId || teamId);
+  // drag / drop
+  function handleDropOnRink(e) {
+    e.preventDefault();
+    const data = e.dataTransfer.getData("text/plain");
+    if (!data) return;
+    const payload = JSON.parse(data); // {id, team_id, from:'bench'|'ice'}
+    const rect = e.currentTarget.getBoundingClientRect();
+    // compute % coords with flip consideration
+    const x = clamp(((e.clientX - rect.left) / rect.width) * 100, 0, 100);
+    const y = clamp(((e.clientY - rect.top) / rect.height) * 100, 0, 100);
+
+    setOnIce((cur) => {
+      const copy = cur.filter((t) => t.id !== payload.id);
+      copy.push({ id: payload.id, team_id: payload.team_id, x: +x.toFixed(2), y: +y.toFixed(2) });
+      return copy;
+    });
+  }
+
+  function removeFromIce(id) {
+    setOnIce((cur) => cur.filter((t) => t.id !== id));
+  }
+
+  // goal zones (top/bottom depending on flip)
+  function handleDropOnGoal(e, which) {
+    e.preventDefault();
+    const data = e.dataTransfer.getData("text/plain");
+    if (!data) return;
+    const payload = JSON.parse(data); // token
+    // which: 'homeNet' or 'awayNet' (net the token is dropped INTO)
+    // If token is Home and dropped into Away net => home scored
+    const isHomeScorer = payload.team_id === home.id && which === "awayNet";
+    const isAwayScorer = payload.team_id === away.id && which === "homeNet";
+    if (!isHomeScorer && !isAwayScorer) return; // ignore
+
+    const side = isHomeScorer ? "home" : "away";
+    setGoalPick({
+      scorer: payload.id,
+      team_id: payload.team_id,
+      side,
+    });
+    setAssist1("");
+    setAssist2("");
+  }
+
+  async function confirmGoal() {
+    if (!goalPick) return;
+    const groupIds = [];
+    const tm = clock;
     const per = Number(period) || 1;
-    const tm = clockMMSS;
+    const tId = Number(goalPick.team_id);
 
-    const toInsert = [];
+    // write goal
+    const { data: gRow, error: e1 } = await supabase
+      .from("events")
+      .insert([{ game_id: game.id, team_id: tId, player_id: goalPick.scorer, period: per, time_mmss: tm, event: "goal" }])
+      .select()
+      .single();
+    if (e1) return alert(e1.message);
+    groupIds.push(gRow.id);
 
-    if (etype === "goal") {
-      if (!scorer) return alert("Choose a scorer");
-      toInsert.push({
-        game_id: game.id,
-        team_id: tId,
-        player_id: Number(scorer),
-        period: per,
-        time_mmss: tm,
-        event: "goal",
-      });
-      if (a1) {
-        toInsert.push({
-          game_id: game.id,
-          team_id: tId,
-          player_id: Number(a1),
-          period: per,
-          time_mmss: tm,
-          event: "assist",
-        });
-      }
-      if (a2) {
-        toInsert.push({
-          game_id: game.id,
-          team_id: tId,
-          player_id: Number(a2),
-          period: per,
-          time_mmss: tm,
-          event: "assist",
-        });
-      }
-    } else if (etype === "penalty") {
-      toInsert.push({
-        game_id: game.id,
-        team_id: tId,
-        player_id: scorer ? Number(scorer) : null,
-        period: per,
-        time_mmss: tm,
-        event: `penalty_${penType}_${penMin}`,
-      });
-    } else {
-      // shot / save / block / faceoff / hit / takeaway / giveaway / note
-      toInsert.push({
-        game_id: game.id,
-        team_id: tId,
-        player_id: scorer ? Number(scorer) : null,
-        period: per,
-        time_mmss: tm,
-        event: etype,
-      });
+    // assists
+    for (const a of [assist1, assist2]) {
+      if (!a) continue;
+      const { data: aRow, error: ea } = await supabase
+        .from("events")
+        .insert([{ game_id: game.id, team_id: tId, player_id: Number(a), period: per, time_mmss: tm, event: "assist" }])
+        .select()
+        .single();
+      if (ea) return alert(ea.message);
+      groupIds.push(aRow.id);
     }
 
-    setAdding(true);
-    const { error } = await supabase.from("events").insert(toInsert);
-    setAdding(false);
-    if (error) return alert(error.message);
+    // bump score
+    const isHome = tId === home.id;
+    const update = isHome
+      ? { home_score: (game.home_score || 0) + 1 }
+      : { away_score: (game.away_score || 0) + 1 };
+    await supabase.from("games").update(update).eq("id", game.id);
 
-    // side-effects
-    if (etype === "goal") {
-      // bump game score
-      const isHome = tId === home.id;
+    // credit SA to opposing goalie on ice
+    const oppTeam = otherTeamId(tId);
+    const oppGoalie = goalieOnIce[oppTeam];
+    if (oppGoalie) {
+      await bumpGoalieSA({ game_id: game.id, team_id: oppTeam, player_id: oppGoalie, deltaSA: 1 });
+    }
+
+    setLastGroupIds(groupIds);
+    setGoalPick(null);
+  }
+
+  async function undoLast() {
+    if (lastGroupIds.length === 0) return;
+    // fetch the events to know if a goal existed
+    const { data: evts } = await supabase.from("events").select("*").in("id", lastGroupIds);
+    // delete them
+    await supabase.from("events").delete().in("id", lastGroupIds);
+    // if goal was part of group, decrement score
+    const goalEvt = evts.find((e) => e.event === "goal");
+    if (goalEvt) {
+      const isHome = goalEvt.team_id === home.id;
       await supabase
         .from("games")
-        .update(isHome ? { home_score: (game.home_score || 0) + 1 } : { away_score: (game.away_score || 0) + 1 })
+        .update(isHome ? { home_score: Math.max(0, (game.home_score || 0) - 1) } : { away_score: Math.max(0, (game.away_score || 0) - 1) })
         .eq("id", game.id);
-
-      // credit GA & SA to opposing goalie if set
-      const oppTeam = otherTeamId(tId);
-      const oppGoalie = goalieByTeam[oppTeam];
+      // optional: reduce SA for opp goalie (best-effort)
+      const oppTeam = otherTeamId(goalEvt.team_id);
+      const oppGoalie = goalieOnIce[oppTeam];
       if (oppGoalie) {
-        await bumpGoalieStats({ game_id: game.id, player_id: Number(oppGoalie), team_id: oppTeam, deltaSA: 1, deltaGA: 1 });
-      }
-    } else if (etype === "shot" || etype === "save") {
-      // credit SA to opposing goalie if set
-      const oppTeam = otherTeamId(tId);
-      const oppGoalie = goalieByTeam[oppTeam];
-      if (oppGoalie) {
-        await bumpGoalieStats({ game_id: game.id, player_id: Number(oppGoalie), team_id: oppTeam, deltaSA: 1, deltaGA: 0 });
+        await bumpGoalieSA({ game_id: game.id, team_id: oppTeam, player_id: oppGoalie, deltaSA: -1 });
       }
     }
-
-    // reset player fields for speed
-    setScorer("");
-    setA1("");
-    setA2("");
+    setLastGroupIds([]);
   }
+
+  function clearOnIce() {
+    setOnIce([]);
+  }
+
+  function swapSides() {
+    setFlip((f) => !f);
+  }
+
+  // assist candidates = on-ice teammates excluding scorer
+  const assistChoices = useMemo(() => {
+    if (!goalPick) return [];
+    return onIce
+      .filter((t) => t.team_id === goalPick.team_id && t.id !== goalPick.scorer)
+      .map((t) => {
+        const p =
+          (t.team_id === home?.id ? benchHome : benchAway).find((pp) => pp.id === t.id) || { id: t.id, name: "#" + t.id };
+        return p;
+      });
+  }, [goalPick, onIce, benchHome, benchAway, home?.id]);
 
   if (!game || !home || !away) return null;
 
-  const teamOptions = [
-    { id: home.id, label: home.short_name || home.name },
-    { id: away.id, label: away.short_name || away.name },
-  ];
+  // CSS helpers
+  const rinkS = {
+    position: "relative",
+    background:
+      "radial-gradient(transparent 50%, rgba(0,0,0,0.02) 51%), linear-gradient(#e9f1ff 0 0)",
+    backgroundSize: "8px 8px, cover",
+    borderRadius: 16,
+    border: "1px solid #d6e2ff",
+    height: 480,
+    userSelect: "none",
+    overflow: "hidden",
+  };
 
   return (
     <div className="container">
-      <div className="button-group" style={{ marginBottom: 8 }}>
+      {/* Nav */}
+      <div className="button-group" style={{ marginBottom: 10 }}>
         <Link className="btn btn-grey" to={`/games/${slug}/roster`}>Roster</Link>
         <Link className="btn btn-grey" to={`/games/${slug}`}>Boxscore</Link>
         <Link className="btn btn-grey" to="/games">Back to Games</Link>
       </div>
 
-      <h2>Live</h2>
-      <div className="muted" style={{ marginBottom: 8 }}>
-        {home.name} vs {away.name}
+      {/* Header */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        {/* Away score box */}
+        <ScoreBox team={away} score={game.away_score || 0} label="AWAY" />
+        {/* Clock */}
+        <div className="card" style={{ padding: 12, textAlign: "center", minWidth: 260 }}>
+          <div style={{ fontSize: 32, fontWeight: 800 }}>{clock}</div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 8 }}>
+            <button className="btn btn-grey" onClick={startClock} disabled={running}>Start</button>
+            <button className="btn btn-grey" onClick={stopClock} disabled={!running}>Stop</button>
+            <button className="btn btn-grey" onClick={resetClock}>Reset</button>
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
+            <span className="muted">Period</span>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              step={1}
+              value={period}
+              onChange={(e) => setPeriod(clamp(parseInt(e.target.value || "1", 10), 1, 9))}
+              style={{ width: 70 }}
+            />
+            <span className="muted">Len</span>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              max={30}
+              value={periodLen}
+              onChange={(e) => setPeriodLen(clamp(parseInt(e.target.value || "15", 10), 1, 30))}
+              style={{ width: 70 }}
+            />
+            <span className="muted">min</span>
+          </div>
+        </div>
+        {/* Home score box */}
+        <ScoreBox team={home} score={game.home_score || 0} label="HOME" />
       </div>
 
-      {/* === CONTROLS BAR ==================================================== */}
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr 1fr", gap: 10 }}>
-          {/* Team */}
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Team</div>
-            <select className="input" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
-              {teamOptions.map((t) => (
-                <option value={t.id} key={t.id}>{t.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Type */}
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Type</div>
-            <select className="input" value={etype} onChange={(e) => setEtype(e.target.value)}>
-              <option value="goal">goal</option>
-              <option value="shot">shot</option>
-              <option value="save">save</option>
-              <option value="penalty">penalty</option>
-              <option value="block">block</option>
-              <option value="faceoff_win">faceoff_win</option>
-              <option value="hit">hit</option>
-              <option value="giveaway">giveaway</option>
-              <option value="takeaway">takeaway</option>
-              <option value="note">note</option>
-            </select>
-          </div>
-
-          {/* Scorer / Player */}
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-              {etype === "goal" ? "Scorer" : "Player (optional)"}
-            </div>
-            <select className="input" value={scorer} onChange={(e) => setScorer(e.target.value)}>
-              <option value="">{etype === "goal" ? "Choose scorer…" : "—"}</option>
-              {teamPlayers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.number ? `#${p.number} ` : ""}{p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Assists (only for goal) */}
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Assist 1</div>
-            <select className="input" value={a1} onChange={(e) => setA1(e.target.value)} disabled={etype !== "goal"}>
-              <option value="">—</option>
-              {teamPlayers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.number ? `#${p.number} ` : ""}{p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Assist 2</div>
-            <select className="input" value={a2} onChange={(e) => setA2(e.target.value)} disabled={etype !== "goal"}>
-              <option value="">—</option>
-              {teamPlayers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.number ? `#${p.number} ` : ""}{p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Add */}
-          <div style={{ alignSelf: "end" }}>
-            <button className="btn btn-blue" onClick={() => doInsert()} disabled={adding}>
-              {adding ? "Adding…" : "Add event"}
-            </button>
-          </div>
+      {/* Play surface block */}
+      <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 140px", gap: 10 }}>
+        {/* Left bench + rail */}
+        <div>
+          <ToolRail
+            onStartStop={() => (running ? stopClock() : startClock())}
+            running={running}
+            onUndo={undoLast}
+            onSwap={swapSides}
+            onClear={clearOnIce}
+          />
+          <Bench
+            title={away.short_name || away.name}
+            players={benchAway}
+            color="#e74c3c"
+            onTokenDragStart={(p) =>
+              JSON.stringify({ id: p.id, team_id: away.id, from: "bench" })
+            }
+          />
         </div>
 
-        {/* Penalty and notes row */}
-        {etype === "penalty" && (
-          <div style={{ display: "grid", gridTemplateColumns: "140px 160px 1fr", gap: 10, marginTop: 10 }}>
-            <div>
-              <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Minutes</div>
-              <input className="input" type="number" min={2} max={10} step={2}
-                     value={penMin} onChange={(e) => setPenMin(Number(e.target.value) || 2)} />
-            </div>
-            <div>
-              <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Type</div>
-              <select className="input" value={penType} onChange={(e) => setPenType(e.target.value)}>
-                <option value="minor">minor</option>
-                <option value="double_minor">double_minor</option>
-                <option value="major">major</option>
-                <option value="misconduct">misconduct</option>
-              </select>
-            </div>
-            <div>
-              <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Note</div>
-              <input className="input" type="text" placeholder="Optional note" value={note} onChange={(e)=>setNote(e.target.value)} />
-            </div>
-          </div>
-        )}
+        {/* Rink */}
+        <div
+          style={rinkS}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDropOnRink}
+        >
+          {/* goal zones */}
+          {/* Top net (y small) */}
+          <GoalCrease
+            top
+            flipped={flip}
+            label="G"
+            onDrop={(e) => handleDropOnGoal(e, flip ? "awayNet" : "homeNet")}
+          />
+          {/* Bottom net */}
+          <GoalCrease
+            bottom
+            flipped={flip}
+            label="G"
+            onDrop={(e) => handleDropOnGoal(e, flip ? "homeNet" : "awayNet")}
+          />
 
-        {/* Clock / period / goalies */}
-        <hr style={{ margin: "12px 0" }} />
-        <div style={{ display: "grid", gridTemplateColumns: "140px 120px 240px 1fr 1fr", gap: 10, alignItems: "end" }}>
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Period</div>
-            <input className="input" type="number" min={1} value={period} onChange={(e)=>setPeriod(e.target.value)} />
-          </div>
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Clock (MM:SS)</div>
-            <input className="input" type="text" value={clockMMSS} onChange={(e)=>{
-              const v = e.target.value;
-              const m = /^(\d{1,2}):(\d{2})$/.exec(v);
-              if (m) setClockMMSS(`${String(parseInt(m[1],10)).padStart(2,"0")}:${clamp2(parseInt(m[2],10))}`);
-            }}/>
-            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-              <button className="btn btn-grey" onClick={startClock} disabled={running}>Start</button>
-              <button className="btn btn-grey" onClick={stopClock} disabled={!running}>Stop</button>
-              <button className="btn btn-grey" onClick={resetClock}>Reset</button>
-            </div>
-          </div>
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Set period length (minutes)</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input className="input" type="number" min={1} max={30}
-                     value={periodLenMin} onChange={(e)=>setPeriodLenMin(Number(e.target.value)||15)} />
-              <button className="btn btn-grey" onClick={applyPeriodLen}>Apply</button>
-            </div>
-          </div>
+          {/* Goalie selects */}
+          <GoaliePicker
+            position={flip ? "bottom" : "top"}
+            team={home}
+            value={goalieOnIce[home.id] || ""}
+            options={benchHome.filter((p) => (p.position || "").toLowerCase().includes("g"))}
+            onChange={(pid) => setGoalieOnIce((m) => ({ ...m, [home.id]: Number(pid) || "" }))}
+          />
+          <GoaliePicker
+            position={flip ? "top" : "bottom"}
+            team={away}
+            value={goalieOnIce[away.id] || ""}
+            options={benchAway.filter((p) => (p.position || "").toLowerCase().includes("g"))}
+            onChange={(pid) => setGoalieOnIce((m) => ({ ...m, [away.id]: Number(pid) || "" }))}
+          />
 
-          {/* Goalies on ice */}
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>{home.short_name || home.name} Goalie on ice</div>
-            <select className="input" value={goalieByTeam[home.id] || ""} onChange={(e)=>setGoalie(home.id, e.target.value)}>
-              <option value="">—</option>
-              {homeGoalies.map(g => (
-                <option value={g.id} key={g.id}>{g.number ? `#${g.number} ` : ""}{g.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>{away.short_name || away.name} Goalie on ice</div>
-            <select className="input" value={goalieByTeam[away.id] || ""} onChange={(e)=>setGoalie(away.id, e.target.value)}>
-              <option value="">—</option>
-              {awayGoalies.map(g => (
-                <option value={g.id} key={g.id}>{g.number ? `#${g.number} ` : ""}{g.name}</option>
-              ))}
-            </select>
-          </div>
+          {/* on-ice tokens */}
+          {onIce.map((t) => {
+            const p =
+              (t.team_id === home.id ? benchHome : benchAway).find((pp) => pp.id === t.id) ||
+              { id: t.id, name: "#" + t.id };
+            return (
+              <IceToken
+                key={`${t.team_id}-${t.id}`}
+                player={p}
+                teamId={t.team_id}
+                x={t.x}
+                y={t.y}
+                color={t.team_id === home.id ? "#2d7ef7" : "#e74c3c"}
+                onDragEnd={(nx, ny) =>
+                  setOnIce((cur) =>
+                    cur.map((it) => (it.id === t.id ? { ...it, x: nx, y: ny } : it))
+                  )
+                }
+                onSendToBench={() => removeFromIce(t.id)}
+              />
+            );
+          })}
         </div>
 
-        {/* Quick add buttons */}
-        <hr style={{ margin: "12px 0" }} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <QuickBar label={home.short_name || home.name}
-                    onShot={()=>quick("shot", home.id)}
-                    onGoal={()=>setEtype("goal")||setTeamId(String(home.id))}
-                    onSave={()=>quick("save", home.id)}
-                    onFaceoff={()=>quick("faceoff_win", home.id)} />
-          <QuickBar label={away.short_name || away.name}
-                    onShot={()=>quick("shot", away.id)}
-                    onGoal={()=>setEtype("goal")||setTeamId(String(away.id))}
-                    onSave={()=>quick("save", away.id)}
-                    onFaceoff={()=>quick("faceoff_win", away.id)} />
+        {/* Right bench */}
+        <div>
+          <Bench
+            title={home.short_name || home.name}
+            players={benchHome}
+            color="#2d7ef7"
+            onTokenDragStart={(p) =>
+              JSON.stringify({ id: p.id, team_id: home.id, from: "bench" })
+            }
+          />
         </div>
       </div>
 
-      {/* === EVENTS TABLE ===================================================== */}
-      <div className="card">
-        <div style={{ paddingBottom: 6, fontWeight: 700 }}>Events</div>
+      {/* Events */}
+      <div className="card" style={{ marginTop: 14 }}>
+        <div style={{ fontWeight: 700, paddingBottom: 6 }}>Events</div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ textAlign: "left", color: "#666" }}>
-              <th style={{ padding: 8 }}>PERIOD</th>
-              <th style={{ padding: 8 }}>TIME</th>
-              <th style={{ padding: 8 }}>TEAM</th>
-              <th style={{ padding: 8 }}>TYPE</th>
-              <th style={{ padding: 8 }}>PLAYER / ASSISTS</th>
+              <th style={{ padding: 8 }}>Period</th>
+              <th style={{ padding: 8 }}>Time</th>
+              <th style={{ padding: 8 }}>Team</th>
+              <th style={{ padding: 8 }}>Type</th>
+              <th style={{ padding: 8 }}>Player / Assists</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 12, color: "#888" }}>—</td></tr>
+              <tr><td colSpan={5} style={{ padding: 10, color: "#8a8a8a" }}>—</td></tr>
             )}
-            {rows.map((r, i) => {
+            {rows.map((r, idx) => {
               if (r.goal) {
-                const teamShort = r.goal.teams?.short_name || "";
-                const main = r.goal.players?.name || (r.goal.players?.number ? `#${r.goal.players.number}` : "—");
-                const assists = r.assists
-                  .map(a => a.players?.name || (a.players?.number ? `#${a.players.number}` : "—"))
+                const asst = r.assists
+                  .map((a) => a.players?.name || (a.players?.number ? `#${a.players.number}` : "—"))
                   .join(", ");
                 return (
-                  <tr key={`g${i}`} style={{ borderTop: "1px solid #f2f2f2" }}>
+                  <tr key={`g${idx}`} style={{ borderTop: "1px solid #f2f2f2" }}>
                     <td style={{ padding: 8 }}>{r.goal.period}</td>
                     <td style={{ padding: 8 }}>{r.goal.time_mmss}</td>
-                    <td style={{ padding: 8 }}>{teamShort}</td>
+                    <td style={{ padding: 8 }}>{r.goal.teams?.short_name || ""}</td>
                     <td style={{ padding: 8 }}>goal</td>
-                    <td style={{ padding: 8 }}><strong>{main}</strong>{assists && <span style={{ color: "#666" }}> (A: {assists})</span>}</td>
+                    <td style={{ padding: 8 }}>
+                      <strong>{r.goal.players?.name || (r.goal.players?.number ? `#${r.goal.players.number}` : "—")}</strong>
+                      {asst && <span style={{ color: "#666" }}> (A: {asst})</span>}
+                    </td>
                   </tr>
                 );
               }
               const e = r.single;
-              const teamShort = e.teams?.short_name || "";
-              const nm = e.players?.name || (e.players?.number ? `#${e.players.number}` : "—");
               return (
                 <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f2f2f2" }}>
                   <td style={{ padding: 8 }}>{e.period}</td>
                   <td style={{ padding: 8 }}>{e.time_mmss}</td>
-                  <td style={{ padding: 8 }}>{teamShort}</td>
+                  <td style={{ padding: 8 }}>{e.teams?.short_name || ""}</td>
                   <td style={{ padding: 8 }}>{e.event}</td>
-                  <td style={{ padding: 8 }}>{nm}</td>
+                  <td style={{ padding: 8 }}>
+                    {e.players?.name || (e.players?.number ? `#${e.players.number}` : "—")}
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      {/* Goal popup */}
+      {goalPick && (
+        <div style={modalWrapS}>
+          <div className="card" style={{ width: 520, maxWidth: "calc(100vw - 24px)" }}>
+            <div style={{ fontWeight: 800, marginBottom: 8 }}>Confirm Goal</div>
+            <div className="muted" style={{ marginBottom: 8 }}>
+              {teamShort(goalPick.team_id)} • {clock} • Period {period}
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <div className="muted">Scorer</div>
+              <div style={{ fontWeight: 700, marginTop: 4 }}>
+                {displayPlayer(goalPick.scorer, goalPick.team_id, benchHome, benchAway)}
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <div className="muted">Assist 1</div>
+                <select className="input" value={assist1} onChange={(e) => setAssist1(e.target.value)}>
+                  <option value="">—</option>
+                  {assistChoices.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.number ? `#${p.number} ` : ""}{p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="muted">Assist 2</div>
+                <select className="input" value={assist2} onChange={(e) => setAssist2(e.target.value)}>
+                  <option value="">—</option>
+                  {assistChoices.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.number ? `#${p.number} ` : ""}{p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
+              <button className="btn btn-grey" onClick={() => setGoalPick(null)}>Cancel</button>
+              <button className="btn btn-blue" onClick={confirmGoal}>Confirm Goal</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// quick bar for a team
-function QuickBar({ label, onShot, onGoal, onSave, onFaceoff }) {
+/* ========================== small components ========================== */
+
+function ScoreBox({ team, score, label }) {
   return (
-    <div className="card" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ fontWeight: 700, marginRight: 8 }}>{label}</div>
-      <button className="btn btn-grey" onClick={onShot}>+ Shot</button>
-      <button className="btn btn-blue" onClick={onGoal}>+ Goal</button>
-      <button className="btn btn-grey" onClick={onSave}>+ Save</button>
-      <button className="btn btn-grey" onClick={onFaceoff}>+ Faceoff Win</button>
+    <div className="card" style={{ padding: 12 }}>
+      <div style={{ fontSize: 14, color: "#667" }}>{team?.short_name || team?.name}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ fontWeight: 800, fontSize: 28 }}>{score}</div>
+        <span className="muted">{label}</span>
+      </div>
     </div>
   );
 }
+
+function ToolRail({ onStartStop, running, onUndo, onSwap, onClear }) {
+  const btn = { display: "flex", alignItems: "center", gap: 8, width: "100%", marginBottom: 8 };
+  return (
+    <div className="card" style={{ marginBottom: 10 }}>
+      <button className="btn btn-grey" style={btn} onClick={onStartStop}>
+        {running ? "Pause ⏸" : "Start ▶"}
+      </button>
+      <button className="btn btn-grey" style={btn} onClick={onUndo}>Undo ⤺</button>
+      <button className="btn btn-grey" style={btn} onClick={onSwap}>Swap Sides ⇄</button>
+      <button className="btn btn-grey" style={btn} onClick={onClear}>Clear On-Ice ⌫</button>
+    </div>
+  );
+}
+
+function Bench({ title, players, color, onTokenDragStart }) {
+  return (
+    <div className="card">
+      <div style={{ fontWeight: 700, marginBottom: 8 }}>{title}</div>
+      <div style={{ display: "grid", gap: 8 }}>
+        {players.map((p) => (
+          <div
+            key={p.id}
+            draggable
+            onDragStart={(e) => e.dataTransfer.setData("text/plain", onTokenDragStart(p))}
+            className="chip"
+            style={{
+              background: "#fff",
+              border: `2px solid ${color}`,
+              color: "#222",
+              cursor: "grab",
+            }}
+            title={`Drag #${p.number || "?"} ${p.name} onto the rink`}
+          >
+            {(p.number != null ? `#${p.number} ` : "") + p.name}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function IceToken({ player, teamId, x, y, color, onDragEnd, onSendToBench }) {
+  const ref = useRef(null);
+  function onDragStart(e) {
+    e.dataTransfer.setData("text/plain", JSON.stringify({ id: player.id, team_id: teamId, from: "ice" }));
+    // Set drag image for nicer UX (fallback to default)
+  }
+  function onDrag(e) {
+    // noop
+  }
+  function onDragEndHandler(e) {
+    const parent = ref.current?.parentElement?.getBoundingClientRect();
+    if (!parent) return;
+    const nx = clamp(((e.clientX - parent.left) / parent.width) * 100, 0, 100);
+    const ny = clamp(((e.clientY - parent.top) / parent.height) * 100, 0, 100);
+    onDragEnd(+nx.toFixed(2), +ny.toFixed(2));
+  }
+  return (
+    <div
+      ref={ref}
+      draggable
+      onDragStart={onDragStart}
+      onDrag={onDrag}
+      onDragEnd={onDragEndHandler}
+      onDoubleClick={onSendToBench}
+      style={{
+        position: "absolute",
+        left: `calc(${x}% - 20px)`,
+        top: `calc(${y}% - 20px)`,
+        width: 40,
+        height: 40,
+        borderRadius: 999,
+        background: "#fff",
+        border: `3px solid ${color}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 800,
+        cursor: "grab",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+      }}
+      title="Drag to move • Double-click to send back to bench"
+    >
+      {player.number ?? "•"}
+    </div>
+  );
+}
+
+function GoalCrease({ top, bottom, flipped, label, onDrop }) {
+  const place =
+    top ? (flipped ? { bottom: 10 } : { top: 10 }) : bottom ? (flipped ? { top: 10 } : { bottom: 10 }) : {};
+  return (
+    <div
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={onDrop}
+      title="Drop scorer here to arm a goal"
+      style={{
+        position: "absolute",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: 160,
+        height: 70,
+        borderRadius: 12,
+        border: "2px dashed #e33",
+        background: "rgba(255,0,0,0.05)",
+        ...place,
+      }}
+    />
+  );
+}
+
+function GoaliePicker({ position, team, value, options, onChange }) {
+  const place = position === "top"
+    ? { top: 12, left: 12 }
+    : { bottom: 12, right: 12 };
+  return (
+    <div style={{ position: "absolute", ...place }}>
+      <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
+        {team.short_name || team.name} Goalie
+      </div>
+      <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">—</option>
+        {options.map((g) => (
+          <option value={g.id} key={g.id}>{g.number ? `#${g.number} ` : ""}{g.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function displayPlayer(pid, teamId, benchHome, benchAway) {
+  const src = teamId === (benchHome[0]?.team_id ?? -1) ? benchHome : benchAway;
+  const p = src.find((pp) => pp.id === pid);
+  if (!p) return `#${pid}`;
+  return `${p.number ? `#${p.number} ` : ""}${p.name}`;
+}
+
+const modalWrapS = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.4)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 12,
+  zIndex: 50,
+};
