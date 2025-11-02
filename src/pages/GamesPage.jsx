@@ -1,11 +1,11 @@
-// src/pages/GamesPage.jsx
+// src/lib/pages/GamesPage.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../supabaseClient";
 
 function useMaybeI18n() {
   try {
-    const { useI18n } = require("../i18n");
+    const { useI18n } = require("../../i18n");
     return useI18n();
   } catch {
     return { t: (s) => s };
@@ -21,44 +21,45 @@ export default function GamesPage() {
   const [games, setGames] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
+  // filters
   const [filterDate, setFilterDate] = React.useState("");
   const [filterHome, setFilterHome] = React.useState("");
   const [filterAway, setFilterAway] = React.useState("");
 
+  // create
   const [newDate, setNewDate] = React.useState("");
   const [newHome, setNewHome] = React.useState("");
   const [newAway, setNewAway] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    let dead = false;
+    let cancelled = false;
     (async () => {
       setLoading(true);
-      const [{ data: teamRows, error: e1 }, { data: gameRows, error: e2 }] =
-        await Promise.all([
-          supabase.from("teams").select("id, name, short_name, logo_url").order("name"),
-          supabase
-            .from("games")
-            .select(
-              "id, slug, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot"
-            )
-            .order("game_date", { ascending: false }),
-        ]);
+      const [{ data: teamRows, error: e1 }, { data: gameRows, error: e2 }] = await Promise.all([
+        supabase.from("teams").select("id, name, short_name, logo_url").order("name"),
+        supabase
+          .from("games")
+          .select(
+            "id, slug, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot"
+          )
+          .order("game_date", { ascending: false }),
+      ]);
       if (e1 || e2) {
         console.error(e1 || e2);
-        if (!dead) setLoading(false);
+        if (!cancelled) setLoading(false);
         return;
       }
-      const map = Object.fromEntries((teamRows || []).map((t) => [t.id, t]));
-      if (!dead) {
-        setTeams(teamRows || []);
+      const map = Object.fromEntries(teamRows.map((t) => [t.id, t]));
+      if (!cancelled) {
+        setTeams(teamRows);
         setTeamMap(map);
-        setGames(gameRows || []);
+        setGames(gameRows);
         setLoading(false);
       }
     })();
     return () => {
-      dead = true;
+      cancelled = true;
     };
   }, []);
 
@@ -77,8 +78,39 @@ export default function GamesPage() {
     setGames((cur) => cur.filter((g) => g.id !== id));
   }
 
-  function safeKey(g) {
-    return g.slug && g.slug.trim() ? encodeURIComponent(g.slug.trim()) : String(g.id);
+  function slugOrId(g) {
+    return g.slug || String(g.id);
+  }
+
+  function makeSlug(dateIso, homeId, awayId) {
+    const d = (dateIso || "").slice(0, 10).replaceAll("-", "");
+    const rand = Math.random().toString(36).slice(2, 6);
+    return `${d}-${homeId}-${awayId}-${rand}`;
+  }
+
+  async function handleCreate() {
+    if (!newDate || !newHome || !newAway) return alert(t("Please fill date, home and away."));
+    if (newHome === newAway) return alert(t("Home and away cannot be the same team."));
+
+    setSaving(true);
+    const payload = {
+      game_date: newDate,
+      home_team_id: Number(newHome),
+      away_team_id: Number(newAway),
+      home_score: 0,
+      away_score: 0,
+      status: "scheduled",
+      went_ot: false,
+      slug: makeSlug(newDate, newHome, newAway),
+    };
+    const { data, error } = await supabase.from("games").insert(payload).select().single();
+    setSaving(false);
+    if (error) return alert(error.message);
+
+    setGames((cur) => [data, ...cur]);
+    setNewDate("");
+    setNewHome("");
+    setNewAway("");
   }
 
   return (
@@ -117,7 +149,13 @@ export default function GamesPage() {
             </option>
           ))}
         </select>
-        <button onClick={() => { setFilterDate(""); setFilterHome(""); setFilterAway(""); }}>
+        <button
+          onClick={() => {
+            setFilterDate("");
+            setFilterHome("");
+            setFilterAway("");
+          }}
+        >
           {t("Clear")}
         </button>
       </div>
@@ -157,28 +195,7 @@ export default function GamesPage() {
             </option>
           ))}
         </select>
-        <button
-          onClick={async () => {
-            if (!newDate || !newHome || !newAway) return alert(t("Please fill date, home and away."));
-            if (newHome === newAway) return alert(t("Home and away cannot be the same team."));
-            setSaving(true);
-            const payload = {
-              game_date: newDate,
-              home_team_id: Number(newHome),
-              away_team_id: Number(newAway),
-              home_score: 0,
-              away_score: 0,
-              status: "scheduled",
-              went_ot: false,
-            };
-            const { data, error } = await supabase.from("games").insert(payload).select().single();
-            setSaving(false);
-            if (error) return alert(error.message);
-            setGames((cur) => [data, ...cur]);
-            setNewDate(""); setNewHome(""); setNewAway("");
-          }}
-          disabled={saving}
-        >
+        <button onClick={handleCreate} disabled={saving}>
           {saving ? t("Creating…") : t("Create")}
         </button>
       </div>
@@ -194,11 +211,6 @@ export default function GamesPage() {
             const home = teamMap[g.home_team_id] || {};
             const away = teamMap[g.away_team_id] || {};
             const d = new Date(g.game_date || "");
-            const statusLabel = g.status;
-
-            const key = safeKey(g);
-            const canBox = Boolean(key);
-
             return (
               <div
                 key={g.id}
@@ -212,39 +224,46 @@ export default function GamesPage() {
                   gap: 10,
                 }}
               >
-                {/* Matchup */}
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <TeamChip team={home} />
-                  <span style={{ color: "#666" }}>{t("at")}</span>
                   <TeamChip team={away} />
+                  <span style={{ color: "#666" }}>{t("at")}</span>
+                  <TeamChip team={home} />
                 </div>
 
-                {/* Score + date + status */}
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontWeight: 700 }}>
-                    {g.home_score} — {g.away_score}
+                    {g.away_score} — {g.home_score}
                   </div>
                   <div style={{ fontSize: 12, color: "#666" }}>
                     {isNaN(d) ? "" : d.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 12, color: "#666" }}>{statusLabel}</div>
+                  <div style={{ fontSize: 12, color: "#666" }}>{g.status}</div>
                 </div>
 
-                {/* Actions */}
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button onClick={() => navigate(`/games/${key}`)}>{t("Live")}</button>
-                  <button onClick={() => navigate(`/games/${key}/roster`)}>{t("Roster")}</button>
-                  <button
-                    onClick={() => navigate(`/games/${key}/boxscore`)}
-                    disabled={!canBox}
-                  >
+                  <button onClick={() => navigate(`/games/${slugOrId(g)}/live`)}>{t("Live")}</button>
+                  <button onClick={() => navigate(`/games/${slugOrId(g)}/roster`)}>
+                    {t("Roster")}
+                  </button>
+                  <button onClick={() => navigate(`/games/${slugOrId(g)}/summary`)}>
                     {t("Boxscore")}
                   </button>
                   {g.status === "final" ? (
-                    <button disabled style={{ opacity: 0.7 }}>{t("Mark as Final")}</button>
+                    <button disabled>{t("Mark as Final")}</button>
                   ) : (
-                    <button onClick={() => navigate(`/games/${key}/open`)} disabled>
-                      {t("Open")}
+                    <button
+                      onClick={async () => {
+                        const { error, data } = await supabase
+                          .from("games")
+                          .update({ status: "final" })
+                          .eq("id", g.id)
+                          .select()
+                          .single();
+                        if (error) return alert(error.message);
+                        setGames((cur) => cur.map((x) => (x.id === g.id ? data : x)));
+                      }}
+                    >
+                      {t("Mark as Final")}
                     </button>
                   )}
                   <button
