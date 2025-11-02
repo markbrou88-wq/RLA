@@ -46,6 +46,29 @@ input[type="text"],input[type="date"],input[type="number"],input[type="datetime-
   padding:6px 10px;border:1px solid var(--card-border);border-radius:6px;font-size:.9rem;background:var(--card);color:var(--text)}
 input:focus,select:focus{outline:2px solid color-mix(in oklab,var(--primary),transparent 70%)}
 
+/* Read-only summary */
+.summary-wrap { max-width: 980px; margin: 0 auto; padding: 12px; }
+.summary-header { display: grid; grid-template-columns: 80px 1fr 80px; align-items: center; gap: 12px; margin-bottom: 4px; }
+.summary-title { text-align: center; margin: 0; }
+.summary-logo { width: 64px; height: 64px; object-fit: contain; }
+.summary-subtitle { text-align: center; font-size: 12px; color: #666; margin-bottom: 16px; }
+
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 860px) { .summary-grid { grid-template-columns: 1fr; } }
+
+.summary-card {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.nice-table { width: 100%; border-collapse: collapse; }
+.nice-table th, .nice-table td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+.nice-table thead th { background: #fafafa; font-weight: 600; text-align: left; }
+
+
 /* ---------- Nav & Score badges ---------- */
 .nav{display:flex;gap:12px;margin-bottom:16px}
 .nav a{font-weight:500;color:var(--text);padding-bottom:2px;border-bottom:2px solid transparent}
