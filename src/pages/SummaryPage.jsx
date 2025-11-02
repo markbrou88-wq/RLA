@@ -1,7 +1,7 @@
 // src/lib/pages/SummaryPage.jsx
 import React from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { supabase } from "../../supabaseClient";
+import { supabase } from "../supabaseClient";
 
 function useMaybeI18n() {
   try {
