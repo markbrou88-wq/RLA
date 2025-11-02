@@ -1,9 +1,9 @@
 // src/pages/SummaryPage.jsx
 import React from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
-// Small helper for i18n (safe even if you don't use it)
+// defensive i18n
 function useMaybeI18n() {
   try {
     const { useI18n } = require("../i18n");
@@ -15,170 +15,164 @@ function useMaybeI18n() {
 
 export default function SummaryPage() {
   const { t } = useMaybeI18n();
-  const { key } = useParams(); // the slug (preferred) or numeric id
+  const { slug } = useParams();
+  const navigate = useNavigate();
+
   const [loading, setLoading] = React.useState(true);
   const [game, setGame] = React.useState(null);
   const [home, setHome] = React.useState(null);
   const [away, setAway] = React.useState(null);
+  const [lineupHome, setLineupHome] = React.useState([]);
+  const [lineupAway, setLineupAway] = React.useState([]);
   const [events, setEvents] = React.useState([]);
-  const [rosterByTeam, setRosterByTeam] = React.useState({});
 
   React.useEffect(() => {
-    let cancelled = false;
+    let dead = false;
 
     async function load() {
       setLoading(true);
 
-      // 1) Load game by slug (fallback to id if needed)
-      const isNumeric = /^\d+$/.test(key);
-      const gameQ = supabase
+      // 1) Try by slug
+      let { data: g, error: e1 } = await supabase
         .from("games")
-        .select(
-          "id, slug, game_date, status, home_team_id, away_team_id, home_score, away_score, went_ot"
-        )
-        .limit(1);
+        .select("*")
+        .eq("slug", slug)
+        .maybeSingle();
 
-      const { data: gRows, error: gErr } = isNumeric
-        ? await gameQ.eq("id", Number(key))
-        : await gameQ.eq("slug", key);
+      // 2) Fallback by numeric id
+      if (!g && /^\d+$/.test(slug)) {
+        const { data: g2, error: e2 } = await supabase
+          .from("games")
+          .select("*")
+          .eq("id", Number(slug))
+          .maybeSingle();
+        if (!e2) g = g2;
+      }
 
-      if (gErr || !gRows || gRows.length === 0) {
-        if (!cancelled) {
+      if (!g) {
+        if (!dead) {
           setGame(null);
           setLoading(false);
         }
         return;
       }
-      const g = gRows[0];
 
-      // 2) Teams
-      const { data: teamRows } = await supabase
-        .from("teams")
-        .select("id, name, short_name, logo_url")
-        .in("id", [g.home_team_id, g.away_team_id]);
+      const [{ data: th }, { data: ta }] = await Promise.all([
+        supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
+        supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
+      ]);
 
-      const homeTeam = teamRows?.find((t) => t.id === g.home_team_id) ?? null;
-      const awayTeam = teamRows?.find((t) => t.id === g.away_team_id) ?? null;
+      // lineups (players that were toggled IN on roster page)
+      // If you use a table game_rosters, adjust the select accordingly:
+      // expecting columns: game_id, team_id, player_id, played (bool)
+      const [{ data: rh = [] }, { data: ra = [] }] = await Promise.all([
+        supabase
+          .from("game_rosters")
+          .select("player_id, players(id,number,name,position)")
+          .eq("game_id", g.id)
+          .eq("team_id", g.home_team_id)
+          .eq("played", true)
+          .order("player_id"),
+        supabase
+          .from("game_rosters")
+          .select("player_id, players(id,number,name,position)")
+          .eq("game_id", g.id)
+          .eq("team_id", g.away_team_id)
+          .eq("played", true)
+          .order("player_id"),
+      ]);
 
-      // 3) Events
-      const { data: evRows } = await supabase
+      // events (read-only)
+      // expecting: events(game_id, period, time_mmss, team_id, type, player_id, assist1_id, assist2_id)
+      const { data: ev = [] } = await supabase
         .from("events")
         .select(
-          "id, game_id, team_id, period, time_mmss, event, player_id, assist1_id, assist2_id"
+          "id, period, time_mmss, team_id, type, player:players!events_player_id_fkey(id,number,name), a1:players!events_assist1_id_fkey(id,number,name), a2:players!events_assist2_id_fkey(id,number,name)"
         )
         .eq("game_id", g.id)
         .order("period", { ascending: true })
         .order("time_mmss", { ascending: false });
 
-      // 4) Roster that actually played (from game_rosters)
-      const { data: rosterRows } = await supabase
-        .from("game_rosters")
-        .select("team_id, player_id")
-        .eq("game_id", g.id);
-
-      const rosterSets = {};
-      for (const r of rosterRows || []) {
-        if (!rosterSets[r.team_id]) rosterSets[r.team_id] = new Set();
-        rosterSets[r.team_id].add(r.player_id);
-      }
-
-      // 5) Resolve player names/numbers used in events
-      const ids = Array.from(
-        new Set(
-          (evRows || [])
-            .flatMap((e) => [e.player_id, e.assist1_id, e.assist2_id])
-            .filter(Boolean)
-        )
-      );
-      const playersById = {};
-      if (ids.length) {
-        const { data: pRows } = await supabase
-          .from("players")
-          .select("id, number, name")
-          .in("id", ids);
-        for (const p of pRows || []) playersById[p.id] = p;
-      }
-
-      if (!cancelled) {
+      if (!dead) {
         setGame(g);
-        setHome(homeTeam);
-        setAway(awayTeam);
-        setEvents(
-          (evRows || []).map((e) => ({
-            ...e,
-            player: e.player_id ? playersById[e.player_id] : null,
-            a1: e.assist1_id ? playersById[e.assist1_id] : null,
-            a2: e.assist2_id ? playersById[e.assist2_id] : null,
-          }))
+        setHome(th || null);
+        setAway(ta || null);
+        setLineupHome(
+          (rh || []).map((r) => r.players).filter(Boolean)
         );
-        const rosterByTeamPlain = {};
-        Object.entries(rosterSets).forEach(([tid, set]) => {
-          rosterByTeamPlain[tid] = Array.from(set);
-        });
-        setRosterByTeam(rosterByTeamPlain);
+        setLineupAway(
+          (ra || []).map((r) => r.players).filter(Boolean)
+        );
+        setEvents(ev || []);
         setLoading(false);
       }
     }
 
     load();
     return () => {
-      cancelled = true;
+      dead = true;
     };
-  }, [key]);
+  }, [slug]);
 
   if (loading) return <div style={{ padding: 12 }}>{t("Loading…")}</div>;
   if (!game) return <div style={{ padding: 12 }}>{t("Game not found.")}</div>;
 
-  const title = `${away?.name ?? t("Away")} ${game.away_score} — ${game.home_score} ${
-    home?.name ?? t("Home")
-  }`;
+  const title = `${away?.name || "—"} — ${home?.name || "—"}`;
+  const when =
+    game.game_date ? new Date(game.game_date).toLocaleString() : "";
 
   return (
-    <div className="summary-wrap">
-      <div style={{ marginBottom: 12 }}>
-        <Link to="/games">← {t("Back to Games")}</Link>
+    <div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button className="btn" onClick={() => navigate(-1)}>
+          {t("Back to Games")}
+        </button>
       </div>
 
-      <div className="summary-header">
-        {away?.logo_url ? <img src={away.logo_url} alt="" className="summary-logo" /> : <span />}
-        <h2 className="summary-title">{title}</h2>
-        {home?.logo_url ? <img src={home.logo_url} alt="" className="summary-logo" /> : <span />}
-      </div>
-
-      <div className="summary-subtitle">
-        {new Date(game.game_date).toLocaleString()} • {game.status}
+      <h2 style={{ textAlign: "center", marginTop: 10 }}>{title}</h2>
+      <div className="muted" style={{ textAlign: "center", marginBottom: 16 }}>
+        {game.status?.toUpperCase()} • {when}
       </div>
 
       {/* Lineups */}
-      <div className="summary-grid">
-        <div className="summary-card">
-          <h3>{away?.short_name || away?.name || t("Away")} {t("Lineup")}</h3>
-          <RosterList teamId={game.away_team_id} ids={rosterByTeam[game.away_team_id]} />
-        </div>
-        <div className="summary-card">
-          <h3>{home?.short_name || home?.name || t("Home")} {t("Lineup")}</h3>
-          <RosterList teamId={game.home_team_id} ids={rosterByTeam[game.home_team_id]} />
-        </div>
+      <div
+        style={{
+          display: "grid",
+          gap: 16,
+          gridTemplateColumns: "1fr 1fr",
+          marginBottom: 16,
+        }}
+      >
+        <LineupCard team={away} players={lineupAway} />
+        <LineupCard team={home} players={lineupHome} />
       </div>
 
-      {/* Events */}
-      <div className="summary-card" style={{ marginTop: 16 }}>
-        <h3>{t("Goals / Events")}</h3>
-        <table className="nice-table">
+      {/* Goals / Events (read-only) */}
+      <div className="card" style={{ padding: 0 }}>
+        <div
+          style={{
+            padding: "10px 12px",
+            borderBottom: "1px solid #eee",
+            fontWeight: 600,
+          }}
+        >
+          {t("Goals / Events")}
+        </div>
+        <table className="table">
           <thead>
             <tr>
-              <th>{t("Period")}</th>
-              <th>{t("Time")}</th>
-              <th>{t("Team")}</th>
-              <th>{t("Type")}</th>
-              <th>{t("Player / Assists")}</th>
+              <th>{t("PERIOD")}</th>
+              <th>{t("TIME")}</th>
+              <th>{t("TEAM")}</th>
+              <th>{t("TYPE")}</th>
+              <th>{t("PLAYER / ASSISTS")}</th>
             </tr>
           </thead>
           <tbody>
             {events.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", color: "#666" }}>
-                  {t("No events recorded.")}
+                <td colSpan={5} className="muted">
+                  {t("No events.")}
                 </td>
               </tr>
             ) : (
@@ -186,15 +180,17 @@ export default function SummaryPage() {
                 <tr key={ev.id}>
                   <td>{ev.period}</td>
                   <td>{ev.time_mmss}</td>
-                  <td>{ev.team_id === game.home_team_id ? (home?.short_name || "HOME") : (away?.short_name || "AWAY")}</td>
-                  <td>{ev.event}</td>
                   <td>
-                    {renderP(ev.player)}{" "}
-                    {ev.a1 || ev.a2 ? (
-                      <span style={{ color: "#666" }}>
-                        (A: {[ev.a1, ev.a2].filter(Boolean).map(renderP).join(", ")})
-                      </span>
-                    ) : null}
+                    {ev.team_id === home?.id
+                      ? home?.short_name || home?.name
+                      : away?.short_name || away?.name}
+                  </td>
+                  <td>{ev.type}</td>
+                  <td>
+                    {fmtPlayer(ev.player)}
+                    {ev.a1 ? ` (A: ${fmtPlayer(ev.a1)}` : ""}
+                    {ev.a2 ? `${ev.a1 ? ", " : " ("}A: ${fmtPlayer(ev.a2)}` : ""}
+                    {(ev.a1 || ev.a2) ? ")" : ""}
                   </td>
                 </tr>
               ))
@@ -206,58 +202,64 @@ export default function SummaryPage() {
   );
 }
 
-function renderP(p) {
-  if (!p) return "";
-  return `#${p.number} ${p.name}`;
+function LineupCard({ team, players }) {
+  return (
+    <div className="card">
+      <div
+        style={{
+          padding: "10px 12px",
+          borderBottom: "1px solid #eee",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        {team?.logo_url ? (
+          <img
+            src={team.logo_url}
+            alt={team?.name || "team"}
+            style={{ width: 22, height: 22, objectFit: "contain" }}
+          />
+        ) : null}
+        <div style={{ fontWeight: 600 }}>
+          {team?.short_name || team?.name || "—"} {tTag(team)}
+        </div>
+      </div>
+      <table className="table">
+        <thead>
+          <tr>
+            <th style={{ width: 50 }}>#</th>
+            <th>{t("PLAYER")}</th>
+            <th style={{ width: 60 }}>{t("POS")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {players.length === 0 ? (
+            <tr>
+              <td colSpan={3} className="muted">
+                {t("No lineup shared.")}
+              </td>
+            </tr>
+          ) : (
+            players.map((p) => (
+              <tr key={p.id}>
+                <td>{p.number ?? "—"}</td>
+                <td>{p.name}</td>
+                <td>{p.position || ""}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
-function RosterList({ ids }) {
-  const [players, setPlayers] = React.useState([]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      if (!ids || ids.length === 0) {
-        if (!cancelled) setPlayers([]);
-        return;
-      }
-      const { data } = await supabase
-        .from("players")
-        .select("id, number, name, position")
-        .in("id", ids);
-      if (!cancelled)
-        setPlayers((data || []).sort((a, b) => (a.number ?? 0) - (b.number ?? 0)));
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [ids]);
-
-  return (
-    <table className="nice-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Player</th>
-          <th>Pos</th>
-        </tr>
-      </thead>
-      <tbody>
-        {players.length === 0 ? (
-          <tr>
-            <td colSpan={3} style={{ textAlign: "center", color: "#666" }}>—</td>
-          </tr>
-        ) : (
-          players.map((p) => (
-            <tr key={p.id}>
-              <td>{p.number}</td>
-              <td>{p.name}</td>
-              <td>{p.position || ""}</td>
-            </tr>
-          ))
-        )}
-      </tbody>
-    </table>
-  );
+function fmtPlayer(p) {
+  if (!p) return "—";
+  return p.number != null ? `#${p.number} ${p.name}` : p.name;
+}
+function tTag(team) {
+  if (!team) return "";
+  return "";
 }
