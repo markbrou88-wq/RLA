@@ -2,16 +2,54 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
 
+/* ---------- Tiny Sparkline (no deps) ---------- */
+function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" }) {
+  if (!points.length) {
+    return <div className="muted">No final games yet</div>;
+  }
+  const xs = points.map((_, i) => i);
+  const minX = 0;
+  const maxX = xs.length - 1 || 1;
+  const vals = points.map((p) => p.diff ?? 0);
+  const minY = Math.min(...vals, 0);
+  const maxY = Math.max(...vals, 0);
+  const pad = 8;
+
+  const xScale = (x) =>
+    pad + ((x - minX) / (maxX - minX || 1)) * (width - pad * 2);
+  const yScale = (y) => {
+    const rng = maxY - minY || 1;
+    const t = (y - minY) / rng;
+    return height - pad - t * (height - pad * 2);
+  };
+
+  const path = xs
+    .map((x, i) => {
+      const px = xScale(x);
+      const py = yScale(points[i].diff ?? 0);
+      return `${i === 0 ? "M" : "L"} ${px} ${py}`;
+    })
+    .join(" ");
+
+  // zero line
+  const zeroY = yScale(0);
+
+  return (
+    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} role="img">
+      <line x1={pad} y1={zeroY} x2={width - pad} y2={zeroY} stroke="#e5e7eb" />
+      <path d={path} stroke={stroke} fill="none" strokeWidth="3" />
+      {/* dots */}
+      {xs.map((x, i) => {
+        const px = xScale(x);
+        const py = yScale(points[i].diff ?? 0);
+        return <circle key={i} cx={px} cy={py} r="3.5" fill={stroke} />;
+      })}
+    </svg>
+  );
+}
+
+/* ---------- Data hooks ---------- */
 function useTeam(teamId) {
   const [team, setTeam] = React.useState(null);
   React.useEffect(() => {
@@ -35,13 +73,12 @@ function useTeam(teamId) {
 function useTeamSummary(teamId) {
   const [summary, setSummary] = React.useState({
     record: { gp: 0, w: 0, l: 0, otl: 0, gf: 0, ga: 0 },
-    recent: [], // last 5 W/L
-    chart: [], // last 10 games chart points
+    recent: [],
+    chart: [],
   });
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Record (aggregate from games)
       const { data: games, error } = await supabase
         .from("games")
         .select(
@@ -76,14 +113,9 @@ function useTeamSummary(teamId) {
           ga += tGA || 0;
 
           if (tGF > tGA) w++;
-          else if (tGF < tGA) {
-            if (g.went_ot) otl++;
-            else l++;
-          }
+          else if (tGF < tGA) (g.went_ot ? otl++ : l++);
 
-          if (recent.length < 5) {
-            recent.push(tGF > tGA ? "W" : "L");
-          }
+          if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
           if (chart.length < 10) {
             chart.push({
               date: (g.game_date || "").slice(5, 10),
@@ -136,6 +168,7 @@ function useSkaterStats(teamName) {
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (!teamName) return;
       const { data, error } = await supabase
         .from("leaders_current")
         .select("player_id, player, team, gp, g, a, pts")
@@ -175,16 +208,15 @@ function useSkaterStats(teamName) {
   return { rows: sorted, sortKey, dir, setSort };
 }
 
+/* ---------- Page ---------- */
 export default function TeamPage() {
   const { id } = useParams();
   const team = useTeam(id);
   const summary = useTeamSummary(id);
   const { players, reload, setPlayers } = useRoster(id);
-  const { rows: statsRows, sortKey, dir, setSort } = useSkaterStats(
-    team?.name || ""
-  );
+  const { rows: statsRows, sortKey, dir, setSort } = useSkaterStats(team?.name || "");
 
-  // --- roster CRUD ---
+  // roster CRUD
   const [adding, setAdding] = React.useState(false);
   const [newPlayer, setNewPlayer] = React.useState({
     number: "",
@@ -209,7 +241,6 @@ export default function TeamPage() {
     setNewPlayer({ number: "", name: "", position: "F" });
     reload();
   }
-
   async function deletePlayer(pid) {
     if (!window.confirm("Delete this player?")) return;
     const { error } = await supabase.from("players").delete().eq("id", pid);
@@ -219,7 +250,6 @@ export default function TeamPage() {
     }
     reload();
   }
-
   function startEditRow(pid) {
     setPlayers((cur) =>
       cur.map((p) =>
@@ -279,19 +309,11 @@ export default function TeamPage() {
           </div>
         </div>
 
-        {/* mini chart */}
+        {/* mini chart, pure SVG */}
         <div className="card" style={{ flex: 1, minWidth: 320 }}>
           <div className="card-title">Goal Difference (last 10)</div>
           <div style={{ width: "100%", height: 160 }}>
-            <ResponsiveContainer>
-              <LineChart data={summary.chart}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Line type="monotone" dataKey="diff" stroke="#3b82f6" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+            <Sparkline points={summary.chart} />
           </div>
         </div>
       </div>
