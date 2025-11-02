@@ -1,21 +1,27 @@
 // src/App.jsx
 import React from "react";
-import { supabase } from "./supabaseClient.js";
 import { Routes, Route, NavLink } from "react-router-dom";
+import { supabase } from "./supabaseClient.js";
+
+// PAGES
 import StandingsPage from "./pages/StandingsPage.jsx";
 import GamesPage from "./pages/GamesPage.jsx";
-import GameDetailPage from "./pages/GameDetailPage.jsx";
+// NOTE: Retire the old editable boxscore page on /games/:slug
+// import GameDetailPage from "./pages/GameDetailPage.jsx";
+import BoxscorePage from "./pages/BoxscorePage.jsx";     // read-only, used everywhere
+import LivePage from "./pages/LivePage.jsx";             // interactive rink (editing)
+import RosterPage from "./pages/RosterPage.jsx";         // toggle who played
 import StatsPage from "./pages/StatsPage.jsx";
-import BoxscorePage from "./pages/BoxscorePage.jsx";  // <-- add this
-import TeamPage from "./pages/TeamPage.jsx"; // add
-import "./styles.css";
-import ThemeToggle from "./components/ThemeToggle";
-import { I18nProvider, useI18n } from "./i18n.jsx";
-import LanguageToggle from "./components/LanguageToggle";
-import PlayerPage from "./pages/PlayerPage.jsx"; // <— top of file
-import LivePage from "./pages/LivePage.jsx";       // NEW
-import RosterPage from "./pages/RosterPage.jsx";   // NEW
+import TeamPage from "./pages/TeamPage.jsx";
+import PlayerPage from "./pages/PlayerPage.jsx";
 
+import ThemeToggle from "./components/ThemeToggle";
+import LanguageToggle from "./components/LanguageToggle";
+import { I18nProvider, useI18n } from "./i18n.jsx";
+
+import "./styles.css";
+
+/* ----------------------------- Auth bar ----------------------------- */
 function AuthBar() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -35,49 +41,32 @@ function AuthBar() {
     const { error } = await supabase.auth.signUp({ email, password });
     setStatus(error ? error.message : "Account created! You can now sign in.");
   }
-
   async function signIn(e) {
     e.preventDefault();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setStatus(error ? error.message : "Signed in!");
   }
-
-  async function signOut() {
-    await supabase.auth.signOut();
-  }
-
   async function sendReset() {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin,
     });
     setStatus(error ? error.message : "Password reset email sent.");
   }
+  async function signOut() {
+    await supabase.auth.signOut();
+  }
 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "8px 0" }}>
       {user ? (
         <>
-          <span style={{ color: "#0a7e07" }}>
-            Signed in{user?.email ? ` as ${user.email}` : ""}
-          </span>
+          <span style={{ color: "#0a7e07" }}>Signed in{user?.email ? ` as ${user.email}` : ""}</span>
           <button onClick={signOut}>Sign out</button>
         </>
       ) : (
         <form style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-          />
+          <input type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
+          <input type="password" placeholder="Password" value={password} onChange={(e)=>setPassword(e.target.value)} required />
           <button onClick={signIn}>Sign in</button>
           <button type="button" onClick={signUp}>Sign up</button>
           <button type="button" onClick={sendReset}>Forgot password?</button>
@@ -88,44 +77,28 @@ function AuthBar() {
   );
 }
 
-function Nav() {
-  const linkStyle = ({ isActive }) => ({
-    fontWeight: isActive ? 700 : 500,
-    color: isActive ? "#3b5fff" : "inherit",
-  });
-
-  return (
-    <nav style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #eee", marginBottom: 8 }}>
-      <NavLink to="/" end style={linkStyle}>Standings</NavLink>
-      <NavLink to="/games" style={linkStyle}>Games</NavLink>
-      <NavLink to="/stats" style={linkStyle}>Stats</NavLink>
-    </nav>
-  );
-}
-
-
+/* ------------------------------ Shell ------------------------------ */
 function AppInner() {
   const { t } = useI18n();
 
   return (
-    <div style={{ fontFamily: "Inter, system-ui, Arial", maxWidth: 1100, margin: "0 auto", padding: "16px" }}>
-      {/* Header with Theme + Language */}
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "16px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h1 style={{ margin: 0 }}>{t("RLA Hockey League")}</h1>
-          <p style={{ margin: "4px 0 8px", color: "#666" }}>{t("Standings • Games • Live Boxscore")}</p>
+          <p style={{ margin: "4px 0 8px", color: "var(--muted)" }}>
+            {t("Standings • Games • Live Boxscore")}
+          </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <LanguageToggle />
-          {/* you already have ThemeToggle imported earlier */}
           <ThemeToggle />
         </div>
       </div>
 
       <AuthBar />
 
-      {/* Nav using translated labels */}
-      <nav style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #eee", marginBottom: 8 }}>
+      <nav className="nav">
         <NavLink to="/" end>{t("Standings")}</NavLink>
         <NavLink to="/games">{t("Games")}</NavLink>
         <NavLink to="/stats">{t("Stats")}</NavLink>
@@ -135,17 +108,23 @@ function AppInner() {
         <Routes>
           <Route path="/" element={<StandingsPage />} />
           <Route path="/games" element={<GamesPage />} />
-          <Route path="/games/:slug" element={<GameDetailPage />} />
-          <Route path="/stats" element={<StatsPage />} />
+
+          {/* IMPORTANT: /games/:slug now points to the READ-ONLY boxscore */}
+          <Route path="/games/:slug" element={<BoxscorePage />} />
           <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />
+
+          {/* Editing pages */}
+          <Route path="/games/:slug/live" element={<LivePage />} />
+          <Route path="/games/:slug/roster" element={<RosterPage />} />
+
+          {/* Other sections */}
+          <Route path="/stats" element={<StatsPage />} />
           <Route path="/teams/:id" element={<TeamPage />} />
           <Route path="/players/:id" element={<PlayerPage />} />
-          <Route path="/games/:slug/live" element={<LivePage />} />      {/* NEW */}
-          <Route path="/games/:slug/roster" element={<RosterPage />} />  {/* NEW */}
         </Routes>
       </main>
 
-      <footer style={{ padding: "16px 0", color: "#777", fontSize: 12 }}>
+      <footer style={{ padding: "16px 0", color: "var(--muted)", fontSize: 12 }}>
         Built with React + Supabase • Realtime edits for boxscores
       </footer>
     </div>
@@ -159,4 +138,3 @@ export default function App() {
     </I18nProvider>
   );
 }
-
