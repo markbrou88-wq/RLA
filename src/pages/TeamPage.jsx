@@ -5,9 +5,8 @@ import { supabase } from "../supabaseClient";
 
 /* ---------- Tiny Sparkline (no deps) ---------- */
 function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" }) {
-  if (!points.length) {
-    return <div className="muted">No final games yet</div>;
-  }
+  if (!points.length) return <div className="muted">No final games yet</div>;
+
   const xs = points.map((_, i) => i);
   const minX = 0;
   const maxX = xs.length - 1 || 1;
@@ -16,8 +15,7 @@ function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" 
   const maxY = Math.max(...vals, 0);
   const pad = 8;
 
-  const xScale = (x) =>
-    pad + ((x - minX) / (maxX - minX || 1)) * (width - pad * 2);
+  const xScale = (x) => pad + ((x - minX) / (maxX - minX || 1)) * (width - pad * 2);
   const yScale = (y) => {
     const rng = maxY - minY || 1;
     const t = (y - minY) / rng;
@@ -32,14 +30,12 @@ function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" 
     })
     .join(" ");
 
-  // zero line
   const zeroY = yScale(0);
 
   return (
     <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} role="img">
       <line x1={pad} y1={zeroY} x2={width - pad} y2={zeroY} stroke="#e5e7eb" />
       <path d={path} stroke={stroke} fill="none" strokeWidth="3" />
-      {/* dots */}
       {xs.map((x, i) => {
         const px = xScale(x);
         const py = yScale(points[i].diff ?? 0);
@@ -76,6 +72,7 @@ function useTeamSummary(teamId) {
     recent: [],
     chart: [],
   });
+
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -92,13 +89,7 @@ function useTeamSummary(teamId) {
         return;
       }
 
-      let gp = 0,
-        w = 0,
-        l = 0,
-        otl = 0,
-        gf = 0,
-        ga = 0;
-
+      let gp = 0, w = 0, l = 0, otl = 0, gf = 0, ga = 0;
       const recent = [];
       const chart = [];
 
@@ -111,10 +102,8 @@ function useTeamSummary(teamId) {
           gp++;
           gf += tGF || 0;
           ga += tGA || 0;
-
           if (tGF > tGA) w++;
           else if (tGF < tGA) (g.went_ot ? otl++ : l++);
-
           if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
           if (chart.length < 10) {
             chart.push({
@@ -135,6 +124,7 @@ function useTeamSummary(teamId) {
     })();
     return () => (cancelled = true);
   }, [teamId]);
+
   return summary;
 }
 
@@ -218,11 +208,7 @@ export default function TeamPage() {
 
   // roster CRUD
   const [adding, setAdding] = React.useState(false);
-  const [newPlayer, setNewPlayer] = React.useState({
-    number: "",
-    name: "",
-    position: "F",
-  });
+  const [newPlayer, setNewPlayer] = React.useState({ number: "", name: "", position: "F" });
 
   async function addPlayer() {
     if (!newPlayer.name) return;
@@ -241,6 +227,7 @@ export default function TeamPage() {
     setNewPlayer({ number: "", name: "", position: "F" });
     reload();
   }
+
   async function deletePlayer(pid) {
     if (!window.confirm("Delete this player?")) return;
     const { error } = await supabase.from("players").delete().eq("id", pid);
@@ -250,6 +237,7 @@ export default function TeamPage() {
     }
     reload();
   }
+
   function startEditRow(pid) {
     setPlayers((cur) =>
       cur.map((p) =>
@@ -295,11 +283,11 @@ export default function TeamPage() {
           <div>
             <div className="h-title" style={{ marginBottom: 6 }}>{team?.name || "Team"}</div>
             <div className="muted">
-              GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL{" "}
-              {summary.record.otl}
+              GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL {summary.record.otl}
             </div>
-            <div className="muted">GF {summary.record.gf} • GA {summary.record.ga} • Diff{" "}
-              {summary.record.gf - summary.record.ga}</div>
+            <div className="muted">
+              GF {summary.record.gf} • GA {summary.record.ga} • Diff {summary.record.gf - summary.record.ga}
+            </div>
             <div className="row gap xs" style={{ marginTop: 6 }}>
               {summary.recent.map((r, i) => (
                 <span key={i} className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}>{r}</span>
@@ -309,7 +297,7 @@ export default function TeamPage() {
           </div>
         </div>
 
-        {/* mini chart, pure SVG */}
+        {/* mini chart */}
         <div className="card" style={{ flex: 1, minWidth: 320 }}>
           <div className="card-title">Goal Difference (last 10)</div>
           <div style={{ width: "100%", height: 160 }}>
@@ -329,9 +317,11 @@ export default function TeamPage() {
               <input
                 className="in"
                 placeholder="#"
-                style={{ width: 70 }}
+                style={{ width: 56, textAlign: "center" }}
                 value={newPlayer.number}
-                onChange={(e) => setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))}
+                onChange={(e) =>
+                  setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))
+                }
               />
               <input
                 className="in"
@@ -356,23 +346,26 @@ export default function TeamPage() {
 
         <div className="tbl">
           <div className="tr thead">
-            <div className="td c">#</div>
+            <div className="td c" style={{ width: 56 }}>#</div>
             <div className="td left">Player</div>
-            <div className="td c">POS</div>
-            <div className="td right">Actions</div>
+            <div className="td c" style={{ width: 80 }}>POS</div>
+            <div className="td right" style={{ width: 200 }}>Actions</div>
           </div>
+
           {players.map((p) =>
             p.__edit ? (
               <div className="tr" key={p.id}>
-                <div className="td c" style={{ width: 90 }}>
+                <div className="td c" style={{ width: 56 }}>
                   <input
                     className="in"
-                    style={{ width: 70, textAlign: "center" }}
+                    style={{ width: 48, textAlign: "center" }}
                     value={p.__edit.number}
                     onChange={(e) =>
                       setPlayers((cur) =>
                         cur.map((x) =>
-                          x.id === p.id ? { ...x, __edit: { ...x.__edit, number: e.target.value.replace(/\D/g, "") } } : x
+                          x.id === p.id
+                            ? { ...x, __edit: { ...x.__edit, number: e.target.value.replace(/\D/g, "") } }
+                            : x
                         )
                       )
                     }
@@ -391,7 +384,7 @@ export default function TeamPage() {
                     }
                   />
                 </div>
-                <div className="td c" style={{ width: 110 }}>
+                <div className="td c" style={{ width: 80 }}>
                   <select
                     className="in"
                     value={p.__edit.position}
@@ -408,23 +401,24 @@ export default function TeamPage() {
                     <option value="G">G</option>
                   </select>
                 </div>
-                <div className="td right" style={{ width: 220 }}>
+                <div className="td right" style={{ width: 200 }}>
                   <button className="btn" onClick={() => saveEditRow(p.id)}>Save</button>
                   <button className="btn ghost" onClick={() => cancelEditRow(p.id)}>Cancel</button>
                 </div>
               </div>
             ) : (
               <div className="tr" key={p.id}>
-                <div className="td c" style={{ width: 90 }}>{p.number ?? ""}</div>
+                <div className="td c" style={{ width: 56 }}>{p.number ?? ""}</div>
                 <div className="td left">{p.name}</div>
-                <div className="td c" style={{ width: 110 }}>{p.position || ""}</div>
-                <div className="td right" style={{ width: 220 }}>
+                <div className="td c" style={{ width: 80 }}>{p.position || ""}</div>
+                <div className="td right" style={{ width: 200 }}>
                   <button className="btn" onClick={() => startEditRow(p.id)}>Edit</button>
                   <button className="btn danger" onClick={() => deletePlayer(p.id)}>Delete</button>
                 </div>
               </div>
             )
           )}
+
           {players.length === 0 && (
             <div className="tr">
               <div className="td left muted">No players yet.</div>
@@ -441,36 +435,40 @@ export default function TeamPage() {
             <div className="td left clickable" onClick={() => setSort("player")}>
               Player {sortKey === "player" ? (dir === "asc" ? "▲" : "▼") : ""}
             </div>
-            <div className="td c clickable" onClick={() => setSort("gp")}>
+            <div className="td c clickable" style={{ width: 70 }} onClick={() => setSort("gp")}>
               GP {sortKey === "gp" ? (dir === "asc" ? "▲" : "▼") : ""}
             </div>
-            <div className="td c clickable" onClick={() => setSort("g")}>
+            <div className="td c clickable" style={{ width: 70 }} onClick={() => setSort("g")}>
               G {sortKey === "g" ? (dir === "asc" ? "▲" : "▼") : ""}
             </div>
-            <div className="td c clickable" onClick={() => setSort("a")}>
+            <div className="td c clickable" style={{ width: 70 }} onClick={() => setSort("a")}>
               A {sortKey === "a" ? (dir === "asc" ? "▲" : "▼") : ""}
             </div>
-            <div className="td c clickable" onClick={() => setSort("pts")}>
+            <div className="td c clickable" style={{ width: 80 }} onClick={() => setSort("pts")}>
               PTS {sortKey === "pts" ? (dir === "asc" ? "▲" : "▼") : ""}
             </div>
-            <div className="td right" />
+            <div className="td right" style={{ width: 120 }} />
           </div>
+
           {statsRows.map((r) => (
             <div className="tr" key={r.player_id}>
               <div className="td left">
                 <Link className="link" to={`/players/${r.player_id}`}>{r.player}</Link>
               </div>
-              <div className="td c">{r.gp}</div>
-              <div className="td c">{r.g}</div>
-              <div className="td c">{r.a}</div>
-              <div className="td c b">{r.pts}</div>
-              <div className="td right">
+              <div className="td c" style={{ width: 70 }}>{r.gp}</div>
+              <div className="td c" style={{ width: 70 }}>{r.g}</div>
+              <div className="td c" style={{ width: 70 }}>{r.a}</div>
+              <div className="td c b" style={{ width: 80 }}>{r.pts}</div>
+              <div className="td right" style={{ width: 120 }}>
                 <Link className="btn ghost small" to={`/players/${r.player_id}`}>Profile</Link>
               </div>
             </div>
           ))}
+
           {statsRows.length === 0 && (
-            <div className="tr"><div className="td muted">No stats yet.</div></div>
+            <div className="tr">
+              <div className="td muted">No stats yet.</div>
+            </div>
           )}
         </div>
       </div>
