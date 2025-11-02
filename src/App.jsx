@@ -113,7 +113,7 @@ function AppInner() {
           {/* IMPORTANT: /games/:slug now points to the READ-ONLY boxscore */}
           <Route path="/games/:slug" element={<BoxscorePage />} />
           <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />
-           <Route path="/games/:key/summary" element={<SummaryPage />} />
+           <Route path="/games/:slug/summary" element={<SummaryPage />} />
 
 
           {/* Editing pages */}
