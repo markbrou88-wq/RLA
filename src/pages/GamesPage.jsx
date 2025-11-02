@@ -1,11 +1,11 @@
-// src/lib/pages/GamesPage.jsx
+// src/pages/GamesPage.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../supabaseClient";
+import { supabase } from "../supabaseClient";
 
 function useMaybeI18n() {
   try {
-    const { useI18n } = require("../../i18n");
+    const { useI18n } = require("../i18n");
     return useI18n();
   } catch {
     return { t: (s) => s };
@@ -26,7 +26,7 @@ export default function GamesPage() {
   const [filterHome, setFilterHome] = React.useState("");
   const [filterAway, setFilterAway] = React.useState("");
 
-  // create
+  // create form
   const [newDate, setNewDate] = React.useState("");
   const [newHome, setNewHome] = React.useState("");
   const [newAway, setNewAway] = React.useState("");
@@ -34,22 +34,26 @@ export default function GamesPage() {
 
   React.useEffect(() => {
     let cancelled = false;
-    (async () => {
+    async function load() {
       setLoading(true);
-      const [{ data: teamRows, error: e1 }, { data: gameRows, error: e2 }] = await Promise.all([
-        supabase.from("teams").select("id, name, short_name, logo_url").order("name"),
-        supabase
-          .from("games")
-          .select(
-            "id, slug, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot"
-          )
-          .order("game_date", { ascending: false }),
-      ]);
+
+      const [{ data: teamRows, error: e1 }, { data: gameRows, error: e2 }] =
+        await Promise.all([
+          supabase.from("teams").select("id, name, short_name, logo_url").order("name"),
+          supabase
+            .from("games")
+            .select(
+              "id, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot, slug"
+            )
+            .order("game_date", { ascending: false }),
+        ]);
+
       if (e1 || e2) {
         console.error(e1 || e2);
         if (!cancelled) setLoading(false);
         return;
       }
+
       const map = Object.fromEntries(teamRows.map((t) => [t.id, t]));
       if (!cancelled) {
         setTeams(teamRows);
@@ -57,7 +61,9 @@ export default function GamesPage() {
         setGames(gameRows);
         setLoading(false);
       }
-    })();
+    }
+
+    load();
     return () => {
       cancelled = true;
     };
@@ -74,12 +80,11 @@ export default function GamesPage() {
   async function handleDelete(id) {
     if (!window.confirm(t("Delete this game?"))) return;
     const { error } = await supabase.from("games").delete().eq("id", id);
-    if (error) return alert(error.message);
+    if (error) {
+      alert(error.message);
+      return;
+    }
     setGames((cur) => cur.filter((g) => g.id !== id));
-  }
-
-  function slugOrId(g) {
-    return g.slug || String(g.id);
   }
 
   function makeSlug(dateIso, homeId, awayId) {
@@ -89,10 +94,17 @@ export default function GamesPage() {
   }
 
   async function handleCreate() {
-    if (!newDate || !newHome || !newAway) return alert(t("Please fill date, home and away."));
-    if (newHome === newAway) return alert(t("Home and away cannot be the same team."));
+    if (!newDate || !newHome || !newAway) {
+      alert(t("Please fill date, home and away."));
+      return;
+    }
+    if (newHome === newAway) {
+      alert(t("Home and away cannot be the same team."));
+      return;
+    }
 
     setSaving(true);
+    const slug = makeSlug(newDate, newHome, newAway);
     const payload = {
       game_date: newDate,
       home_team_id: Number(newHome),
@@ -101,12 +113,15 @@ export default function GamesPage() {
       away_score: 0,
       status: "scheduled",
       went_ot: false,
-      slug: makeSlug(newDate, newHome, newAway),
+      slug,
     };
+
     const { data, error } = await supabase.from("games").insert(payload).select().single();
     setSaving(false);
-    if (error) return alert(error.message);
-
+    if (error) {
+      alert(error.message);
+      return;
+    }
     setGames((cur) => [data, ...cur]);
     setNewDate("");
     setNewHome("");
@@ -133,6 +148,7 @@ export default function GamesPage() {
           onChange={(e) => setFilterDate(e.target.value)}
           style={inputS}
         />
+
         <select value={filterHome} onChange={(e) => setFilterHome(e.target.value)} style={inputS}>
           <option value="">{t("Team… (Home)")}</option>
           {teams.map((t_) => (
@@ -141,6 +157,7 @@ export default function GamesPage() {
             </option>
           ))}
         </select>
+
         <select value={filterAway} onChange={(e) => setFilterAway(e.target.value)} style={inputS}>
           <option value="">{t("Team… (Away)")}</option>
           {teams.map((t_) => (
@@ -149,6 +166,7 @@ export default function GamesPage() {
             </option>
           ))}
         </select>
+
         <button
           onClick={() => {
             setFilterDate("");
@@ -179,6 +197,7 @@ export default function GamesPage() {
           onChange={(e) => setNewDate(e.target.value)}
           style={inputS}
         />
+
         <select value={newHome} onChange={(e) => setNewHome(e.target.value)} style={inputS}>
           <option value="">{t("Home team…")}</option>
           {teams.map((t_) => (
@@ -187,6 +206,7 @@ export default function GamesPage() {
             </option>
           ))}
         </select>
+
         <select value={newAway} onChange={(e) => setNewAway(e.target.value)} style={inputS}>
           <option value="">{t("Away team…")}</option>
           {teams.map((t_) => (
@@ -195,6 +215,7 @@ export default function GamesPage() {
             </option>
           ))}
         </select>
+
         <button onClick={handleCreate} disabled={saving}>
           {saving ? t("Creating…") : t("Create")}
         </button>
@@ -211,6 +232,10 @@ export default function GamesPage() {
             const home = teamMap[g.home_team_id] || {};
             const away = teamMap[g.away_team_id] || {};
             const d = new Date(g.game_date || "");
+            const statusLabel = g.status;
+
+            const slug = g.slug || g.id;
+
             return (
               <div
                 key={g.id}
@@ -224,48 +249,43 @@ export default function GamesPage() {
                   gap: 10,
                 }}
               >
+                {/* Matchup */}
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <TeamChip team={away} />
-                  <span style={{ color: "#666" }}>{t("at")}</span>
                   <TeamChip team={home} />
+                  <span style={{ color: "#666" }}>{t("at")}</span>
+                  <TeamChip team={away} />
                 </div>
 
+                {/* Score + date + status */}
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontWeight: 700 }}>
-                    {g.away_score} — {g.home_score}
+                    {g.home_score} — {g.away_score}
                   </div>
                   <div style={{ fontSize: 12, color: "#666" }}>
                     {isNaN(d) ? "" : d.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 12, color: "#666" }}>{g.status}</div>
+                  <div style={{ fontSize: 12, color: "#666" }}>{statusLabel}</div>
                 </div>
 
+                {/* Actions */}
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button onClick={() => navigate(`/games/${slugOrId(g)}/live`)}>{t("Live")}</button>
-                  <button onClick={() => navigate(`/games/${slugOrId(g)}/roster`)}>
-                    {t("Roster")}
-                  </button>
-                  <button onClick={() => navigate(`/games/${slugOrId(g)}/summary`)}>
-                    {t("Boxscore")}
-                  </button>
+                  {/* LIVE = interactive rink */}
+                  <button onClick={() => navigate(`/games/${slug}/live`)}>{t("Live")}</button>
+
+                  {/* ROSTER toggle page */}
+                  <button onClick={() => navigate(`/games/${slug}/roster`)}>{t("Roster")}</button>
+
+                  {/* BOXSCORE = read-only summary */}
+                  <button onClick={() => navigate(`/games/${slug}/boxscore`)}>{t("Boxscore")}</button>
+
+                  {/* Final/Open toggle */}
                   {g.status === "final" ? (
-                    <button disabled>{t("Mark as Final")}</button>
+                    <button onClick={() => updateStatus(g.id, "scheduled")}>{t("Open")}</button>
                   ) : (
-                    <button
-                      onClick={async () => {
-                        const { error, data } = await supabase
-                          .from("games")
-                          .update({ status: "final" })
-                          .eq("id", g.id)
-                          .select()
-                          .single();
-                        if (error) return alert(error.message);
-                        setGames((cur) => cur.map((x) => (x.id === g.id ? data : x)));
-                      }}
-                    >
-                      {t("Mark as Final")}
-                    </button>
+                    <button onClick={() => updateStatus(g.id, "final")}>{t("Mark as Final")}</button>
                   )}
+
+                  {/* Delete */}
                   <button
                     onClick={() => handleDelete(g.id)}
                     style={{
@@ -286,6 +306,20 @@ export default function GamesPage() {
       )}
     </div>
   );
+
+  async function updateStatus(id, status) {
+    const { data, error } = await supabase
+      .from("games")
+      .update({ status })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setGames((cur) => cur.map((g) => (g.id === id ? data : g)));
+  }
 }
 
 function TeamChip({ team }) {
