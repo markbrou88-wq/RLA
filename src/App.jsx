@@ -14,6 +14,7 @@ import RosterPage from "./pages/RosterPage.jsx";         // toggle who played
 import StatsPage from "./pages/StatsPage.jsx";
 import TeamPage from "./pages/TeamPage.jsx";
 import PlayerPage from "./pages/PlayerPage.jsx";
+import SummaryPage from "./pages/SummaryPage.jsx";
 
 import ThemeToggle from "./components/ThemeToggle";
 import LanguageToggle from "./components/LanguageToggle";
@@ -112,7 +113,7 @@ function AppInner() {
           {/* IMPORTANT: /games/:slug now points to the READ-ONLY boxscore */}
           <Route path="/games/:slug" element={<BoxscorePage />} />
           <Route path="/games/:slug/boxscore" element={<BoxscorePage />} />
-       
+           <Route path="/games/:key/summary" element={<SummaryPage />} />
 
 
           {/* Editing pages */}
