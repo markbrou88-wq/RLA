@@ -171,3 +171,71 @@ input:focus,select:focus{outline:2px solid color-mix(in oklab,var(--primary),tra
 .btn.danger { background:crimson; }
 .in { height:34px; border:1px solid #ddd; border-radius:8px; padding:0 10px; outline:none; }
 .clickable { cursor:pointer; user-select:none; }
+
+/* ---- Team roster table sizing & alignment ---- */
+.team-roster table,
+.team-roster { width: 100%; }
+
+.team-roster table {
+  table-layout: fixed;           /* predictable column widths */
+  border-collapse: collapse;
+}
+
+/* General cells */
+.team-roster th,
+.team-roster td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--card-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Header look */
+.team-roster thead th {
+  background: var(--table-head);
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+/* Column widths: # | Player | POS | Actions */
+.team-roster th:nth-child(1),
+.team-roster td:nth-child(1) {   /* # */
+  width: 64px;
+  text-align: right;
+  color: var(--muted);
+}
+
+.team-roster th:nth-child(2),
+.team-roster td:nth-child(2) {   /* Player (flex) */
+  width: auto;
+}
+
+.team-roster th:nth-child(3),
+.team-roster td:nth-child(3) {   /* POS */
+  width: 72px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.team-roster th:nth-child(4),
+.team-roster td:nth-child(4) {   /* Actions */
+  width: 170px;                  /* room for Edit + Delete */
+}
+
+/* Keep buttons tidy on the right */
+.team-roster td:last-child {
+  white-space: nowrap;
+}
+.team-roster td:last-child .btn,
+.team-roster td:last-child button {
+  margin-inline-start: 6px;
+}
+
+/* Row hover */
+.team-roster tbody tr:hover {
+  background: var(--hover);
+}
+
