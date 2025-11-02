@@ -1,284 +1,112 @@
-/* ----------------------------------------------------------
-   THEME VARIABLES
----------------------------------------------------------- */
+/* src/styles.css
+   (Adds rink + token styles, score badges with logos, responsive button group) */
+
+/* ---------- THEME (unchanged core) ---------- */
 :root {
-  --bg: #fafafa;
-  --text: #222;
-  --muted: #666;
-  --card: #fff;
-  --card-border: #eee;
-  --table-head: #f4f5f8;
-  --hover: #f9f9ff;
-
-  --primary: #3b5fff;
-  --primary-strong: #2443e3;
-
-  --btn-text: #fff;
-
-  --shadow: 0 2px 6px rgba(0,0,0,.06);
+  --bg:#fafafa; --text:#222; --muted:#666; --card:#fff; --card-border:#eee;
+  --table-head:#f4f5f8; --hover:#f9f9ff; --primary:#3b5fff; --primary-strong:#2443e3;
+  --btn-text:#fff; --shadow:0 2px 6px rgba(0,0,0,.06);
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e1116;
-    --text: #e9eef7;
-    --muted: #a7b1c2;
-    --card: #151923;
-    --card-border: #262b36;
-    --table-head: #1a1f2b;
-    --hover: #1a2030;
-
-    --primary: #6a8bff;
-    --primary-strong: #8ea5ff;
-
-    --btn-text: #0e1116;
-
-    --shadow: 0 2px 10px rgba(0,0,0,.35);
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0e1116; --text:#e9eef7; --muted:#a7b1c2; --card:#151923; --card-border:#262b36;
+    --table-head:#1a1f2b; --hover:#1a2030; --primary:#6a8bff; --primary-strong:#8ea5ff;
+    --btn-text:#0e1116; --shadow:0 2px 10px rgba(0,0,0,.35);
   }
 }
+:root[data-theme="light"] { /* same as light above */ }
+:root[data-theme="dark"]  { /* same as dark above  */ }
+html{transition:background-color .2s ease,color .2s ease;}
+*{box-sizing:border-box;font-family:"Inter","Segoe UI",system-ui,Arial,sans-serif;}
+body{margin:0;background:var(--bg);color:var(--text);}
+a{color:var(--primary);text-decoration:none;font-weight:500;}
+a:hover{text-decoration:underline}
 
-/* manual override takes priority over OS */
-:root[data-theme="light"] {
-  --bg: #fafafa;
-  --text: #222;
-  --muted: #666;
-  --card: #fff;
-  --card-border: #eee;
-  --table-head: #f4f5f8;
-  --hover: #f9f9ff;
+/* ---------- Layout / Cards / Tables ---------- */
+.container{max-width:1000px;margin:0 auto;padding:24px 16px}
+.card{background:var(--card);padding:16px;margin-bottom:16px;border-radius:10px;
+  box-shadow:var(--shadow);border:1px solid var(--card-border)}
+h1,h2,h3{margin:0;font-weight:600} h1{font-size:1.8rem} h2{font-size:1.4rem}
+.kicker{font-size:.8rem;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:4px}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:10px;overflow:hidden;
+  box-shadow:var(--shadow);border:1px solid var(--card-border)}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--card-border)}
+th{background:var(--table-head);font-size:.9rem;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.02em}
+tr:hover{background:var(--hover)}
 
-  --primary: #3b5fff;
-  --primary-strong: #2443e3;
+/* ---------- Inputs / Buttons ---------- */
+button,.btn{background:var(--primary);color:var(--btn-text);border:none;border-radius:6px;
+  padding:6px 14px;cursor:pointer;font-size:.9rem;font-weight:600;transition:background .15s ease,opacity .15s ease}
+button:hover,.btn:hover{background:var(--primary-strong)}
+button:disabled{opacity:.6;cursor:not-allowed}
+.btn.secondary{background:transparent;color:var(--text);border:1px solid var(--card-border)}
+.btn.secondary:hover{background:var(--hover)}
+.btn-green{background:#16a34a;color:#fff}.btn-red{background:#ef4444;color:#fff}
+input[type="text"],input[type="date"],input[type="number"],input[type="datetime-local"],select{
+  padding:6px 10px;border:1px solid var(--card-border);border-radius:6px;font-size:.9rem;background:var(--card);color:var(--text)}
+input:focus,select:focus{outline:2px solid color-mix(in oklab,var(--primary),transparent 70%)}
 
-  --btn-text: #fff;
+/* ---------- Nav & Score badges ---------- */
+.nav{display:flex;gap:12px;margin-bottom:16px}
+.nav a{font-weight:500;color:var(--text);padding-bottom:2px;border-bottom:2px solid transparent}
+.nav a:hover{border-color:var(--primary)} .nav a.active{color:var(--primary);border-color:var(--primary)}
 
-  --shadow: 0 2px 6px rgba(0,0,0,.06);
+.score-badge{
+  display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--card-border);
+  border-radius:12px;padding:10px 14px;box-shadow:var(--shadow);min-width:110px;justify-content:space-between;
 }
-:root[data-theme="dark"] {
-  --bg: #0e1116;
-  --text: #e9eef7;
-  --muted: #a7b1c2;
-  --card: #151923;
-  --card-border: #262b36;
-  --table-head: #1a1f2b;
-  --hover: #1a2030;
+.score-badge .logo{height:24px;object-fit:contain}
+.score-badge .num{background:#0f2a6b;color:#fff;border-radius:8px;padding:6px 10px;font-weight:800;font-size:1.1rem;min-width:36px;text-align:center}
 
-  --primary: #6a8bff;
-  --primary-strong: #8ea5ff;
-
-  --btn-text: #0e1116;
-
-  --shadow: 0 2px 10px rgba(0,0,0,.35);
+/* ---------- Button group (Games list actions) ---------- */
+.button-group{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.button-group .btn{min-width:80px;text-align:center}
+.button-group button{flex:0 1 auto;min-width:70px;white-space:nowrap}
+@media (max-width:700px){
+  .button-group{justify-content:center;gap:6px}
+  .button-group .btn,.button-group button{flex:1 1 45%;min-width:0}
 }
-
-/* smooth theme transition */
-html {
-  transition: background-color .2s ease, color .2s ease;
-}
-
-/* ----------------------------------------------------------
-   GLOBAL
----------------------------------------------------------- */
-* { box-sizing: border-box; font-family: "Inter","Segoe UI",system-ui,Arial,sans-serif; }
-body { margin: 0; background: var(--bg); color: var(--text); }
-a { color: var(--primary); text-decoration: none; font-weight: 500; }
-a:hover { text-decoration: underline; }
-
-/* ----------------------------------------------------------
-   LAYOUT
----------------------------------------------------------- */
-.container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
-.row { display: flex; align-items: center; gap: 8px; }
-.flex-spacer { flex: 1; }
-
-.card {
-  background: var(--card);
-  padding: 16px;
-  margin-bottom: 16px;
-  border-radius: 10px;
-  box-shadow: var(--shadow);
-  border: 1px solid var(--card-border);
+@media (max-width:400px){
+  .button-group{overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;-webkit-overflow-scrolling:touch}
+  .button-group .btn,.button-group button{flex:0 0 auto}
 }
 
-h1,h2,h3 { margin: 0; font-weight: 600; }
-h1 { font-size: 1.8rem; }
-h2 { font-size: 1.4rem; }
-
-.kicker { font-size: .8rem; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
-.mb8 { margin-bottom: 8px; }
-.m0 { margin: 0; }
-
-/* ----------------------------------------------------------
-   TABLES
----------------------------------------------------------- */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--card);
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  border: 1px solid var(--card-border);
+/* ---------- Rink & Tokens (Live) ---------- */
+.rink-wrap{display:grid;grid-template-columns:1fr 2.2fr 1fr;gap:16px;align-items:start}
+.rink-toolbar{display:flex;gap:8px;justify-content:center;margin:8px 0 12px}
+.rink{
+  position:relative;border:3px solid #ffd84d;border-radius:16px;background:
+    repeating-linear-gradient(0deg,#1557d6 0,#1557d6 10px,#1652c7 10px,#1652c7 20px);
+  aspect-ratio: 200 / 120; /* wide rectangle like dek */
+  width:100%;
 }
-th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--card-border); }
-th {
-  background: var(--table-head);
-  font-size: .9rem; font-weight: 600; color: var(--text);
-  text-transform: uppercase; letter-spacing: .02em;
+.rink .center-line{position:absolute;left:0;right:0;top:50%;height:6px;background:#ffd84d;transform:translateY(-50%)}
+.crease{position:absolute;width:140px;height:72px;border-radius:12px;border:3px dashed #ffd84d;background:#ffffff1a}
+.crease.top{top:26px;left:calc(50% - 70px)}
+.crease.bot{bottom:26px;left:calc(50% - 70px)}
+
+.bench{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-height:560px;overflow:auto;padding:8px;background:var(--card);
+  border:1px solid var(--card-border);border-radius:12px;box-shadow:var(--shadow)}
+.token{
+  width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-weight:800;color:#fff;user-select:none;box-shadow:0 2px 6px rgba(0,0,0,.2);border:2px solid #fff;
 }
-tr:hover { background: var(--hover); }
+.token.blue{background:#2563eb}
+.token.red{background:#dc2626}
+.token.black{background:#111}
+.token.ghost{opacity:.5}
 
-/* ----------------------------------------------------------
-   BUTTONS & INPUTS
----------------------------------------------------------- */
-button, .btn {
-  background: var(--primary);
-  color: var(--btn-text);
-  border: none; border-radius: 6px;
-  padding: 6px 14px; cursor: pointer;
-  font-size: .9rem; font-weight: 600;
-  transition: background .15s ease, opacity .15s ease;
-}
-button:hover, .btn:hover { background: var(--primary-strong); }
-button:disabled { opacity: .6; cursor: not-allowed; }
+/* token anchor when on the ice */
+.token-on-ice{position:absolute;transform:translate(-50%,-50%);}
 
-.btn.secondary {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--card-border);
-}
-.btn.secondary:hover { background: var(--hover); }
+/* ---------- Shots widget ---------- */
+.shots{display:flex;align-items:center;gap:6px}
+.shots input{width:56px;text-align:center}
 
-.btn.danger { background: #d33; color: #fff; }
-.btn.danger:hover { background: #b22; }
+/* ---------- Events table tweaks ---------- */
+.events td .actions{display:flex;gap:8px;justify-content:flex-end}
 
-/* Variant helpers for quick styling in components */
-.btn-blue   { background: var(--primary); color: var(--btn-text); }
-.btn-green  { background: #16a34a; color: #fff; }
-.btn-red    { background: #ef4444; color: #fff; }
-.btn-grey   { background: #e5e7eb; color: var(--text); }
-.btn-disabled { background: #9ca3af; color: #fff; cursor: not-allowed; }
-
-/* inputs */
-input[type="text"], input[type="date"], input[type="number"], input[type="datetime-local"], select {
-  padding: 6px 10px; border: 1px solid var(--card-border); border-radius: 6px; font-size: .9rem;
-  background: var(--card); color: var(--text);
-}
-input:focus, select:focus { outline: 2px solid color-mix(in oklab, var(--primary), transparent 70%); }
-
-/* ----------------------------------------------------------
-   NAV / LOGOS / SCOREBOARD
----------------------------------------------------------- */
-.nav { display: flex; gap: 12px; margin-bottom: 16px; }
-.nav a { font-weight: 500; color: var(--text); padding-bottom: 2px; border-bottom: 2px solid transparent; }
-.nav a:hover { border-color: var(--primary); }
-.nav a.active { color: var(--primary); border-color: var(--primary); }
-
-.team-logo { width: 24px; height: 24px; object-fit: contain; vertical-align: middle; margin-right: 6px; }
-
-.scoreboard {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 8px;
-  align-items: center;
-}
-.team { display: flex; align-items: center; gap: 10px; }
-.team-name { font-weight: 700; }
-.abbr { color: var(--muted); font-size: .9rem; }
-
-.score {
-  font-size: 2.2rem;
-  font-weight: 800;
-  letter-spacing: .02em;
-}
-.score .vs {
-  font-size: 1rem; color: var(--muted); margin: 0 10px; font-weight: 600;
-}
-
-/* ----------------------------------------------------------
-   ROSTER / CHIPS / UTILITIES (added)
----------------------------------------------------------- */
-.grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-
-.chips-wrap { display: flex; flex-wrap: wrap; gap: .5rem; }
-.chip {
-  padding: .35rem .6rem;
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--text);
-}
-.chip-on {
-  background: var(--primary);
-  color: var(--btn-text);
-  border-color: color-mix(in oklab, var(--primary), #000 20%);
-}
-.chip-active {
-  background: #16a34a;
-  color: #fff;
-  border-color: #15803d;
-}
-
-.muted { color: var(--muted); }
-.link { color: var(--primary); }
-
-/* ----------------------------------------------------------
-   BUTTON GROUPS (Games list actions)
----------------------------------------------------------- */
-.button-group {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.button-group .btn {
-  min-width: 80px;
-  text-align: center;
-}
-
-/* Compact version for inline usage (buttons without .btn class) */
-.button-group button {
-  flex: 0 1 auto;
-  min-width: 70px;
-  white-space: nowrap;
-}
-
-/* Responsive layout for small screens */
-@media (max-width: 700px) {
-  .button-group {
-    justify-content: center;
-    gap: 6px;
-  }
-
-  .button-group .btn,
-  .button-group button {
-    flex: 1 1 45%; /* two buttons per row */
-    min-width: 0;
-  }
-}
-
-/* For very small screens: make it horizontally scrollable instead of stacked */
-@media (max-width: 400px) {
-  .button-group {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .button-group .btn,
-  .button-group button {
-    flex: 0 0 auto;
-  }
-}
-
-
-/* ----------------------------------------------------------
-   RESPONSIVE
----------------------------------------------------------- */
-@media (max-width: 600px) {
-  table { font-size: .85rem; }
-  .container { padding: 16px 8px; }
-  button, .btn { padding: 4px 10px; }
+/* ---------- Responsive ---------- */
+@media (max-width:960px){
+  .rink-wrap{grid-template-columns:1fr}
 }
