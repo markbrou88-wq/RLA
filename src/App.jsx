@@ -6,15 +6,18 @@ import { supabase } from "./supabaseClient.js";
 // PAGES
 import StandingsPage from "./pages/StandingsPage.jsx";
 import GamesPage from "./pages/GamesPage.jsx";
-// NOTE: Retire the old editable boxscore page on /games/:slug
-// import GameDetailPage from "./pages/GameDetailPage.jsx";
-import BoxscorePage from "./pages/BoxscorePage.jsx";     // read-only, used everywhere
-import LivePage from "./pages/LivePage.jsx";             // interactive rink (editing)
-import RosterPage from "./pages/RosterPage.jsx";         // toggle who played
+
+// READ-ONLY BOX SCORE (summary you wanted)
+import SummaryPage from "./pages/SummaryPage.jsx";
+
+// INTERACTIVE EDITING
+import LivePage from "./pages/LivePage.jsx";       // interactive rink
+import RosterPage from "./pages/RosterPage.jsx";   // who played
+
+// Other sections
 import StatsPage from "./pages/StatsPage.jsx";
 import TeamPage from "./pages/TeamPage.jsx";
 import PlayerPage from "./pages/PlayerPage.jsx";
-import SummaryPage from "./pages/SummaryPage.jsx";
 
 import ThemeToggle from "./components/ThemeToggle";
 import LanguageToggle from "./components/LanguageToggle";
@@ -110,11 +113,8 @@ function AppInner() {
           <Route path="/" element={<StandingsPage />} />
           <Route path="/games" element={<GamesPage />} />
 
-          {/* IMPORTANT: /games/:slug now points to the READ-ONLY boxscore */}
-          <Route path="/games/:slug" element={<BoxscorePage />} />
+          {/* READ-ONLY summary (this is the one you want when clicking Boxscore) */}
           <Route path="/games/:slug/boxscore" element={<SummaryPage />} />
-           <Route path="/games/:slug/summary" element={<SummaryPage />} />
-
 
           {/* Editing pages */}
           <Route path="/games/:slug/live" element={<LivePage />} />
