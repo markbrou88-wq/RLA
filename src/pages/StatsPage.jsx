@@ -26,11 +26,19 @@ export default function StatsPage() {
     async function load() {
       setLoading(true);
 
-      const [{ data: sk, error: e1 }, { data: gl, error: e2 }] = await Promise.all([
-        // ⬇⬇⬇  key change: read from leaders_current so GP = count(distinct game_id in game_rosters)
+      // 1) GP from leaders_current
+      // 2) G/A/PTS (and ranking) from player_stats_current
+      const [
+        { data: leaders, error: e1 },
+        { data: stats, error: e2 },
+        { data: gl, error: e3 },
+      ] = await Promise.all([
         supabase
           .from("leaders_current")
-          .select("player_id, player, team, gp, g, a, pts")
+          .select("player_id, player, team, gp"),
+        supabase
+          .from("player_stats_current")
+          .select("player_id, player, team, g, a, pts")
           .order("pts", { ascending: false })
           .order("g", { ascending: false })
           .order("a", { ascending: false }),
@@ -43,14 +51,33 @@ export default function StatsPage() {
       if (!cancelled) {
         if (e1) console.error(e1);
         if (e2) console.error(e2);
-        setSkaters(sk || []);
+        if (e3) console.error(e3);
+
+        // Build a gp map from leaders_current (fallback 0)
+        const gpMap = new Map();
+        (leaders || []).forEach((r) => gpMap.set(String(r.player_id), r.gp ?? 0));
+
+        // Merge: keep ordering from stats view, but overwrite/add gp
+        const merged = (stats || []).map((s) => ({
+          player_id: s.player_id,
+          player: s.player,
+          team: s.team,
+          g: s.g ?? 0,
+          a: s.a ?? 0,
+          pts: s.pts ?? 0,
+          gp: gpMap.get(String(s.player_id)) ?? 0,
+        }));
+
+        setSkaters(merged);
         setGoalies(gl || []);
         setLoading(false);
       }
     }
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
