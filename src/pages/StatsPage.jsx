@@ -26,9 +26,10 @@ export default function StatsPage() {
     async function load() {
       setLoading(true);
 
-      const [{ data: sk }, { data: gl }] = await Promise.all([
+      const [{ data: sk, error: e1 }, { data: gl, error: e2 }] = await Promise.all([
+        // ⬇⬇⬇  key change: read from leaders_current so GP = count(distinct game_id in game_rosters)
         supabase
-          .from("player_stats_current")
+          .from("leaders_current")
           .select("player_id, player, team, gp, g, a, pts")
           .order("pts", { ascending: false })
           .order("g", { ascending: false })
@@ -40,6 +41,8 @@ export default function StatsPage() {
       ]);
 
       if (!cancelled) {
+        if (e1) console.error(e1);
+        if (e2) console.error(e2);
         setSkaters(sk || []);
         setGoalies(gl || []);
         setLoading(false);
@@ -88,7 +91,6 @@ export default function StatsPage() {
               {skaters.map((r) => (
                 <tr key={r.player_id}>
                   <td style={td}>
-                    {/* CLICKABLE NAME */}
                     <PlayerLink id={r.player_id}>{r.player}</PlayerLink>
                   </td>
                   <td style={td}>{r.team}</td>
@@ -121,7 +123,6 @@ export default function StatsPage() {
               {goalies.map((g) => (
                 <tr key={g.player_id}>
                   <td style={td}>
-                    {/* CLICKABLE NAME */}
                     <PlayerLink id={g.player_id}>{g.goalie}</PlayerLink>
                   </td>
                   <td style={td}>{g.team}</td>
