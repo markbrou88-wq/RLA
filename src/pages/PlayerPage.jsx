@@ -60,61 +60,108 @@ export default function PlayerPage() {
         .eq("player_id", pid)
         .maybeSingle();
 
-      // Skater game log (client-side aggregate fallback)
-      const [{ data: evs }, { data: games }, { data: teams }] = await Promise.all([
-        supabase.from("events").select("game_id, event, player_id").eq("player_id", pid),
-        supabase.from("games").select("id, game_date, home_team_id, away_team_id, slug, home_score, away_score"),
+      // Look up everything we need to build logs
+      const [{ data: teams }, { data: games }] = await Promise.all([
         supabase.from("teams").select("id, name, short_name"),
+        supabase
+          .from("games")
+          .select("id, game_date, home_team_id, away_team_id, slug, home_score, away_score"),
       ]);
+      const tMap = new Map((teams || []).map((x) => [x.id, x]));
+      const gMap = new Map((games || []).map((x) => [x.id, x]));
 
-      const tMap = new Map((teams || []).map(x => [x.id, x]));
-      const gMap = new Map((games || []).map(x => [x.id, x]));
-      const agg = new Map();
-      (evs || []).forEach(e => {
-        const row = agg.get(e.game_id) || { g: 0, a: 0 };
+      // 1) All SKATER games = where the player was dressed in game_rosters
+      const { data: rosterRows } = await supabase
+        .from("game_rosters")
+        .select("game_id, team_id, dressed")
+        .eq("player_id", pid)
+        .eq("dressed", true);
+
+      // 2) Overlay points from events (so G/A still show up)
+      const { data: evs } = await supabase
+        .from("events")
+        .select("game_id, event, player_id")
+        .eq("player_id", pid);
+
+      // Aggregate G/A per game from events
+      const gaByGame = new Map();
+      (evs || []).forEach((e) => {
+        const row = gaByGame.get(e.game_id) || { g: 0, a: 0 };
         if (e.event === "goal") row.g++;
         if (e.event === "assist") row.a++;
-        agg.set(e.game_id, row);
+        gaByGame.set(e.game_id, row);
       });
-      const skLog = Array.from(agg.entries()).map(([gid, row]) => {
-        const gm = gMap.get(gid);
-        const date = gm?.game_date ? new Date(gm.game_date) : null;
-        return {
-          game_id: gid,
-          date,
-          slug: gm?.slug || gid,
-          home: tMap.get(gm?.home_team_id)?.short_name || tMap.get(gm?.home_team_id)?.name || "",
-          away: tMap.get(gm?.away_team_id)?.short_name || tMap.get(gm?.away_team_id)?.name || "",
-          g: row.g,
-          a: row.a,
-          hs: gm?.home_score ?? 0,
-          as: gm?.away_score ?? 0,
-        };
-      }).sort((a, b) => (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0));
 
-      // Goalie game log
+      // Build skater log using *all dressed games*, then overlay G/A from events
+      const skLog = (rosterRows || [])
+        .map((r) => {
+          const gm = gMap.get(r.game_id);
+          const date = gm?.game_date ? new Date(gm.game_date) : null;
+          const home = tMap.get(gm?.home_team_id);
+          const away = tMap.get(gm?.away_team_id);
+          const ga = gaByGame.get(r.game_id) || { g: 0, a: 0 };
+          return {
+            game_id: r.game_id,
+            date,
+            slug: gm?.slug || r.game_id,
+            home: home?.short_name || home?.name || "",
+            away: away?.short_name || away?.name || "",
+            g: ga.g,
+            a: ga.a,
+            hs: gm?.home_score ?? 0,
+            as: gm?.away_score ?? 0,
+          };
+        })
+        // If there are zero dressed rows (edge case), fall back to any event games so we still show something
+        .concat(
+          (rosterRows?.length ? [] : Array.from(gaByGame.keys())).map((gid) => {
+            const gm = gMap.get(gid);
+            const date = gm?.game_date ? new Date(gm.game_date) : null;
+            const home = tMap.get(gm?.home_team_id);
+            const away = tMap.get(gm?.away_team_id);
+            const ga = gaByGame.get(gid) || { g: 0, a: 0 };
+            return {
+              game_id: gid,
+              date,
+              slug: gm?.slug || gid,
+              home: home?.short_name || home?.name || "",
+              away: away?.short_name || away?.name || "",
+              g: ga.g,
+              a: ga.a,
+              hs: gm?.home_score ?? 0,
+              as: gm?.away_score ?? 0,
+            };
+          })
+        )
+        // Sort newest → oldest
+        .sort((a, b) => (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0));
+
+      // Goalie game log stays the same (from game_goalies)
       const { data: gl } = await supabase
         .from("game_goalies")
         .select("game_id, team_id, shots_against, goals_against, minutes_seconds, decision, shutout")
         .eq("player_id", pid);
 
-      const gLog = (gl || []).map(r => {
-        const gm = gMap.get(r.game_id);
-        const date = gm?.game_date ? new Date(gm.game_date) : null;
-        const oppId = r.team_id === gm?.home_team_id ? gm?.away_team_id : gm?.home_team_id;
-        const opp = tMap.get(oppId);
-        return {
-          game_id: r.game_id,
-          date,
-          slug: gm?.slug || r.game_id,
-          opponent: opp?.short_name || opp?.name || "",
-          sa: r.shots_against ?? 0,
-          ga: r.goals_against ?? 0,
-          toi: r.minutes_seconds ?? 0,
-          so: r.shutout ? 1 : 0,
-          decision: r.decision || "",
-        };
-      }).sort((a, b) => (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0));
+      const gLog = (gl || [])
+        .map((r) => {
+          const gm = gMap.get(r.game_id);
+          const date = gm?.game_date ? new Date(gm.game_date) : null;
+          const oppId =
+            r.team_id === gm?.home_team_id ? gm?.away_team_id : gm?.home_team_id;
+          const opp = tMap.get(oppId);
+          return {
+            game_id: r.game_id,
+            date,
+            slug: gm?.slug || r.game_id,
+            opponent: opp?.short_name || opp?.name || "",
+            sa: r.shots_against ?? 0,
+            ga: r.goals_against ?? 0,
+            toi: r.minutes_seconds ?? 0,
+            so: r.shutout ? 1 : 0,
+            decision: r.decision || "",
+          };
+        })
+        .sort((a, b) => (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0));
 
       if (!cancelled) {
         setPlayer(pRow);
@@ -128,7 +175,9 @@ export default function PlayerPage() {
     }
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [pid]);
 
   if (loading) return <div>{t("Loading…")}</div>;
@@ -137,7 +186,9 @@ export default function PlayerPage() {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <Link to="/stats" style={{ textDecoration: "none" }}>← {t("Back to Stats")}</Link>
+        <Link to="/stats" style={{ textDecoration: "none" }}>
+          ← {t("Back to Stats")}
+        </Link>
         <div style={{ marginLeft: "auto", fontSize: 12, color: "#666" }}>
           {team?.short_name || team?.name || ""}
         </div>
@@ -146,18 +197,30 @@ export default function PlayerPage() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8 }}>
         {team?.logo_url ? (
-          <img src={team.logo_url} alt={team?.short_name || ""} style={{ width: 42, height: 42, objectFit: "contain" }} />
+          <img
+            src={team.logo_url}
+            alt={team?.short_name || ""}
+            style={{ width: 42, height: 42, objectFit: "contain" }}
+          />
         ) : null}
         <div>
           <h2 style={{ margin: 0 }}>
-            {player.number ? `#${player.number} ` : ""}{player.name}
+            {player.number ? `#${player.number} ` : ""}
+            {player.name}
           </h2>
           <div style={{ color: "#666" }}>{player.position || "-"}</div>
         </div>
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 14 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 12,
+          marginTop: 14,
+        }}
+      >
         <div style={cardS}>
           <div style={cardTitle}>{t("Skater (season)")}</div>
           {skaterStat ? (
@@ -169,7 +232,9 @@ export default function PlayerPage() {
                 <SR label="P" v={skaterStat.pts} strong />
               </tbody>
             </table>
-          ) : <div style={{ color: "#777" }}>{t("No skater stats yet.")}</div>}
+          ) : (
+            <div style={{ color: "#777" }}>{t("No skater stats yet.")}</div>
+          )}
         </div>
 
         <div style={cardS}>
@@ -179,14 +244,24 @@ export default function PlayerPage() {
               <tbody>
                 <SR label="SA" v={goalieStat.sa ?? 0} />
                 <SR label="GA" v={goalieStat.ga ?? 0} />
-                <SR label="SV%" v={goalieStat.sv_pct != null ? `${goalieStat.sv_pct}%` : "—"} />
+                <SR
+                  label="SV%"
+                  v={goalieStat.sv_pct != null ? `${goalieStat.sv_pct}%` : "—"}
+                />
                 <SR label="GAA" v={goalieStat.gaa != null ? goalieStat.gaa : "—"} />
                 <SR label="TOI" v={fmtTOI(goalieStat.toi_seconds)} />
-                <SR label="W-L-OTL" v={`${goalieStat.wins ?? 0}-${goalieStat.losses ?? 0}-${goalieStat.otl ?? 0}`} />
+                <SR
+                  label="W-L-OTL"
+                  v={`${goalieStat.wins ?? 0}-${goalieStat.losses ?? 0}-${
+                    goalieStat.otl ?? 0
+                  }`}
+                />
                 <SR label="SO" v={goalieStat.so ?? 0} />
               </tbody>
             </table>
-          ) : <div style={{ color: "#777" }}>{t("No goalie stats yet.")}</div>}
+          ) : (
+            <div style={{ color: "#777" }}>{t("No goalie stats yet.")}</div>
+          )}
         </div>
       </div>
 
@@ -207,17 +282,29 @@ export default function PlayerPage() {
             </thead>
             <tbody>
               {gameLog.length === 0 ? (
-                <tr><td style={tdS} colSpan={6}>{t("No events yet.")}</td></tr>
-              ) : gameLog.map(r => (
-                <tr key={`sk-${r.game_id}`}>
-                  <td style={tdS}>{r.date ? r.date.toLocaleDateString() : "—"}</td>
-                  <td style={tdS}>{r.away} @ {r.home}</td>
-                  <td style={tdS}>{r.g}</td>
-                  <td style={tdS}>{r.a}</td>
-                  <td style={tdS}>{r.hs}–{r.as}</td>
-                  <td style={tdS}><Link to={`/games/${r.slug}/boxscore`}>{t("View")}</Link></td>
+                <tr>
+                  <td style={tdS} colSpan={6}>
+                    {t("No games yet.")}
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                gameLog.map((r) => (
+                  <tr key={`sk-${r.game_id}`}>
+                    <td style={tdS}>{r.date ? r.date.toLocaleDateString() : "—"}</td>
+                    <td style={tdS}>
+                      {r.away} @ {r.home}
+                    </td>
+                    <td style={tdS}>{r.g}</td>
+                    <td style={tdS}>{r.a}</td>
+                    <td style={tdS}>
+                      {r.hs}–{r.as}
+                    </td>
+                    <td style={tdS}>
+                      <Link to={`/games/${r.slug}/boxscore`}>{t("View")}</Link>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -243,9 +330,15 @@ export default function PlayerPage() {
             </thead>
             <tbody>
               {goalieLog.length === 0 ? (
-                <tr><td style={tdS} colSpan={9}>{t("No goalie games yet.")}</td></tr>
-              ) : goalieLog.map(r => {
-                  const svpct = r.sa > 0 ? `${Math.round((1 - r.ga / r.sa) * 1000) / 10}%` : "—";
+                <tr>
+                  <td style={tdS} colSpan={9}>
+                    {t("No goalie games yet.")}
+                  </td>
+                </tr>
+              ) : (
+                goalieLog.map((r) => {
+                  const svpct =
+                    r.sa > 0 ? `${Math.round((1 - r.ga / r.sa) * 1000) / 10}%` : "—";
                   return (
                     <tr key={`gl-${r.game_id}`}>
                       <td style={tdS}>{r.date ? r.date.toLocaleDateString() : "—"}</td>
@@ -256,10 +349,13 @@ export default function PlayerPage() {
                       <td style={tdS}>{fmtTOI(r.toi)}</td>
                       <td style={tdS}>{r.decision || "—"}</td>
                       <td style={tdS}>{r.so ? 1 : 0}</td>
-                      <td style={tdS}><Link to={`/games/${r.slug}/boxscore`}>{t("View")}</Link></td>
+                      <td style={tdS}>
+                        <Link to={`/games/${r.slug}/boxscore`}>{t("View")}</Link>
+                      </td>
                     </tr>
                   );
-                })}
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -272,7 +368,13 @@ function SR({ label, v, strong }) {
   return (
     <tr>
       <td style={{ padding: "6px 8px", color: "#666" }}>{label}</td>
-      <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: strong ? 700 : 500 }}>
+      <td
+        style={{
+          padding: "6px 8px",
+          textAlign: "right",
+          fontWeight: strong ? 700 : 500,
+        }}
+      >
         {v ?? "—"}
       </td>
     </tr>
@@ -291,5 +393,14 @@ const cardTitle = { fontWeight: 700, marginBottom: 6 };
 const miniTbl = { width: "100%", borderCollapse: "collapse", fontSize: 14 };
 const logTbl = { width: "100%", borderCollapse: "collapse", fontSize: 14 };
 const theadS = { background: "var(--table-head, #f4f5f8)" };
-const thS = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #eee", whiteSpace: "nowrap" };
-const tdS = { padding: "10px 12px", borderBottom: "1px solid #f3f3f3", whiteSpace: "nowrap" };
+const thS = {
+  textAlign: "left",
+  padding: "10px 12px",
+  borderBottom: "1px solid #eee",
+  whiteSpace: "nowrap",
+};
+const tdS = {
+  padding: "10px 12px",
+  borderBottom: "1px solid #f3f3f3",
+  whiteSpace: "nowrap",
+};
