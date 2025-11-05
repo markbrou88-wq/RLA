@@ -34,7 +34,7 @@ export default function StatsPage() {
         { data: gl, error: e3 },
       ] = await Promise.all([
         supabase
-          .from("leaders_current")
+          .from("player_stats_current")
           .select("player_id, player, team, gp"),
         supabase
           .from("player_stats_current")
