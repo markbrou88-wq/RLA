@@ -127,7 +127,7 @@ function useLeadersForPlayers(playerIds) {
           .select("player_id, g, a, pts, goals, assists, points")
           .in("player_id", playerIds),
         supabase
-          .from("leaders_current")
+          .from("player_stats_current")
           .select("player_id, gp")
           .in("player_id", playerIds),
       ]);
