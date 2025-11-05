@@ -311,3 +311,23 @@ input:focus,select:focus{outline:2px solid color-mix(in oklab,var(--primary),tra
 .th-resizable { position: relative; user-select: none; display: flex; align-items: center; padding-right: 12px; }
 .ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
+/* Make table header readable even on light backgrounds */
+.tr.thead { 
+  background: #f7f7fb;          /* subtle contrast */
+  border-bottom: 1px solid #e5e7eb;
+}
+.tr.thead .td,
+.tr.thead .th-resizable .th-btn {
+  color: #111827;               /* force dark text */
+}
+
+/* Keep body rows normal text color */
+.tbl .td { color: #1f2937; }     /* slate-800-ish */
+
+/* Optional: a faint column divider for header to cue resizing */
+.tr.thead .col-resize.grip {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 6px, rgba(0,0,0,.15) 6px 7px);
+  opacity: .5;
+}
+
