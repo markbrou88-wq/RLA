@@ -150,7 +150,11 @@ function useRoster(teamId) {
   return { players, reload, setPlayers };
 }
 
-function useSkaterStats(teamName) {
+/** Skater stats for the team (sortable).
+ * Works whether leaders_current.team stores full name (e.g., "Red Lite Black")
+ * or short name (e.g., "RLB") by filtering with BOTH.
+ */
+function useSkaterStats(team) {
   const [rows, setRows] = React.useState([]);
   const [sortKey, setSortKey] = React.useState("pts");
   const [dir, setDir] = React.useState("desc");
@@ -158,19 +162,40 @@ function useSkaterStats(teamName) {
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!teamName) return;
-      const { data, error } = await supabase
+      if (!team) return;
+      const teamFilters = [team.name, team.short_name].filter(Boolean);
+
+      // request with OR on team names to avoid mismatch issues
+      let query = supabase
         .from("leaders_current")
-        .select("player_id, player, team, gp, g, a, pts")
-        .eq("team", teamName)
-        .order("pts", { ascending: false });
+        .select("player_id, player, team, gp, g, a, pts");
+
+      if (teamFilters.length === 1) {
+        query = query.eq("team", teamFilters[0]);
+      } else if (teamFilters.length > 1) {
+        // Build an OR filter: team.eq.A,team.eq.B
+        const orExpr = teamFilters.map((t) => `team.eq.${t}`).join(",");
+        query = query.or(orExpr);
+      }
+
+      query = query.order("pts", { ascending: false });
+
+      const { data, error } = await query;
       if (!cancelled) {
         if (error) console.error(error);
-        setRows(data || []);
+        // normalize nulls
+        const norm = (data || []).map((r) => ({
+          ...r,
+          gp: r.gp ?? 0,
+          g: r.g ?? 0,
+          a: r.a ?? 0,
+          pts: r.pts ?? (r.g ?? 0) + (r.a ?? 0),
+        }));
+        setRows(norm);
       }
     })();
     return () => (cancelled = true);
-  }, [teamName]);
+  }, [team?.name, team?.short_name]);
 
   const sorted = React.useMemo(() => {
     const copy = [...rows];
@@ -204,7 +229,7 @@ export default function TeamPage() {
   const team = useTeam(id);
   const summary = useTeamSummary(id);
   const { players, reload, setPlayers } = useRoster(id);
-  const { rows: statsRows, sortKey, dir, setSort } = useSkaterStats(team?.name || "");
+  const { rows: statsRows, sortKey, dir, setSort } = useSkaterStats(team || {});
 
   // roster CRUD
   const [adding, setAdding] = React.useState(false);
@@ -317,7 +342,7 @@ export default function TeamPage() {
               <input
                 className="in"
                 placeholder="#"
-                style={{ width: 56, textAlign: "center" }}
+                style={{ width: 48, textAlign: "center" }}
                 value={newPlayer.number}
                 onChange={(e) =>
                   setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))
@@ -346,19 +371,19 @@ export default function TeamPage() {
 
         <div className="tbl">
           <div className="tr thead">
-            <div className="td c" style={{ width: 56 }}>#</div>
+            <div className="td c" style={{ width: 44 }}>#</div>
             <div className="td left">Player</div>
-            <div className="td c" style={{ width: 80 }}>POS</div>
+            <div className="td c" style={{ width: 72 }}>POS</div>
             <div className="td right" style={{ width: 200 }}>Actions</div>
           </div>
 
           {players.map((p) =>
             p.__edit ? (
               <div className="tr" key={p.id}>
-                <div className="td c" style={{ width: 56 }}>
+                <div className="td c" style={{ width: 44 }}>
                   <input
                     className="in"
-                    style={{ width: 48, textAlign: "center" }}
+                    style={{ width: 44, textAlign: "center" }}
                     value={p.__edit.number}
                     onChange={(e) =>
                       setPlayers((cur) =>
@@ -384,7 +409,7 @@ export default function TeamPage() {
                     }
                   />
                 </div>
-                <div className="td c" style={{ width: 80 }}>
+                <div className="td c" style={{ width: 72 }}>
                   <select
                     className="in"
                     value={p.__edit.position}
@@ -402,18 +427,22 @@ export default function TeamPage() {
                   </select>
                 </div>
                 <div className="td right" style={{ width: 200 }}>
-                  <button className="btn" onClick={() => saveEditRow(p.id)}>Save</button>
-                  <button className="btn ghost" onClick={() => cancelEditRow(p.id)}>Cancel</button>
+                  <button className="btn">Save</button>
+                  <button className="btn ghost" style={{ marginLeft: 8 }} onClick={() => cancelEditRow(p.id)}>
+                    Cancel
+                  </button>
                 </div>
               </div>
             ) : (
               <div className="tr" key={p.id}>
-                <div className="td c" style={{ width: 56 }}>{p.number ?? ""}</div>
+                <div className="td c" style={{ width: 44 }}>{p.number ?? ""}</div>
                 <div className="td left">{p.name}</div>
-                <div className="td c" style={{ width: 80 }}>{p.position || ""}</div>
+                <div className="td c" style={{ width: 72 }}>{p.position || ""}</div>
                 <div className="td right" style={{ width: 200 }}>
                   <button className="btn" onClick={() => startEditRow(p.id)}>Edit</button>
-                  <button className="btn danger" onClick={() => deletePlayer(p.id)}>Delete</button>
+                  <button className="btn danger" style={{ marginLeft: 8 }} onClick={() => deletePlayer(p.id)}>
+                    Delete
+                  </button>
                 </div>
               </div>
             )
