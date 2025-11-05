@@ -238,4 +238,30 @@ input:focus,select:focus{outline:2px solid color-mix(in oklab,var(--primary),tra
 .team-roster tbody tr:hover {
   background: var(--hover);
 }
+/* Resizable column header */
+.th-resizable {
+  position: relative;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  padding-right: 6px; /* room for handle */
+}
+.th-resizable .th-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.col-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+}
+.ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 
