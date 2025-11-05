@@ -330,4 +330,14 @@ input:focus,select:focus{outline:2px solid color-mix(in oklab,var(--primary),tra
     repeating-linear-gradient(90deg, transparent 0 6px, rgba(0,0,0,.15) 6px 7px);
   opacity: .5;
 }
+/* make header buttons dark & clear */
+.th-btn { color: #111 !important; }
+
+/* ensure the grip is easy to see / grab */
+.th-resizable { position: relative; }
+.th-resizable .grip {
+  position: absolute; top: 0; bottom: 0;
+  cursor: col-resize;
+  /* background & border are already inlined from the component */
+}
 
