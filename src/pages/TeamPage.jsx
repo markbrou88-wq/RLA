@@ -112,34 +112,49 @@ function useRoster(teamId) {
 /** Skater stats from player_stats_current
  *  - Uses g/a/pts/gp if present, falls back to goals/assists/points
  */
+// replace your useStatsForPlayers with this
 function useStatsForPlayers(playerIds) {
   const [map, setMap] = React.useState(new Map());
 
   React.useEffect(() => {
-    if (!playerIds.length) { setMap(new Map()); return; }
+    if (!playerIds || playerIds.length === 0) {
+      setMap(new Map());
+      return;
+    }
+
     let stop = false;
     (async () => {
       const { data, error } = await supabase
         .from("player_stats_current")
         .select("player_id, gp, g, a, pts, goals, assists, points")
         .in("player_id", playerIds);
-      if (error) { console.error(error); if (!stop) setMap(new Map()); return; }
+
+      if (error) {
+        console.error("stats fetch error", error);
+        if (!stop) setMap(new Map());
+        return;
+      }
 
       const m = new Map();
       for (const r of data || []) {
-        const gp = r.gp ?? 0;
-        const g = r.g ?? r.goals ?? 0;
-        const a = r.a ?? r.assists ?? 0;
-        const pts = r.pts ?? r.points ?? (g + a);
-        m.set(r.player_id, { gp, g, a, pts });
+        // force numeric key to match players.id (which is a number)
+        const key = Number(r.player_id);
+        const gp  = r.gp ?? 0;
+        const g   = (r.g ?? r.goals) ?? 0;
+        const a   = (r.a ?? r.assists) ?? 0;
+        const pts = (r.pts ?? r.points) ?? (g + a);
+        m.set(key, { gp, g, a, pts });
       }
+
       if (!stop) setMap(m);
     })();
+
     return () => { stop = true; };
   }, [playerIds]);
 
   return map;
 }
+
 
 /* ---------- Column resizing ---------- */
 const MIN_W = 56;
