@@ -17,20 +17,30 @@ export default function SummaryPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
 
+  const [loading, setLoading] = React.useState(true);
   const [game, setGame] = React.useState(null);
+
   const [homeTeam, setHomeTeam] = React.useState(null);
   const [awayTeam, setAwayTeam] = React.useState(null);
-  const [lineupHome, setLineupHome] = React.useState([]);
-  const [lineupAway, setLineupAway] = React.useState([]);
+
+  const [homeRecord, setHomeRecord] = React.useState(null);
+  const [awayRecord, setAwayRecord] = React.useState(null);
+
+  const [lineupHome, setLineupHome] = React.useState({ skaters: [], goalies: [] });
+  const [lineupAway, setLineupAway] = React.useState({ skaters: [], goalies: [] });
+
+  const [homeGoalieRec, setHomeGoalieRec] = React.useState(null);
+  const [awayGoalieRec, setAwayGoalieRec] = React.useState(null);
+
   const [events, setEvents] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     let cancelled = false;
+
     (async () => {
       setLoading(true);
 
-      // Accept either slug or numeric id
+      // Accept slug (string) or id (digits)
       const isId = /^\d+$/.test(slug);
       const gameQuery = isId
         ? supabase.from("games").select("*").eq("id", Number(slug)).single()
@@ -39,8 +49,8 @@ export default function SummaryPage() {
       const { data: g, error: ge } = await gameQuery;
       if (ge || !g) {
         if (!cancelled) {
-          setLoading(false);
           setGame(null);
+          setLoading(false);
         }
         return;
       }
@@ -50,81 +60,105 @@ export default function SummaryPage() {
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
       ]);
 
-      // roster and events by game_id
-      const [
-        { data: rosterRows, error: rErr },
-        { data: eventRows, error: eErr },
-      ] = await Promise.all([
-        supabase
-          .from("game_rosters")
-          .select(
-            `
-            player_id,
-            team_id,
-            players!inner(id, name, number, position, team_id)
+      // Records (W-L-OTL) from standings_current (best-effort)
+      const [{ data: recHome }, { data: recAway }] = await Promise.all([
+        supabase.from("standings_current").select("*").eq("team_id", g.home_team_id).maybeSingle(),
+        supabase.from("standings_current").select("*").eq("team_id", g.away_team_id).maybeSingle(),
+      ]);
+
+      // Lineups for this game
+      const { data: rosterRows } = await supabase
+        .from("game_rosters")
+        .select(
           `
-          )
-          .eq("game_id", g.id),
-        supabase
-          .from("events")
-          .select(
-            `
-            id,
-            period,
-            time_mmss,
-            team_id,
-            type,
-            player_id,
-            assist1_id,
-            assist2_id,
-            players:player_id ( id, name, number ),
-            a1:assist1_id ( id, name, number ),
-            a2:assist2_id ( id, name, number )
+          player_id,
+          team_id,
+          players!inner(id, name, number, position, team_id)
+        `
+        )
+        .eq("game_id", g.id);
+
+      // Events (goals/assists/other) in order
+      const { data: eventRows } = await supabase
+        .from("events")
+        .select(
           `
-          )
-          .eq("game_id", g.id)
-          .order("period", { ascending: true })
-          .order("time_mmss", { ascending: false }),
+          id,
+          period,
+          time_mmss,
+          team_id,
+          event,
+          player_id,
+          assist1_id,
+          assist2_id,
+          scorer:player_id ( id, name, number ),
+          a1:assist1_id ( id, name, number ),
+          a2:assist2_id ( id, name, number )
+        `
+        )
+        .eq("game_id", g.id)
+        .order("period", { ascending: true })
+        .order("time_mmss", { ascending: false });
+
+      // Build lineups + identify goalies (position === 'G')
+      const split = (rows, teamId) => {
+        const entries = (rows || [])
+          .filter((r) => r.team_id === teamId)
+          .map((r) => ({
+            id: r.players.id,
+            name: r.players.name,
+            number: r.players.number,
+            pos: r.players.position || "",
+          }))
+          .sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
+        const goalies = entries.filter((p) => (p.pos || "").toUpperCase() === "G");
+        const skaters = entries.filter((p) => (p.pos || "").toUpperCase() !== "G");
+        return { skaters, goalies };
+      };
+
+      const homeLU = split(rosterRows, g.home_team_id);
+      const awayLU = split(rosterRows, g.away_team_id);
+
+      // Fetch goalie season record from goalie_stats_current (best-effort fields)
+      const getGoalieRec = async (goalie) => {
+        if (!goalie) return null;
+        const { data } = await supabase
+          .from("goalie_stats_current")
+          .select("*")
+          .eq("player_id", goalie.id)
+          .maybeSingle();
+
+        if (!data) return null;
+        const w = data.w ?? data.wins ?? data.W ?? null;
+        const l = data.l ?? data.losses ?? data.L ?? null;
+        const ot = data.otl ?? data.overtime_losses ?? data.OTL ?? data.t ?? null;
+        const so = data.so ?? data.shutouts ?? data.SO ?? null;
+        return { w, l, ot, so };
+      };
+
+      const [homeGoalieRecData, awayGoalieRecData] = await Promise.all([
+        getGoalieRec(homeLU.goalies[0]),
+        getGoalieRec(awayLU.goalies[0]),
       ]);
 
       if (!cancelled) {
         setGame(g);
         setHomeTeam(home || null);
         setAwayTeam(away || null);
+        setHomeRecord(recHome || null);
+        setAwayRecord(recAway || null);
 
-        if (!rErr && rosterRows) {
-          const byTeam = rosterRows.reduce(
-            (acc, r) => {
-              const entry = {
-                id: r.players.id,
-                name: r.players.name,
-                number: r.players.number,
-                pos: r.players.position || "",
-              };
-              if (r.team_id === g.home_team_id) acc.home.push(entry);
-              else if (r.team_id === g.away_team_id) acc.away.push(entry);
-              return acc;
-            },
-            { home: [], away: [] }
-          );
-          byTeam.home.sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
-          byTeam.away.sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
-          setLineupHome(byTeam.home);
-          setLineupAway(byTeam.away);
-        } else {
-          setLineupHome([]);
-          setLineupAway([]);
-        }
+        setLineupHome(homeLU);
+        setLineupAway(awayLU);
 
-        if (!eErr && eventRows) {
-          setEvents(eventRows);
-        } else {
-          setEvents([]);
-        }
+        setHomeGoalieRec(homeGoalieRecData);
+        setAwayGoalieRec(awayGoalieRecData);
 
+        setEvents(eventRows || []);
         setLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -133,21 +167,24 @@ export default function SummaryPage() {
   if (loading) return <div style={{ padding: 16 }}>{t("Loading…")}</div>;
   if (!game) return <div style={{ padding: 16 }}>{t("Game not found.")}</div>;
 
-  const title = `${awayTeam?.name || "—"} @ ${homeTeam?.name || "—"}`;
   const dateStr = game.game_date ? new Date(game.game_date).toLocaleString() : "";
+  const scoreline = `${awayTeam?.short_name || awayTeam?.name || "—"} ${game.away_score ?? "—"}  —  ${game.home_score ?? "—"} ${homeTeam?.short_name || homeTeam?.name || "—"}`;
 
   return (
-    <div style={{ padding: 16, maxWidth: 1000, margin: "0 auto" }}>
+    <div style={{ padding: 16, maxWidth: 1100, margin: "0 auto" }}>
       <div style={{ marginBottom: 12 }}>
         <button onClick={() => navigate("/games")}>{t("Back to Games")}</button>
       </div>
 
-      <h2 style={{ textAlign: "center", margin: "6px 0" }}>{title}</h2>
-      <div style={{ textAlign: "center", color: "#666", marginBottom: 16 }}>
-        {String(game.status).toUpperCase()} • {dateStr}
+      <h2 style={{ textAlign: "center", margin: "6px 0" }}>
+        {(awayTeam?.name || "—")} @ {(homeTeam?.name || "—")}
+      </h2>
+      <div style={{ textAlign: "center", color: "#666", margin: "4px 0" }}>
+        {String(game.status || "").toUpperCase()} • {dateStr}
       </div>
+      <div style={{ textAlign: "center", fontWeight: 700, marginBottom: 16 }}>{scoreline}</div>
 
-      {/* lineups */}
+      {/* Lineups side by side: Away (left) – Home (right) */}
       <div
         style={{
           display: "grid",
@@ -156,11 +193,22 @@ export default function SummaryPage() {
           marginBottom: 16,
         }}
       >
-        <LineupCard team={awayTeam} lineup={lineupAway} />
-        <LineupCard team={homeTeam} lineup={lineupHome} />
+        <LineupCard
+          team={awayTeam}
+          record={awayRecord}
+          lineup={lineupAway}
+          goalieRec={awayGoalieRec}
+        />
+        <LineupCard
+          team={homeTeam}
+          record={homeRecord}
+          lineup={lineupHome}
+          goalieRec={homeGoalieRec}
+          alignRight
+        />
       </div>
 
-      {/* goals */}
+      {/* Goals/Events */}
       <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>{t("Goals / Events")}</h3>
         {events.length === 0 ? (
@@ -169,7 +217,7 @@ export default function SummaryPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <Th>{t("PERIOD")}</Th>
+                <Th>{t("PER")}</Th>
                 <Th>{t("TIME")}</Th>
                 <Th>{t("TEAM")}</Th>
                 <Th>{t("TYPE")}</Th>
@@ -181,23 +229,49 @@ export default function SummaryPage() {
                 <tr key={e.id}>
                   <Td>{e.period}</Td>
                   <Td>{e.time_mmss}</Td>
-                  <Td>{e.team_id === homeTeam?.id ? homeTeam?.short_name || "HOME" : awayTeam?.short_name || "AWAY"}</Td>
-                  <Td>{e.type}</Td>
+                  <Td>
+                    {e.team_id === homeTeam?.id
+                      ? homeTeam?.short_name || homeTeam?.name || "HOME"
+                      : awayTeam?.short_name || awayTeam?.name || "AWAY"}
+                  </Td>
+                  <Td>{(e.event || e.type || "").toUpperCase()}</Td>
                   <Td>
                     <b>
-                      #{e.players?.number ?? "—"} {e.players?.name ?? "—"}
+                      {e.scorer?.id ? (
+                        <Link to={`/players/${e.scorer.id}`}>
+                          #{e.scorer.number ?? "—"} {e.scorer.name ?? "—"}
+                        </Link>
+                      ) : (
+                        <>#{e.scorer?.number ?? "—"} {e.scorer?.name ?? "—"}</>
+                      )}
                     </b>
-                    {e.a1?.id || e.a2?.id ? (
+                    {(e.a1?.id || e.a2?.id) && (
                       <span style={{ color: "#666" }}>
                         {" "}
-                        (A:{" "}
-                        {[e.a1, e.a2]
+                        (A:&nbsp;
+                        {[
+                          e.a1 &&
+                            (e.a1.id ? (
+                              <Link key="a1" to={`/players/${e.a1.id}`}>
+                                #{e.a1.number ?? "—"} {e.a1.name ?? "—"}
+                              </Link>
+                            ) : (
+                              `#${e.a1?.number ?? "—"} ${e.a1?.name ?? "—"}`
+                            )),
+                          e.a2 &&
+                            (e.a2.id ? (
+                              <Link key="a2" to={`/players/${e.a2.id}`}>
+                                #{e.a2.number ?? "—"} {e.a2.name ?? "—"}
+                              </Link>
+                            ) : (
+                              `#${e.a2?.number ?? "—"} ${e.a2?.name ?? "—"}`
+                            )),
+                        ]
                           .filter(Boolean)
-                          .map((p) => `#${p.number ?? "—"} ${p.name ?? "—"}`)
-                          .join(", ")}
+                          .reduce((acc, node, i) => (i ? [...acc, ", ", node] : [node]), [])}
                         )
                       </span>
-                    ) : null}
+                    )}
                   </Td>
                 </tr>
               ))}
@@ -209,10 +283,24 @@ export default function SummaryPage() {
   );
 }
 
-function LineupCard({ team, lineup }) {
+function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
+  // Render W-L-OTL if available
+  const recText =
+    record && (record.w !== undefined || record.l !== undefined || record.otl !== undefined)
+      ? `• ${record.w ?? 0} W • ${record.l ?? 0} L • ${record.otl ?? 0} OTL`
+      : null;
+
   return (
     <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12, minHeight: 160 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 10,
+          justifyContent: alignRight ? "flex-end" : "flex-start",
+        }}
+      >
         {team?.logo_url ? (
           <img
             src={team.logo_url}
@@ -220,31 +308,77 @@ function LineupCard({ team, lineup }) {
             style={{ width: 140, height: 70, objectFit: "contain" }}
           />
         ) : null}
-        <h3 style={{ margin: 0 }}>{team?.name || "—"}</h3>
+        <div style={{ textAlign: alignRight ? "right" : "left" }}>
+          <h3 style={{ margin: 0 }}>{team?.name || "—"}</h3>
+          {recText && <div style={{ fontSize: 12, color: "#666" }}>{recText}</div>}
+        </div>
       </div>
-      {lineup.length === 0 ? (
-        <div style={{ color: "#777" }}>No lineup recorded.</div>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
+
+      {/* Roster table: skaters then a spacer row and the goalie(s) with record */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            <Th style={{ width: 60 }}>#</Th>
+            <Th>{`PLAYER`}</Th>
+            <Th style={{ width: 80 }}>{`POS`}</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {lineup.skaters.length === 0 && lineup.goalies.length === 0 ? (
             <tr>
-              <Th style={{ width: 60 }}>#</Th>
-              <Th>{`PLAYER`}</Th>
-              <Th style={{ width: 80 }}>{`POS`}</Th>
+              <Td colSpan={3} style={{ color: "#777" }}>
+                No lineup recorded.
+              </Td>
             </tr>
-          </thead>
-          <tbody>
-            {lineup.map((p) => (
-              <tr key={p.id}>
-                <Td> {p.number ?? "—"} </Td>
-                <Td> {p.name} </Td>
-                <Td> {p.pos || ""} </Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+          ) : (
+            <>
+              {lineup.skaters.map((p) => (
+                <RosterRow key={`s-${p.id}`} p={p} />
+              ))}
+
+              {/* spacer between skaters & goalies */}
+              {lineup.goalies.length > 0 && (
+                <tr>
+                  <Td colSpan={3} style={{ padding: 6, borderBottom: "1px solid #f2f2f2" }} />
+                </tr>
+              )}
+
+              {lineup.goalies.map((p, idx) => (
+                <RosterRow
+                  key={`g-${p.id}`}
+                  p={p}
+                  goalieRec={idx === 0 ? goalieRec : null /* show rec on first goalie only */}
+                />
+              ))}
+            </>
+          )}
+        </tbody>
+      </table>
     </div>
+  );
+}
+
+function RosterRow({ p, goalieRec }) {
+  return (
+    <tr>
+      <Td>{p.number ?? "—"}</Td>
+      <Td>
+        <Link to={`/players/${p.id}`}>{p.name}</Link>
+        {goalieRec && (
+          <span style={{ color: "#666", marginLeft: 8, fontSize: 12 }}>
+            {[
+              goalieRec.w != null ? `${goalieRec.w} W` : null,
+              goalieRec.l != null ? `${goalieRec.l} L` : null,
+              goalieRec.ot != null ? `${goalieRec.ot} OTL` : null,
+              goalieRec.so != null ? `${goalieRec.so} SO` : null,
+            ]
+              .filter(Boolean)
+              .join(" • ")}
+          </span>
+        )}
+      </Td>
+      <Td>{p.pos || ""}</Td>
+    </tr>
   );
 }
 
@@ -261,6 +395,7 @@ const Th = (props) => (
     }}
   />
 );
+
 const Td = (props) => (
   <td
     {...props}
@@ -268,6 +403,7 @@ const Td = (props) => (
       padding: "8px 10px",
       borderBottom: "1px solid #f2f2f2",
       fontSize: 13,
+      verticalAlign: "top",
       ...props.style,
     }}
   />
