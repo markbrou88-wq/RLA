@@ -40,7 +40,7 @@ export default function SummaryPage() {
     (async () => {
       setLoading(true);
 
-      // Accept slug (string) or id (digits)
+      // Accept either numeric id or slug
       const isId = /^\d+$/.test(slug);
       const gameQuery = isId
         ? supabase.from("games").select("*").eq("id", Number(slug)).single()
@@ -55,18 +55,19 @@ export default function SummaryPage() {
         return;
       }
 
+      // Teams
       const [{ data: home }, { data: away }] = await Promise.all([
         supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
       ]);
 
-      // Records (W-L-OTL) from standings_current (best-effort)
+      // Records (best-effort) from standings_current
       const [{ data: recHome }, { data: recAway }] = await Promise.all([
         supabase.from("standings_current").select("*").eq("team_id", g.home_team_id).maybeSingle(),
         supabase.from("standings_current").select("*").eq("team_id", g.away_team_id).maybeSingle(),
       ]);
 
-      // Lineups for this game
+      // Lineups (from game_rosters)
       const { data: rosterRows } = await supabase
         .from("game_rosters")
         .select(
@@ -78,29 +79,6 @@ export default function SummaryPage() {
         )
         .eq("game_id", g.id);
 
-      // Events (goals/assists/other) in order
-      const { data: eventRows } = await supabase
-        .from("events")
-        .select(
-          `
-          id,
-          period,
-          time_mmss,
-          team_id,
-          event,
-          player_id,
-          assist1_id,
-          assist2_id,
-          scorer:player_id ( id, name, number ),
-          a1:assist1_id ( id, name, number ),
-          a2:assist2_id ( id, name, number )
-        `
-        )
-        .eq("game_id", g.id)
-        .order("period", { ascending: true })
-        .order("time_mmss", { ascending: false });
-
-      // Build lineups + identify goalies (position === 'G')
       const split = (rows, teamId) => {
         const entries = (rows || [])
           .filter((r) => r.team_id === teamId)
@@ -119,7 +97,7 @@ export default function SummaryPage() {
       const homeLU = split(rosterRows, g.home_team_id);
       const awayLU = split(rosterRows, g.away_team_id);
 
-      // Fetch goalie season record from goalie_stats_current (best-effort fields)
+      // Goalie record (best-effort) from goalie_stats_current
       const getGoalieRec = async (goalie) => {
         if (!goalie) return null;
         const { data } = await supabase
@@ -141,6 +119,39 @@ export default function SummaryPage() {
         getGoalieRec(awayLU.goalies[0]),
       ]);
 
+      // ----- Events (robust, no joins) -----
+      // Pull events for this game, then enrich with player names/numbers via a single IN() query
+      const { data: rawEvents } = await supabase
+        .from("events")
+        .select("id, period, time_mmss, team_id, event, player_id, assist1_id, assist2_id")
+        .eq("game_id", g.id)
+        .order("period", { ascending: true })
+        .order("time_mmss", { ascending: true });
+
+      let enriched = [];
+      if (rawEvents && rawEvents.length) {
+        const ids = [
+          ...new Set(
+            rawEvents.flatMap((e) => [e.player_id, e.assist1_id, e.assist2_id].filter(Boolean))
+          ),
+        ];
+        let byId = {};
+        if (ids.length) {
+          const { data: ps } = await supabase
+            .from("players")
+            .select("id, name, number")
+            .in("id", ids);
+          (ps || []).forEach((p) => (byId[p.id] = p));
+        }
+        enriched = rawEvents.map((e) => ({
+          ...e,
+          scorer: byId[e.player_id] || null,
+          a1: byId[e.assist1_id] || null,
+          a2: byId[e.assist2_id] || null,
+        }));
+      }
+      // --------------------------------------
+
       if (!cancelled) {
         setGame(g);
         setHomeTeam(home || null);
@@ -154,7 +165,7 @@ export default function SummaryPage() {
         setHomeGoalieRec(homeGoalieRecData);
         setAwayGoalieRec(awayGoalieRecData);
 
-        setEvents(eventRows || []);
+        setEvents(enriched || []);
         setLoading(false);
       }
     })();
@@ -168,7 +179,9 @@ export default function SummaryPage() {
   if (!game) return <div style={{ padding: 16 }}>{t("Game not found.")}</div>;
 
   const dateStr = game.game_date ? new Date(game.game_date).toLocaleString() : "";
-  const scoreline = `${awayTeam?.short_name || awayTeam?.name || "—"} ${game.away_score ?? "—"}  —  ${game.home_score ?? "—"} ${homeTeam?.short_name || homeTeam?.name || "—"}`;
+  const scoreline = `${awayTeam?.short_name || awayTeam?.name || "—"} ${
+    game.away_score ?? "—"
+  }  —  ${game.home_score ?? "—"} ${homeTeam?.short_name || homeTeam?.name || "—"}`;
 
   return (
     <div style={{ padding: 16, maxWidth: 1100, margin: "0 auto" }}>
@@ -193,12 +206,7 @@ export default function SummaryPage() {
           marginBottom: 16,
         }}
       >
-        <LineupCard
-          team={awayTeam}
-          record={awayRecord}
-          lineup={lineupAway}
-          goalieRec={awayGoalieRec}
-        />
+        <LineupCard team={awayTeam} record={awayRecord} lineup={lineupAway} goalieRec={awayGoalieRec} />
         <LineupCard
           team={homeTeam}
           record={homeRecord}
@@ -208,7 +216,7 @@ export default function SummaryPage() {
         />
       </div>
 
-      {/* Goals/Events */}
+      {/* Goals / Events */}
       <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>{t("Goals / Events")}</h3>
         {events.length === 0 ? (
@@ -245,7 +253,7 @@ export default function SummaryPage() {
                         <>#{e.scorer?.number ?? "—"} {e.scorer?.name ?? "—"}</>
                       )}
                     </b>
-                    {(e.a1?.id || e.a2?.id) && (
+                    {(e.a1 || e.a2) && (
                       <span style={{ color: "#666" }}>
                         {" "}
                         (A:&nbsp;
@@ -284,11 +292,15 @@ export default function SummaryPage() {
 }
 
 function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
-  // Render W-L-OTL if available
+  // Record as W-L-OTL (best-effort)
   const recText =
     record && (record.w !== undefined || record.l !== undefined || record.otl !== undefined)
       ? `• ${record.w ?? 0} W • ${record.l ?? 0} L • ${record.otl ?? 0} OTL`
       : null;
+
+  // Put the logo on the **outside** edge:
+  // away card => logo left; home card (alignRight) => logo right
+  const direction = alignRight ? "row-reverse" : "row";
 
   return (
     <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12, minHeight: 160 }}>
@@ -299,6 +311,7 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
           gap: 12,
           marginBottom: 10,
           justifyContent: alignRight ? "flex-end" : "flex-start",
+          flexDirection: direction,
         }}
       >
         {team?.logo_url ? (
@@ -314,7 +327,7 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
         </div>
       </div>
 
-      {/* Roster table: skaters then a spacer row and the goalie(s) with record */}
+      {/* Roster table */}
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>
@@ -336,7 +349,6 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
                 <RosterRow key={`s-${p.id}`} p={p} />
               ))}
 
-              {/* spacer between skaters & goalies */}
               {lineup.goalies.length > 0 && (
                 <tr>
                   <Td colSpan={3} style={{ padding: 6, borderBottom: "1px solid #f2f2f2" }} />
@@ -347,7 +359,7 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
                 <RosterRow
                   key={`g-${p.id}`}
                   p={p}
-                  goalieRec={idx === 0 ? goalieRec : null /* show rec on first goalie only */}
+                  goalieRec={idx === 0 ? goalieRec : null /* show record on first goalie only */}
                 />
               ))}
             </>
