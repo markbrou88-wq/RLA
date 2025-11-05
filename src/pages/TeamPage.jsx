@@ -109,10 +109,7 @@ function useRoster(teamId) {
   return { players, setPlayers, reload };
 }
 
-/** Skater stats from player_stats_current
- *  - Uses g/a/pts/gp if present, falls back to goals/assists/points
- */
-// replace your useStatsForPlayers with this
+/** Skater stats from player_stats_current (GP/G/A/PTS) */
 function useStatsForPlayers(playerIds) {
   const [map, setMap] = React.useState(new Map());
 
@@ -121,12 +118,11 @@ function useStatsForPlayers(playerIds) {
       setMap(new Map());
       return;
     }
-
     let stop = false;
     (async () => {
       const { data, error } = await supabase
         .from("player_stats_current")
-        .select("player_id, gp, g, a, pts, goals, assists, points")
+        .select("player_id, gp, g, a, pts")
         .in("player_id", playerIds);
 
       if (error) {
@@ -134,18 +130,16 @@ function useStatsForPlayers(playerIds) {
         if (!stop) setMap(new Map());
         return;
       }
-
       const m = new Map();
       for (const r of data || []) {
-        // force numeric key to match players.id (which is a number)
-        const key = Number(r.player_id);
-        const gp  = r.gp ?? 0;
-        const g   = (r.g ?? r.goals) ?? 0;
-        const a   = (r.a ?? r.assists) ?? 0;
-        const pts = (r.pts ?? r.points) ?? (g + a);
-        m.set(key, { gp, g, a, pts });
+        // normalize key to number; players.id is numeric
+        m.set(Number(r.player_id), {
+          gp: r.gp ?? 0,
+          g: r.g ?? 0,
+          a: r.a ?? 0,
+          pts: r.pts ?? 0,
+        });
       }
-
       if (!stop) setMap(m);
     })();
 
@@ -154,7 +148,6 @@ function useStatsForPlayers(playerIds) {
 
   return map;
 }
-
 
 /* ---------- Column resizing ---------- */
 const MIN_W = 56;
@@ -199,7 +192,7 @@ export default function TeamPage() {
     player: 260, number: 70, pos: 70, gp: 70, g: 70, a: 70, pts: 80, actions: 200,
   });
 
-  // Add / Edit / Delete (unchanged behaviors)
+  // Add / Edit / Delete
   const [adding, setAdding] = React.useState(false);
   const [newPlayer, setNewPlayer] = React.useState({ number: "", name: "", position: "F" });
 
@@ -285,7 +278,7 @@ export default function TeamPage() {
         className="th-btn"
         onClick={() => clickSort(sortKeyFor ?? col)}
         title="Click to sort"
-        style={{ color: "#111" }}  // readable header
+        style={{ color: "#111" }}
       >
         {label} {sortKey === (sortKeyFor ?? col) ? <span className="muted">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
       </button>
