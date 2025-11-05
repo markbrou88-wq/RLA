@@ -10,14 +10,33 @@ export default function RosterPage() {
   const [rosterMap, setRosterMap] = useState(new Map()); // `${team_id}:${player_id}` -> row
   const [homePlayers, setHomePlayers] = useState([]);
   const [awayPlayers, setAwayPlayers] = useState([]);
+  const [homeTeam, setHomeTeam] = useState(null);
+  const [awayTeam, setAwayTeam] = useState(null);
 
   useEffect(() => {
     (async () => {
       const g = await getGameBySlug(slug);
       setGame(g);
+
+      // Load players + existing roster rows
       await load(g.id, g.home_team_id, g.away_team_id);
+
+      // Load team meta for logos (use any already attached first)
+      const h = g.home ?? (await fetchTeam(g.home_team_id));
+      const a = g.away ?? (await fetchTeam(g.away_team_id));
+      setHomeTeam(h);
+      setAwayTeam(a);
     })();
   }, [slug]);
+
+  async function fetchTeam(teamId) {
+    const { data } = await supabase
+      .from("teams")
+      .select("id,name,short_name,logo_url")
+      .eq("id", teamId)
+      .single();
+    return data ?? null;
+  }
 
   async function load(gameId, homeId, awayId) {
     const [{ data: rp }, { data: hp }, { data: ap }] = await Promise.all([
@@ -65,44 +84,104 @@ export default function RosterPage() {
       </div>
 
       <h2>Roster</h2>
-      <p className="muted">{game.home?.name} vs {game.away?.name}</p>
+      <p className="muted">
+        {awayTeam?.name ?? game.away?.name ?? "Away"} vs {homeTeam?.name ?? game.home?.name ?? "Home"}
+      </p>
 
-      <div className="grid-two">
+      {/* Side-by-side: AWAY (left) and HOME (right) */}
+      <div
+        className="grid-two"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 16,
+          alignItems: "start",
+        }}
+      >
+        {/* Away column (left) */}
         <RosterColumn
-          title={game.home?.name ?? "Home"}
-          teamId={game.home_team_id}
-          players={homePlayers}
-          rosterMap={rosterMap}
-          onToggle={togglePlayed}
-        />
-        <RosterColumn
-          title={game.away?.name ?? "Away"}
+          title={awayTeam?.name ?? game.away?.name ?? "Away"}
+          logo={awayTeam?.logo_url ?? game.away?.logo_url}
           teamId={game.away_team_id}
           players={awayPlayers}
           rosterMap={rosterMap}
           onToggle={togglePlayed}
+          teamTint={teamTint(awayTeam?.name ?? game.away?.name)}
+        />
+
+        {/* Home column (right) */}
+        <RosterColumn
+          title={homeTeam?.name ?? game.home?.name ?? "Home"}
+          logo={homeTeam?.logo_url ?? game.home?.logo_url}
+          teamId={game.home_team_id}
+          players={homePlayers}
+          rosterMap={rosterMap}
+          onToggle={togglePlayed}
+          teamTint={teamTint(homeTeam?.name ?? game.home?.name)}
         />
       </div>
     </div>
   );
 }
 
-function RosterColumn({ title, teamId, players, rosterMap, onToggle }) {
+function teamTint(name = "") {
+  const n = name.toLowerCase();
+  if (n.includes("black")) {
+    return { base: "#111111", text: "#ffffff" }; // Black
+  }
+  if (n.includes("blue")) {
+    return { base: "#2563eb", text: "#ffffff" }; // Blue 600
+  }
+  if (n.includes("red")) {
+    return { base: "#dc2626", text: "#ffffff" }; // Red 600
+  }
+  // fallback neutral
+  return { base: "#334155", text: "#ffffff" }; // slate-700
+}
+
+function RosterColumn({ title, logo, teamId, players, rosterMap, onToggle, teamTint }) {
   return (
-    <div className="card">
-      <h3>{title}</h3>
-      <div className="chips-wrap">
+    <div className="card" style={{ padding: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+        {logo ? (
+          <img
+            src={logo}
+            alt={`${title} logo`}
+            style={{ height: 42, width: "auto", objectFit: "contain" }}
+          />
+        ) : null}
+        <h3 style={{ margin: 0 }}>{title}</h3>
+      </div>
+
+      <div
+        className="chips-wrap"
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
         {players.map((p) => {
           const row = rosterMap.get(`${teamId}:${p.id}`);
           const on = !!row?.dressed;
           return (
             <button
               key={p.id}
-              className={`chip ${on ? "chip-on" : ""}`}
-              title="Toggle played"
               onClick={() => onToggle(teamId, p)}
+              title="Toggle dressed"
+              className="chip"
+              style={{
+                cursor: "pointer",
+                borderRadius: 999,
+                padding: "8px 12px",
+                border: `1px solid ${on ? teamTint.base : "#e5e7eb"}`,
+                background: on ? teamTint.base : "#ffffff",
+                color: on ? teamTint.text : "#111827",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                transition: "all .15s ease",
+              }}
             >
-              #{p.number} {p.name} {on ? "• played" : ""}
+              #{p.number} {p.name}
             </button>
           );
         })}
