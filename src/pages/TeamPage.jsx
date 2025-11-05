@@ -109,42 +109,29 @@ function useRoster(teamId) {
   return { players, setPlayers, reload };
 }
 
-/** Pull skater stats like the Stats tab:
- *  - G/A/PTS from player_stats_current
- *  - GP from leaders_current
- *  Uses either column names (g/a/pts or goals/assists/points) safely.
+/** Skater stats from player_stats_current
+ *  - Uses g/a/pts/gp if present, falls back to goals/assists/points
  */
-function useLeadersForPlayers(playerIds) {
+function useStatsForPlayers(playerIds) {
   const [map, setMap] = React.useState(new Map());
 
   React.useEffect(() => {
     if (!playerIds.length) { setMap(new Map()); return; }
     let stop = false;
     (async () => {
-      const [ps, gp] = await Promise.all([
-        supabase
-          .from("player_stats_current")
-          .select("player_id, g, a, pts, goals, assists, points")
-          .in("player_id", playerIds),
-        supabase
-          .from("player_stats_current")
-          .select("player_id, gp")
-          .in("player_id", playerIds),
-      ]);
-
-      if (ps.error) console.error(ps.error);
-      if (gp.error) console.error(gp.error);
-
-      const gpMap = new Map();
-      (gp.data || []).forEach((r) => gpMap.set(r.player_id, r.gp ?? 0));
+      const { data, error } = await supabase
+        .from("player_stats_current")
+        .select("player_id, gp, g, a, pts, goals, assists, points")
+        .in("player_id", playerIds);
+      if (error) { console.error(error); if (!stop) setMap(new Map()); return; }
 
       const m = new Map();
-      for (const r of ps.data || []) {
+      for (const r of data || []) {
+        const gp = r.gp ?? 0;
         const g = r.g ?? r.goals ?? 0;
         const a = r.a ?? r.assists ?? 0;
         const pts = r.pts ?? r.points ?? (g + a);
-        const val = { g, a, pts, gp: gpMap.get(r.player_id) ?? 0 };
-        m.set(r.player_id, val);
+        m.set(r.player_id, { gp, g, a, pts });
       }
       if (!stop) setMap(m);
     })();
@@ -191,7 +178,7 @@ export default function TeamPage() {
   const { players, setPlayers, reload } = useRoster(id);
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
-  const statsMap = useLeadersForPlayers(playerIds);
+  const statsMap = useStatsForPlayers(playerIds);
 
   const { widths, startResize } = useResizableColumns(id, {
     player: 260, number: 70, pos: 70, gp: 70, g: 70, a: 70, pts: 80, actions: 200,
@@ -244,7 +231,7 @@ export default function TeamPage() {
     reload();
   }
 
-  // Display rows (merge stats from maps)
+  // Merge stats into display rows
   const rows = React.useMemo(() => {
     return players.map((p) => {
       const s = statsMap.get(p.id) || { gp: 0, g: 0, a: 0, pts: 0 };
@@ -283,11 +270,10 @@ export default function TeamPage() {
         className="th-btn"
         onClick={() => clickSort(sortKeyFor ?? col)}
         title="Click to sort"
-        style={{ color: "#111" }}  // keep header readable on any theme
+        style={{ color: "#111" }}  // readable header
       >
         {label} {sortKey === (sortKeyFor ?? col) ? <span className="muted">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
       </button>
-      {/* visible resize grip */}
       <span
         className="col-resize grip"
         onMouseDown={(e) => startResize(col, e.clientX)}
