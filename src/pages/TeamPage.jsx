@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 // ⬇️ Adjust this import if your client lives elsewhere (e.g. "../supabaseClient")
-import { supabase } from "../lib/db";
+import { supabase } from "../supabaseClient";
 
 function numberOrZero(x) {
   const n = Number(x);
