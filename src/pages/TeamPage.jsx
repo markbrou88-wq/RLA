@@ -109,34 +109,50 @@ function useRoster(teamId) {
   return { players, setPlayers, reload };
 }
 
+/** Pull skater stats like the Stats tab:
+ *  - G/A/PTS from player_stats_current
+ *  - GP from leaders_current
+ *  Uses either column names (g/a/pts or goals/assists/points) safely.
+ */
 function useLeadersForPlayers(playerIds) {
   const [map, setMap] = React.useState(new Map());
+
   React.useEffect(() => {
     if (!playerIds.length) { setMap(new Map()); return; }
     let stop = false;
     (async () => {
-      // Pull both naming styles so we’re safe:
-      const { data, error } = await supabase
-        .from("leaders_current")
-        .select("player_id,g,a,pts,goals,assists,points,gp")
-        .in("player_id", playerIds);
-      if (error) { console.error(error); return; }
+      const [ps, gp] = await Promise.all([
+        supabase
+          .from("player_stats_current")
+          .select("player_id, g, a, pts, goals, assists, points")
+          .in("player_id", playerIds),
+        supabase
+          .from("leaders_current")
+          .select("player_id, gp")
+          .in("player_id", playerIds),
+      ]);
+
+      if (ps.error) console.error(ps.error);
+      if (gp.error) console.error(gp.error);
+
+      const gpMap = new Map();
+      (gp.data || []).forEach((r) => gpMap.set(r.player_id, r.gp ?? 0));
 
       const m = new Map();
-      for (const r of data || []) {
-        const g  = r.g  ?? r.goals   ?? 0;
-        const a  = r.a  ?? r.assists ?? 0;
-        const pts= r.pts?? r.points  ?? (g + a);
-        const gp = r.gp ?? 0;
-        m.set(r.player_id, { gp, g, a, pts });
+      for (const r of ps.data || []) {
+        const g = r.g ?? r.goals ?? 0;
+        const a = r.a ?? r.assists ?? 0;
+        const pts = r.pts ?? r.points ?? (g + a);
+        const val = { g, a, pts, gp: gpMap.get(r.player_id) ?? 0 };
+        m.set(r.player_id, val);
       }
       if (!stop) setMap(m);
     })();
     return () => { stop = true; };
   }, [playerIds]);
+
   return map;
 }
-
 
 /* ---------- Column resizing ---------- */
 const MIN_W = 56;
@@ -181,7 +197,7 @@ export default function TeamPage() {
     player: 260, number: 70, pos: 70, gp: 70, g: 70, a: 70, pts: 80, actions: 200,
   });
 
-  // Add / Edit / Delete
+  // Add / Edit / Delete (unchanged behaviors)
   const [adding, setAdding] = React.useState(false);
   const [newPlayer, setNewPlayer] = React.useState({ number: "", name: "", position: "F" });
 
@@ -228,7 +244,7 @@ export default function TeamPage() {
     reload();
   }
 
-  // build display rows
+  // Display rows (merge stats from maps)
   const rows = React.useMemo(() => {
     return players.map((p) => {
       const s = statsMap.get(p.id) || { gp: 0, g: 0, a: 0, pts: 0 };
@@ -263,10 +279,24 @@ export default function TeamPage() {
       className="td th-resizable"
       style={{ width: widths[col], minWidth: widths[col], maxWidth: widths[col] }}
     >
-      <button className="th-btn" onClick={() => clickSort(sortKeyFor ?? col)} title="Click to sort">
+      <button
+        className="th-btn"
+        onClick={() => clickSort(sortKeyFor ?? col)}
+        title="Click to sort"
+        style={{ color: "#111" }}  // keep header readable on any theme
+      >
         {label} {sortKey === (sortKeyFor ?? col) ? <span className="muted">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
       </button>
-      <span className="col-resize grip" onMouseDown={(e) => startResize(col, e.clientX)} aria-hidden />
+      {/* visible resize grip */}
+      <span
+        className="col-resize grip"
+        onMouseDown={(e) => startResize(col, e.clientX)}
+        aria-hidden
+        style={{
+          width: 8, right: -3, borderLeft: "2px solid #d0d5dd",
+          background: "repeating-linear-gradient(180deg,#e5e7eb 0,#e5e7eb 4px,#fff 4px,#fff 8px)"
+        }}
+      />
     </div>
   );
 
