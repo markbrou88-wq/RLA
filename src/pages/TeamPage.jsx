@@ -109,26 +109,34 @@ function useRoster(teamId) {
   return { players, setPlayers, reload };
 }
 
-/** Stats from leaders_current view, keyed by player_id */
 function useLeadersForPlayers(playerIds) {
   const [map, setMap] = React.useState(new Map());
   React.useEffect(() => {
     if (!playerIds.length) { setMap(new Map()); return; }
     let stop = false;
     (async () => {
+      // Pull both naming styles so we’re safe:
       const { data, error } = await supabase
         .from("leaders_current")
-        .select("player_id,g,a,pts,gp")
+        .select("player_id,g,a,pts,goals,assists,points,gp")
         .in("player_id", playerIds);
-      if (error) return console.error(error);
+      if (error) { console.error(error); return; }
+
       const m = new Map();
-      for (const r of data || []) m.set(r.player_id, { gp: r.gp || 0, g: r.g || 0, a: r.a || 0, pts: r.pts || 0 });
+      for (const r of data || []) {
+        const g  = r.g  ?? r.goals   ?? 0;
+        const a  = r.a  ?? r.assists ?? 0;
+        const pts= r.pts?? r.points  ?? (g + a);
+        const gp = r.gp ?? 0;
+        m.set(r.player_id, { gp, g, a, pts });
+      }
       if (!stop) setMap(m);
     })();
-    return () => (stop = true);
+    return () => { stop = true; };
   }, [playerIds]);
   return map;
 }
+
 
 /* ---------- Column resizing ---------- */
 const MIN_W = 56;
