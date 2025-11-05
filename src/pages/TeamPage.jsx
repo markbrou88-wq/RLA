@@ -3,10 +3,9 @@ import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
-/* ---------- Tiny Sparkline (no deps) ---------- */
+/* ---------- Tiny Sparkline (no external deps) ---------- */
 function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" }) {
   if (!points.length) return <div className="muted">No final games yet</div>;
-
   const xs = points.map((_, i) => i);
   const minX = 0;
   const maxX = xs.length - 1 || 1;
@@ -78,12 +77,11 @@ function useTeamSummary(teamId) {
     (async () => {
       const { data: games, error } = await supabase
         .from("games")
-        .select(
-          "id, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot"
-        )
+        .select("id, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot")
         .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
         .order("game_date", { ascending: false })
         .limit(20);
+
       if (error) {
         console.error(error);
         return;
@@ -104,7 +102,9 @@ function useTeamSummary(teamId) {
           ga += tGA || 0;
           if (tGF > tGA) w++;
           else if (tGF < tGA) (g.went_ot ? otl++ : l++);
+
           if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
+
           if (chart.length < 10) {
             chart.push({
               date: (g.game_date || "").slice(5, 10),
@@ -150,11 +150,8 @@ function useRoster(teamId) {
   return { players, reload, setPlayers };
 }
 
-/** Skater stats for the team (sortable).
- * Works whether leaders_current.team stores full name (e.g., "Red Lite Black")
- * or short name (e.g., "RLB") by filtering with BOTH.
- */
-function useSkaterStats(team) {
+/** Team skater stats aggregated straight from game_stats for this team */
+function useTeamSkaterStats(teamId) {
   const [rows, setRows] = React.useState([]);
   const [sortKey, setSortKey] = React.useState("pts");
   const [dir, setDir] = React.useState("desc");
@@ -162,40 +159,55 @@ function useSkaterStats(team) {
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!team) return;
-      const teamFilters = [team.name, team.short_name].filter(Boolean);
+      if (!teamId) return;
 
-      // request with OR on team names to avoid mismatch issues
-      let query = supabase
-        .from("leaders_current")
-        .select("player_id, player, team, gp, g, a, pts");
+      // Pull per-player rows for this team from game_stats
+      const { data, error } = await supabase
+        .from("game_stats")
+        .select("game_id, player_id, team_id, goals, assists")
+        .eq("team_id", teamId);
 
-      if (teamFilters.length === 1) {
-        query = query.eq("team", teamFilters[0]);
-      } else if (teamFilters.length > 1) {
-        // Build an OR filter: team.eq.A,team.eq.B
-        const orExpr = teamFilters.map((t) => `team.eq.${t}`).join(",");
-        query = query.or(orExpr);
+      if (error) {
+        console.error(error);
+        return;
       }
 
-      query = query.order("pts", { ascending: false });
-
-      const { data, error } = await query;
-      if (!cancelled) {
-        if (error) console.error(error);
-        // normalize nulls
-        const norm = (data || []).map((r) => ({
-          ...r,
-          gp: r.gp ?? 0,
-          g: r.g ?? 0,
-          a: r.a ?? 0,
-          pts: r.pts ?? (r.g ?? 0) + (r.a ?? 0),
-        }));
-        setRows(norm);
+      // Aggregate GP (distinct games), G, A per player for this team
+      const byPlayer = new Map();
+      for (const r of data || []) {
+        const key = r.player_id;
+        if (!byPlayer.has(key)) {
+          byPlayer.set(key, { player_id: key, gp: 0, g: 0, a: 0, games: new Set() });
+        }
+        const ag = byPlayer.get(key);
+        ag.g += r.goals || 0;
+        ag.a += r.assists || 0;
+        if (r.game_id != null) ag.games.add(r.game_id);
       }
+      // finalize GP and attach player names
+      const playerIds = Array.from(byPlayer.keys());
+      let nameMap = new Map();
+      if (playerIds.length) {
+        const { data: pData } = await supabase
+          .from("players")
+          .select("id, name")
+          .in("id", playerIds);
+        (pData || []).forEach((p) => nameMap.set(p.id, p.name));
+      }
+
+      const aggregated = Array.from(byPlayer.values()).map((ag) => ({
+        player_id: ag.player_id,
+        player: nameMap.get(ag.player_id) || "—",
+        gp: ag.games.size,
+        g: ag.g,
+        a: ag.a,
+        pts: ag.g + ag.a,
+      }));
+
+      if (!cancelled) setRows(aggregated);
     })();
     return () => (cancelled = true);
-  }, [team?.name, team?.short_name]);
+  }, [teamId]);
 
   const sorted = React.useMemo(() => {
     const copy = [...rows];
@@ -229,7 +241,7 @@ export default function TeamPage() {
   const team = useTeam(id);
   const summary = useTeamSummary(id);
   const { players, reload, setPlayers } = useRoster(id);
-  const { rows: statsRows, sortKey, dir, setSort } = useSkaterStats(team || {});
+  const { rows: statsRows, sortKey, dir, setSort } = useTeamSkaterStats(id);
 
   // roster CRUD
   const [adding, setAdding] = React.useState(false);
@@ -291,6 +303,18 @@ export default function TeamPage() {
     reload();
   }
 
+  /* --- small helpers for consistent cell sizing --- */
+  const numCell = { width: 42, minWidth: 42, maxWidth: 42, textAlign: "center" };
+  const posCell = { width: 60, minWidth: 60, maxWidth: 60, textAlign: "center" };
+  const actCell = { width: 200, minWidth: 200, maxWidth: 200, textAlign: "right" };
+  const nameCell = {
+    flex: 1,
+    minWidth: 240,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  };
+
   return (
     <div>
       <div className="row gap">
@@ -342,7 +366,7 @@ export default function TeamPage() {
               <input
                 className="in"
                 placeholder="#"
-                style={{ width: 48, textAlign: "center" }}
+                style={{ width: 56, textAlign: "center" }}
                 value={newPlayer.number}
                 onChange={(e) =>
                   setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))
@@ -371,19 +395,19 @@ export default function TeamPage() {
 
         <div className="tbl">
           <div className="tr thead">
-            <div className="td c" style={{ width: 44 }}>#</div>
-            <div className="td left">Player</div>
-            <div className="td c" style={{ width: 72 }}>POS</div>
-            <div className="td right" style={{ width: 200 }}>Actions</div>
+            <div className="td c" style={numCell}>#</div>
+            <div className="td left" style={nameCell}>Player</div>
+            <div className="td c" style={posCell}>POS</div>
+            <div className="td right" style={actCell}>Actions</div>
           </div>
 
           {players.map((p) =>
             p.__edit ? (
               <div className="tr" key={p.id}>
-                <div className="td c" style={{ width: 44 }}>
+                <div className="td c" style={numCell}>
                   <input
                     className="in"
-                    style={{ width: 44, textAlign: "center" }}
+                    style={{ width: 42, textAlign: "center" }}
                     value={p.__edit.number}
                     onChange={(e) =>
                       setPlayers((cur) =>
@@ -396,7 +420,7 @@ export default function TeamPage() {
                     }
                   />
                 </div>
-                <div className="td left">
+                <div className="td left" style={nameCell}>
                   <input
                     className="in"
                     value={p.__edit.name}
@@ -409,7 +433,7 @@ export default function TeamPage() {
                     }
                   />
                 </div>
-                <div className="td c" style={{ width: 72 }}>
+                <div className="td c" style={posCell}>
                   <select
                     className="in"
                     value={p.__edit.position}
@@ -426,8 +450,8 @@ export default function TeamPage() {
                     <option value="G">G</option>
                   </select>
                 </div>
-                <div className="td right" style={{ width: 200 }}>
-                  <button className="btn">Save</button>
+                <div className="td right" style={actCell}>
+                  <button className="btn" onClick={() => saveEditRow(p.id)}>Save</button>
                   <button className="btn ghost" style={{ marginLeft: 8 }} onClick={() => cancelEditRow(p.id)}>
                     Cancel
                   </button>
@@ -435,10 +459,10 @@ export default function TeamPage() {
               </div>
             ) : (
               <div className="tr" key={p.id}>
-                <div className="td c" style={{ width: 44 }}>{p.number ?? ""}</div>
-                <div className="td left">{p.name}</div>
-                <div className="td c" style={{ width: 72 }}>{p.position || ""}</div>
-                <div className="td right" style={{ width: 200 }}>
+                <div className="td c" style={numCell}>{p.number ?? ""}</div>
+                <div className="td left" style={nameCell}>{p.name}</div>
+                <div className="td c" style={posCell}>{p.position || ""}</div>
+                <div className="td right" style={actCell}>
                   <button className="btn" onClick={() => startEditRow(p.id)}>Edit</button>
                   <button className="btn danger" style={{ marginLeft: 8 }} onClick={() => deletePlayer(p.id)}>
                     Delete
@@ -456,12 +480,12 @@ export default function TeamPage() {
         </div>
       </div>
 
-      {/* Skater stats */}
+      {/* Skater stats from game_stats */}
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-title">Player Stats (sortable)</div>
         <div className="tbl">
           <div className="tr thead">
-            <div className="td left clickable" onClick={() => setSort("player")}>
+            <div className="td left clickable" style={nameCell} onClick={() => setSort("player")}>
               Player {sortKey === "player" ? (dir === "asc" ? "▲" : "▼") : ""}
             </div>
             <div className="td c clickable" style={{ width: 70 }} onClick={() => setSort("gp")}>
@@ -481,7 +505,7 @@ export default function TeamPage() {
 
           {statsRows.map((r) => (
             <div className="tr" key={r.player_id}>
-              <div className="td left">
+              <div className="td left" style={nameCell}>
                 <Link className="link" to={`/players/${r.player_id}`}>{r.player}</Link>
               </div>
               <div className="td c" style={{ width: 70 }}>{r.gp}</div>
