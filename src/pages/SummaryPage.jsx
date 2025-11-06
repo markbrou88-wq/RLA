@@ -32,7 +32,7 @@ export default function SummaryPage() {
   const [homeGoalieRec, setHomeGoalieRec] = React.useState(null);
   const [awayGoalieRec, setAwayGoalieRec] = React.useState(null);
 
-  const [events, setEvents] = React.useState([]);
+  const [rows, setRows] = React.useState([]); // grouped events for display
 
   React.useEffect(() => {
     let cancelled = false;
@@ -119,38 +119,37 @@ export default function SummaryPage() {
         getGoalieRec(awayLU.goalies[0]),
       ]);
 
-      // ----- Events (robust, no joins) -----
-      // Pull events for this game, then enrich with player names/numbers via a single IN() query
-      const { data: rawEvents } = await supabase
+      // ----- Events (same grouping model as LivePage) -----
+      const { data: ev } = await supabase
         .from("events")
-        .select("id, period, time_mmss, team_id, event, player_id, assist1_id, assist2_id")
+        .select(`
+          id, game_id, team_id, player_id, period, time_mmss, event,
+          players!events_player_id_fkey ( id, name, number ),
+          teams!events_team_id_fkey ( id, name, short_name )
+        `)
         .eq("game_id", g.id)
         .order("period", { ascending: true })
-        .order("time_mmss", { ascending: true });
+        .order("time_mmss", { ascending: false });
 
-      let enriched = [];
-      if (rawEvents && rawEvents.length) {
-        const ids = [
-          ...new Set(
-            rawEvents.flatMap((e) => [e.player_id, e.assist1_id, e.assist2_id].filter(Boolean))
-          ),
-        ];
-        let byId = {};
-        if (ids.length) {
-          const { data: ps } = await supabase
-            .from("players")
-            .select("id, name, number")
-            .in("id", ids);
-          (ps || []).forEach((p) => (byId[p.id] = p));
-        }
-        enriched = rawEvents.map((e) => ({
-          ...e,
-          scorer: byId[e.player_id] || null,
-          a1: byId[e.assist1_id] || null,
-          a2: byId[e.assist2_id] || null,
-        }));
-      }
-      // --------------------------------------
+      const key = (e) => `${e.period}|${e.time_mmss}|${e.team_id}|goal`;
+      const gmap = new Map();
+      (ev || []).forEach((e) => {
+        if (e.event === "goal") gmap.set(key(e), { goal: e, assists: [] });
+      });
+      (ev || []).forEach((e) => {
+        if (e.event === "assist" && gmap.has(key(e))) gmap.get(key(e)).assists.push(e);
+      });
+      const others = (ev || [])
+        .filter((e) => e.event !== "goal" && e.event !== "assist")
+        .map((x) => ({ single: x }));
+      const grouped = [...gmap.values(), ...(others || [])].sort((a, b) => {
+        const ap = a.goal ? a.goal.period : a.single.period;
+        const bp = b.goal ? b.goal.period : b.single.period;
+        if (ap !== bp) return ap - bp;
+        const at = a.goal ? a.goal.time_mmss : a.single.time_mmss;
+        const bt = b.goal ? b.goal.time_mmss : b.single.time_mmss;
+        return bt.localeCompare(at);
+      });
 
       if (!cancelled) {
         setGame(g);
@@ -165,7 +164,7 @@ export default function SummaryPage() {
         setHomeGoalieRec(homeGoalieRecData);
         setAwayGoalieRec(awayGoalieRecData);
 
-        setEvents(enriched || []);
+        setRows(grouped || []);
         setLoading(false);
       }
     })();
@@ -197,29 +196,16 @@ export default function SummaryPage() {
       </div>
       <div style={{ textAlign: "center", fontWeight: 700, marginBottom: 16 }}>{scoreline}</div>
 
-      {/* Lineups side by side: Away (left) – Home (right) */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 16,
-          marginBottom: 16,
-        }}
-      >
+      {/* Lineups side by side: Away (left) – Home (right, logo on the outside edge) */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <LineupCard team={awayTeam} record={awayRecord} lineup={lineupAway} goalieRec={awayGoalieRec} />
-        <LineupCard
-          team={homeTeam}
-          record={homeRecord}
-          lineup={lineupHome}
-          goalieRec={homeGoalieRec}
-          alignRight
-        />
+        <LineupCard team={homeTeam} record={homeRecord} lineup={lineupHome} goalieRec={homeGoalieRec} alignRight />
       </div>
 
-      {/* Goals / Events */}
+      {/* Goals / Events (from grouped rows) */}
       <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>{t("Goals / Events")}</h3>
-        {events.length === 0 ? (
+        {rows.length === 0 ? (
           <div style={{ color: "#777" }}>{t("No events yet.")}</div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -233,56 +219,61 @@ export default function SummaryPage() {
               </tr>
             </thead>
             <tbody>
-              {events.map((e) => (
-                <tr key={e.id}>
-                  <Td>{e.period}</Td>
-                  <Td>{e.time_mmss}</Td>
-                  <Td>
-                    {e.team_id === homeTeam?.id
-                      ? homeTeam?.short_name || homeTeam?.name || "HOME"
-                      : awayTeam?.short_name || awayTeam?.name || "AWAY"}
-                  </Td>
-                  <Td>{(e.event || e.type || "").toUpperCase()}</Td>
-                  <Td>
-                    <b>
-                      {e.scorer?.id ? (
-                        <Link to={`/players/${e.scorer.id}`}>
-                          #{e.scorer.number ?? "—"} {e.scorer.name ?? "—"}
+              {rows.map((r, i) => {
+                if (r.goal) {
+                  const aTxt = r.assists
+                    .map((a) =>
+                      a.players?.id ? (
+                        <Link key={`a${a.id}`} to={`/players/${a.players.id}`}>
+                          #{a.players.number ?? "—"} {a.players.name ?? "—"}
                         </Link>
                       ) : (
-                        <>#{e.scorer?.number ?? "—"} {e.scorer?.name ?? "—"}</>
+                        `#${a.players?.number ?? "—"} ${a.players?.name ?? "—"}`
+                      )
+                    )
+                    .reduce((acc, node, idx) => (idx ? [...acc, ", ", node] : [node]), []);
+                  const teamLabel = r.goal.teams?.short_name || r.goal.teams?.name || "";
+                  return (
+                    <tr key={`g${i}`}>
+                      <Td>{r.goal.period}</Td>
+                      <Td>{r.goal.time_mmss}</Td>
+                      <Td>{teamLabel}</Td>
+                      <Td>GOAL</Td>
+                      <Td>
+                        <b>
+                          {r.goal.players?.id ? (
+                            <Link to={`/players/${r.goal.players.id}`}>
+                              #{r.goal.players.number ?? "—"} {r.goal.players.name ?? "—"}
+                            </Link>
+                          ) : (
+                            <>#{r.goal.players?.number ?? "—"} {r.goal.players?.name ?? "—"}</>
+                          )}
+                        </b>
+                        {aTxt && <span style={{ color: "#666" }}> (A: {aTxt})</span>}
+                      </Td>
+                    </tr>
+                  );
+                }
+                const e = r.single;
+                const teamLabel = e.teams?.short_name || e.teams?.name || "";
+                return (
+                  <tr key={`o${e.id}`}>
+                    <Td>{e.period}</Td>
+                    <Td>{e.time_mmss}</Td>
+                    <Td>{teamLabel}</Td>
+                    <Td>{String(e.event || "").toUpperCase()}</Td>
+                    <Td>
+                      {e.players?.id ? (
+                        <Link to={`/players/${e.players.id}`}>
+                          #{e.players.number ?? "—"} {e.players.name ?? "—"}
+                        </Link>
+                      ) : (
+                        <>#{e.players?.number ?? "—"} {e.players?.name ?? "—"}</>
                       )}
-                    </b>
-                    {(e.a1 || e.a2) && (
-                      <span style={{ color: "#666" }}>
-                        {" "}
-                        (A:&nbsp;
-                        {[
-                          e.a1 &&
-                            (e.a1.id ? (
-                              <Link key="a1" to={`/players/${e.a1.id}`}>
-                                #{e.a1.number ?? "—"} {e.a1.name ?? "—"}
-                              </Link>
-                            ) : (
-                              `#${e.a1?.number ?? "—"} ${e.a1?.name ?? "—"}`
-                            )),
-                          e.a2 &&
-                            (e.a2.id ? (
-                              <Link key="a2" to={`/players/${e.a2.id}`}>
-                                #{e.a2.number ?? "—"} {e.a2.name ?? "—"}
-                              </Link>
-                            ) : (
-                              `#${e.a2?.number ?? "—"} ${e.a2?.name ?? "—"}`
-                            )),
-                        ]
-                          .filter(Boolean)
-                          .reduce((acc, node, i) => (i ? [...acc, ", ", node] : [node]), [])}
-                        )
-                      </span>
-                    )}
-                  </Td>
-                </tr>
-              ))}
+                    </Td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
