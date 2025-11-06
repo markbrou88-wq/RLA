@@ -21,10 +21,9 @@ export default function GamesPage() {
   const [games, setGames] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
-  // filters
+  // filters (date + single team that matches either side)
   const [filterDate, setFilterDate] = React.useState("");
-  const [filterHome, setFilterHome] = React.useState("");
-  const [filterAway, setFilterAway] = React.useState("");
+  const [filterTeam, setFilterTeam] = React.useState("");
 
   // create form
   const [newDate, setNewDate] = React.useState("");
@@ -39,7 +38,10 @@ export default function GamesPage() {
 
       const [{ data: teamRows, error: e1 }, { data: gameRows, error: e2 }] =
         await Promise.all([
-          supabase.from("teams").select("id, name, short_name, logo_url").order("name"),
+          supabase
+            .from("teams")
+            .select("id, name, short_name, logo_url")
+            .order("name"),
           supabase
             .from("games")
             .select(
@@ -72,8 +74,12 @@ export default function GamesPage() {
   const filtered = games.filter((g) => {
     const d = (g.game_date || "").slice(0, 10);
     if (filterDate && d !== filterDate) return false;
-    if (filterHome && String(g.home_team_id) !== String(filterHome)) return false;
-    if (filterAway && String(g.away_team_id) !== String(filterAway)) return false;
+    if (filterTeam) {
+      const matchEither =
+        String(g.home_team_id) === String(filterTeam) ||
+        String(g.away_team_id) === String(filterTeam);
+      if (!matchEither) return false;
+    }
     return true;
   });
 
@@ -93,6 +99,13 @@ export default function GamesPage() {
     return `${d}-${homeId}-${awayId}-${rand}`;
   }
 
+  function formatGameDate(s) {
+    if (!s) return "";
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return s.replace("T", " ");
+    return d.toLocaleString();
+  }
+
   async function handleCreate() {
     if (!newDate || !newHome || !newAway) {
       alert(t("Please fill date, home and away."));
@@ -104,9 +117,13 @@ export default function GamesPage() {
     }
 
     setSaving(true);
-    const slug = makeSlug(newDate, newHome, newAway);
+
+    // Convert local "datetime-local" value to UTC before storing to avoid drift later
+    const gameDateUtc = new Date(newDate).toISOString();
+
+    const slug = makeSlug(gameDateUtc, newHome, newAway);
     const payload = {
-      game_date: newDate,
+      game_date: gameDateUtc, // store UTC to keep what user picked
       home_team_id: Number(newHome),
       away_team_id: Number(newAway),
       home_score: 0,
@@ -132,11 +149,11 @@ export default function GamesPage() {
     <div>
       <h2 style={{ margin: "8px 0 16px" }}>{t("Games")}</h2>
 
-      {/* Filters */}
+      {/* Filters: Date + Team (matches either home or away) */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "170px 1fr 1fr auto",
+          gridTemplateColumns: "170px 1fr auto",
           gap: 10,
           alignItems: "center",
           marginBottom: 12,
@@ -149,17 +166,8 @@ export default function GamesPage() {
           style={inputS}
         />
 
-        <select value={filterHome} onChange={(e) => setFilterHome(e.target.value)} style={inputS}>
-          <option value="">{t("Team… (Home)")}</option>
-          {teams.map((t_) => (
-            <option key={t_.id} value={t_.id}>
-              {t_.name}
-            </option>
-          ))}
-        </select>
-
-        <select value={filterAway} onChange={(e) => setFilterAway(e.target.value)} style={inputS}>
-          <option value="">{t("Team… (Away)")}</option>
+        <select value={filterTeam} onChange={(e) => setFilterTeam(e.target.value)} style={inputS}>
+          <option value="">{t("Team…")}</option>
           {teams.map((t_) => (
             <option key={t_.id} value={t_.id}>
               {t_.name}
@@ -170,8 +178,7 @@ export default function GamesPage() {
         <button
           onClick={() => {
             setFilterDate("");
-            setFilterHome("");
-            setFilterAway("");
+            setFilterTeam("");
           }}
         >
           {t("Clear")}
@@ -231,9 +238,7 @@ export default function GamesPage() {
           {filtered.map((g) => {
             const home = teamMap[g.home_team_id] || {};
             const away = teamMap[g.away_team_id] || {};
-            const d = new Date(g.game_date || "");
             const statusLabel = g.status;
-
             const slug = g.slug || g.id;
 
             return (
@@ -249,21 +254,19 @@ export default function GamesPage() {
                   gap: 10,
                 }}
               >
-                {/* Matchup */}
+                {/* Matchup (away on the LEFT, home on the RIGHT) */}
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <TeamChip team={home} />
-                  <span style={{ color: "#666" }}>{t("at")}</span>
                   <TeamChip team={away} />
+                  <span style={{ color: "#666" }}>{t("at")}</span>
+                  <TeamChip team={home} />
                 </div>
 
                 {/* Score + date + status */}
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontWeight: 700 }}>
-                    {g.home_score} — {g.away_score}
+                  <div style={{ fontWeight: 800, fontSize: 18 }}>
+                    {g.away_score} — {g.home_score}
                   </div>
-                  <div style={{ fontSize: 12, color: "#666" }}>
-                    {isNaN(d) ? "" : d.toLocaleString()}
-                  </div>
+                  <div style={{ fontSize: 12, color: "#666" }}>{formatGameDate(g.game_date)}</div>
                   <div style={{ fontSize: 12, color: "#666" }}>{statusLabel}</div>
                 </div>
 
@@ -323,18 +326,19 @@ export default function GamesPage() {
 }
 
 function TeamChip({ team }) {
+  const size = 28;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       {team.logo_url ? (
         <img
           src={team.logo_url}
           alt={team.short_name || team.name || "team"}
-          style={{ width: 22, height: 22, objectFit: "contain" }}
+          style={{ width: size, height: size, objectFit: "contain" }}
         />
       ) : (
-        <span style={{ width: 22 }} />
+        <span style={{ width: size }} />
       )}
-      <span style={{ fontWeight: 600 }}>{team.name || "—"}</span>
+      <span style={{ fontWeight: 700, fontSize: 16 }}>{team.name || "—"}</span>
     </div>
   );
 }
