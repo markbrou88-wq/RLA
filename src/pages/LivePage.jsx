@@ -1,3 +1,4 @@
+// LivePage.jsx — drop-in
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
@@ -39,7 +40,7 @@ export default function LivePage() {
 
   const [rows, setRows] = useState([]);
 
-  // shots (and persist to games if columns exist)
+  // shots (persisted to games)
   const [homeShots, setHomeShots] = useState(0);
   const [awayShots, setAwayShots] = useState(0);
 
@@ -99,8 +100,12 @@ export default function LivePage() {
       setGame(g);
       setHome(ht);
       setAway(at);
-      setHomeDressed((hr || []).map((r) => r.players).sort((a,b)=> (a.number||0)-(b.number||0)));
-      setAwayDressed((ar || []).map((r) => r.players).sort((a,b)=> (a.number||0)-(b.number||0)));
+      setHomeDressed(
+        (hr || []).map((r) => r.players).sort((a, b) => (a.number || 0) - (b.number || 0))
+      );
+      setAwayDressed(
+        (ar || []).map((r) => r.players).sort((a, b) => (a.number || 0) - (b.number || 0))
+      );
 
       const baseLen = g.period_seconds ? Math.round(g.period_seconds / 60) : 15;
       setLenMin(baseLen);
@@ -153,8 +158,10 @@ export default function LivePage() {
     (ev || []).forEach((e) => {
       if (e.event === "assist" && gmap.has(key(e))) gmap.get(key(e)).assists.push(e);
     });
-    const others = (ev || []).filter((e) => e.event !== "goal" && e.event !== "assist").map((x)=>({single:x}));
-    const grouped = [...gmap.values(), ...others].sort((a,b)=>{
+    const others = (ev || [])
+      .filter((e) => e.event !== "goal" && e.event !== "assist")
+      .map((x) => ({ single: x }));
+    const grouped = [...gmap.values(), ...others].sort((a, b) => {
       const ap = a.goal ? a.goal.period : a.single.period;
       const bp = b.goal ? b.goal.period : b.single.period;
       if (ap !== bp) return ap - bp;
@@ -197,8 +204,11 @@ export default function LivePage() {
 
   /* ---------- bench / rink drops ---------- */
   function readPayload(e) {
-    try { return JSON.parse(e.dataTransfer.getData("text/plain") || "{}"); }
-    catch { return null; }
+    try {
+      return JSON.parse(e.dataTransfer.getData("text/plain") || "{}");
+    } catch {
+      return null;
+    }
   }
   function rinkDrop(e) {
     e.preventDefault();
@@ -209,25 +219,29 @@ export default function LivePage() {
     const y = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
     setOnIce((cur) => {
       const copy = cur.filter((t) => t.id !== p.id);
-      copy.push({ id: p.id, team_id: p.team_id, x:+x.toFixed(2), y:+y.toFixed(2) });
+      copy.push({ id: p.id, team_id: p.team_id, x: +x.toFixed(2), y: +y.toFixed(2) });
       return copy;
     });
   }
   // top net => HOME, bottom net => AWAY
   function dropOnTopNet(e) {
-    e.preventDefault(); e.stopPropagation();
-    const p = readPayload(e); if (!p?.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const p = readPayload(e);
+    if (!p?.id) return;
     if (p.team_id !== home.id) return;
     openGoalFor(p.id, home.id);
   }
   function dropOnBottomNet(e) {
-    e.preventDefault(); e.stopPropagation();
-    const p = readPayload(e); if (!p?.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const p = readPayload(e);
+    if (!p?.id) return;
     if (p.team_id !== away.id) return;
     openGoalFor(p.id, away.id);
   }
 
-  /* ---------- goalie persist ---------- */
+  /* ---------- goalie selection persist ---------- */
   async function setGoalie(teamId, playerId) {
     setGoalieOnIce((m) => ({ ...m, [teamId]: playerId || "" }));
     const { data: ex } = await supabase
@@ -237,68 +251,133 @@ export default function LivePage() {
       .eq("team_id", teamId)
       .maybeSingle();
     if (ex?.id) {
-      await supabase.from("game_goalies").update({ player_id: playerId || null }).eq("id", ex.id);
+      await supabase
+        .from("game_goalies")
+        .update({ player_id: playerId || null })
+        .eq("id", ex.id);
     } else {
-      await supabase.from("game_goalies").insert([{ game_id: game.id, team_id: teamId, player_id: playerId || null }]);
+      await supabase
+        .from("game_goalies")
+        .insert([{ game_id: game.id, team_id: teamId, player_id: playerId || null }]);
     }
   }
 
-  /* ---------- SHOTS: keep sides independent + push SA to adverse goalie ---------- */
-  async function bumpGoalieSA(goalieTeamId, delta) {
-    if (!delta) return;
-    const goalieId = goalieOnIce[goalieTeamId];
-    if (!goalieId) return;
-
-    // upsert the goalie row in game_stats and bump goalie_shots_against (never below 0)
-    const { data: existing } = await supabase
+  /* ---------- helpers to upsert goalie rows ---------- */
+  async function upsertGoalieGameStats(teamId, playerId) {
+    // game_stats (is_goalie row)
+    const { data: gs } = await supabase
       .from("game_stats")
       .select("id, goalie_shots_against")
       .eq("game_id", game.id)
-      .eq("team_id", goalieTeamId)
-      .eq("player_id", goalieId)
+      .eq("team_id", teamId)
+      .eq("player_id", playerId)
       .eq("is_goalie", true)
       .maybeSingle();
-
-    if (existing?.id) {
-      const newVal = Math.max(0, (existing.goalie_shots_against || 0) + delta);
-      await supabase.from("game_stats").update({ goalie_shots_against: newVal }).eq("id", existing.id);
-    } else {
-      await supabase.from("game_stats").insert([{
-        game_id: game.id,
-        team_id: goalieTeamId,
-        player_id: goalieId,
-        is_goalie: true,
-        goalie_shots_against: Math.max(0, delta),
-      }]);
-    }
+    return gs?.id || (
+      await supabase
+        .from("game_stats")
+        .insert([{ game_id: game.id, team_id: teamId, player_id: playerId, is_goalie: true, goalie_shots_against: 0 }])
+        .select("id")
+        .single()
+    )?.data?.id;
+  }
+  async function upsertGameGoalieRow(teamId, playerId) {
+    const { data: gg } = await supabase
+      .from("game_goalies")
+      .select("id, shots_against, goals_against")
+      .eq("game_id", game.id)
+      .eq("team_id", teamId)
+      .maybeSingle();
+    if (gg?.id) return gg;
+    const { data: created } = await supabase
+      .from("game_goalies")
+      .insert([{ game_id: game.id, team_id: teamId, player_id: playerId, shots_against: 0, goals_against: 0 }])
+      .select("id, shots_against, goals_against")
+      .single();
+    return created;
   }
 
-  // change home shots (home team = HOME; adverse goalie = AWAY)
-  async function changeHomeShots(nextVal) {
-    const v = clamp(Number(nextVal||0), 0, 999);
-    const delta = v - (homeShots || 0);
-    setHomeShots(v);
+  /* ---------- SHOTS: persist + push SA to opposing goalie ---------- */
+  async function bumpGoalieSA(goalieTeamId, delta) {
+    if (!delta) return;
+    const goalieId = goalieOnIce[goalieTeamId];
+    if (!goalieId) return; // guard: only if a goalie is selected
 
-    try { await supabase.from("games").update({ home_shots: v }).eq("id", game.id); } catch (_) {}
+    // game_stats.goalie_shots_against
+    const gsId = await upsertGoalieGameStats(goalieTeamId, goalieId);
+    if (gsId) {
+      const { data: cur } = await supabase
+        .from("game_stats")
+        .select("goalie_shots_against")
+        .eq("id", gsId)
+        .single();
+      const next = Math.max(0, (cur?.goalie_shots_against || 0) + delta);
+      await supabase.from("game_stats").update({ goalie_shots_against: next }).eq("id", gsId);
+    }
+
+    // game_goalies.shots_against
+    const gg = await upsertGameGoalieRow(goalieTeamId, goalieId);
+    const nextSA = Math.max(0, (gg?.shots_against || 0) + delta);
+    await supabase.from("game_goalies").update({ shots_against: nextSA }).eq("id", gg.id);
+  }
+
+  // NOTE: increases are blocked if no opposing goalie is selected; decreases are allowed
+  async function changeHomeShots(nextVal) {
+    const v = clamp(Number(nextVal || 0), 0, 999);
+    const cur = homeShots || 0;
+    const delta = v - cur;
+
+    // guard on increases
+    if (delta > 0 && !goalieOnIce[away?.id]) {
+      alert("Select the AWAY goalie before recording shots.");
+      return; // do not change local state
+    }
+
+    setHomeShots(v);
+    try {
+      await supabase.from("games").update({ home_shots: v }).eq("id", game.id);
+    } catch {}
     await bumpGoalieSA(away.id, delta);
   }
-  // change away shots (away team = AWAY; adverse goalie = HOME)
   async function changeAwayShots(nextVal) {
-    const v = clamp(Number(nextVal||0), 0, 999);
-    const delta = v - (awayShots || 0);
-    setAwayShots(v);
+    const v = clamp(Number(nextVal || 0), 0, 999);
+    const cur = awayShots || 0;
+    const delta = v - cur;
 
-    try { await supabase.from("games").update({ away_shots: v }).eq("id", game.id); } catch (_) {}
+    if (delta > 0 && !goalieOnIce[home?.id]) {
+      alert("Select the HOME goalie before recording shots.");
+      return;
+    }
+
+    setAwayShots(v);
+    try {
+      await supabase.from("games").update({ away_shots: v }).eq("id", game.id);
+    } catch {}
     await bumpGoalieSA(home.id, delta);
+  }
+
+  /* ---------- GA: bump goals_against on opposing goalie (game_goalies) ---------- */
+  async function bumpGoalieGA(opposingTeamId, delta) {
+    if (!delta) return;
+    const goalieId = goalieOnIce[opposingTeamId];
+    if (!goalieId) return;
+    const gg = await upsertGameGoalieRow(opposingTeamId, goalieId);
+    const nextGA = Math.max(0, (gg?.goals_against || 0) + delta);
+    await supabase.from("game_goalies").update({ goals_against: nextGA }).eq("id", gg.id);
   }
 
   /* ---------- goal modal ---------- */
   function openGoalFor(playerId, teamId, existing = null) {
-    setAssist1(""); setAssist2("");
+    setAssist1("");
+    setAssist2("");
     setGoalPeriod(period);
     setGoalTime(clock);
     if (existing) {
-      setGoalPick({ scorer: existing.goal.player_id, team_id: existing.goal.team_id, editKey: existing });
+      setGoalPick({
+        scorer: existing.goal.player_id,
+        team_id: existing.goal.team_id,
+        editKey: existing,
+      });
       setGoalPeriod(existing.goal.period);
       setGoalTime(existing.goal.time_mmss);
       setAssist1(existing.assists?.[0]?.player_id || "");
@@ -311,10 +390,12 @@ export default function LivePage() {
   // Assist choices: new goal => only tokens on ice; edit => full roster
   const assistChoices = useMemo(() => {
     if (!goalPick) return [];
-    const roster = goalPick.team_id === (home?.id) ? homeDressed : awayDressed;
+    const roster = goalPick.team_id === home?.id ? homeDressed : awayDressed;
     if (goalPick.editKey) return roster; // edit = allow all
-    const idsOnIceSameTeam = new Set(onIce.filter(t => t.team_id === goalPick.team_id).map(t => t.id));
-    return roster.filter(p => idsOnIceSameTeam.has(p.id) && p.id !== goalPick.scorer);
+    const idsOnIceSameTeam = new Set(
+      onIce.filter((t) => t.team_id === goalPick.team_id).map((t) => t.id)
+    );
+    return roster.filter((p) => idsOnIceSameTeam.has(p.id) && p.id !== goalPick.scorer);
   }, [goalPick, home?.id, homeDressed, awayDressed, onIce]);
 
   async function confirmGoal() {
@@ -323,7 +404,7 @@ export default function LivePage() {
     const tm = (goalTime || clock).trim();
     const tid = Number(goalPick.team_id);
     const scorerId = Number(goalPick.scorer);
-    const aList = [assist1, assist2].filter(Boolean).map((x) => Number(x)).slice(0,2);
+    const aList = [assist1, assist2].filter(Boolean).map(Number).slice(0, 2);
 
     if (goalPick.editKey) {
       // --- EDIT EXISTING ---
@@ -335,7 +416,7 @@ export default function LivePage() {
         .update({ team_id: tid, player_id: scorerId, period: per, time_mmss: tm })
         .eq("id", goalPick.editKey.goal.id);
 
-      // 2) sync assists: update/insert/delete to match aList
+      // 2) sync assists
       const existing = goalPick.editKey.assists || [];
       const toUpdate = Math.min(existing.length, aList.length);
       for (let i = 0; i < toUpdate; i++) {
@@ -346,22 +427,41 @@ export default function LivePage() {
       }
       if (aList.length > existing.length) {
         for (let i = existing.length; i < aList.length; i++) {
-          await supabase.from("events").insert([{
-            game_id: game.id, team_id: tid, player_id: aList[i],
-            period: per, time_mmss: tm, event: "assist",
-          }]);
+          await supabase.from("events").insert([
+            {
+              game_id: game.id,
+              team_id: tid,
+              player_id: aList[i],
+              period: per,
+              time_mmss: tm,
+              event: "assist",
+            },
+          ]);
         }
       } else if (existing.length > aList.length) {
-        const idsToDelete = existing.slice(aList.length).map(a => a.id);
+        const idsToDelete = existing.slice(aList.length).map((a) => a.id);
         await supabase.from("events").delete().in("id", idsToDelete);
       }
 
-      // 3) adjust scores only if team changed
+      // 3) adjust scores and GA only if team changed
       if (prevTeamId !== tid) {
-        const nextHome = (game.home_score || 0) + (tid === home.id ? 1 : 0) - (prevTeamId === home.id ? 1 : 0);
-        const nextAway = (game.away_score || 0) + (tid === away.id ? 1 : 0) - (prevTeamId === away.id ? 1 : 0);
-        setGame((g)=> ({ ...g, home_score: nextHome, away_score: nextAway }));
-        await supabase.from("games").update({ home_score: nextHome, away_score: nextAway }).eq("id", game.id);
+        const nextHome =
+          (game.home_score || 0) +
+          (tid === home.id ? 1 : 0) -
+          (prevTeamId === home.id ? 1 : 0);
+        const nextAway =
+          (game.away_score || 0) +
+          (tid === away.id ? 1 : 0) -
+          (prevTeamId === away.id ? 1 : 0);
+        setGame((g) => ({ ...g, home_score: nextHome, away_score: nextAway }));
+        await supabase
+          .from("games")
+          .update({ home_score: nextHome, away_score: nextAway })
+          .eq("id", game.id);
+
+        // GA: old opposing goalie -1, new opposing goalie +1
+        await bumpGoalieGA(prevTeamId === home.id ? away.id : home.id, -1);
+        await bumpGoalieGA(tid === home.id ? away.id : home.id, +1);
       }
 
       setGoalPick(null);
@@ -370,39 +470,75 @@ export default function LivePage() {
     }
 
     // --- CREATE NEW ---
-    const { error: eg } = await supabase
+    await supabase
       .from("events")
-      .insert([{ game_id: game.id, team_id: tid, player_id: scorerId, period: per, time_mmss: tm, event: "goal" }]);
-    if (eg) return alert(eg.message);
+      .insert([
+        {
+          game_id: game.id,
+          team_id: tid,
+          player_id: scorerId,
+          period: per,
+          time_mmss: tm,
+          event: "goal",
+        },
+      ]);
 
     for (const aid of aList) {
       await supabase
         .from("events")
-        .insert([{ game_id: game.id, team_id: tid, player_id: aid, period: per, time_mmss: tm, event: "assist" }]);
+        .insert([
+          {
+            game_id: game.id,
+            team_id: tid,
+            player_id: aid,
+            period: per,
+            time_mmss: tm,
+            event: "assist",
+          },
+        ]);
     }
 
     // instant score bump
-    setGame((g)=> g ? ({
-      ...g,
-      home_score: tid === g.home_team_id ? (g.home_score||0)+1 : g.home_score,
-      away_score: tid === g.home_team_id ? g.away_score : (g.away_score||0)+1
-    }) : g);
-    await supabase.from("games")
-      .update(tid === game.home_team_id ? { home_score: (game.home_score||0)+1 } : { away_score: (game.away_score||0)+1 })
+    setGame((g) =>
+      g
+        ? {
+            ...g,
+            home_score: tid === g.home_team_id ? (g.home_score || 0) + 1 : g.home_score,
+            away_score: tid === g.home_team_id ? g.away_score : (g.away_score || 0) + 1,
+          }
+        : g
+    );
+    await supabase
+      .from("games")
+      .update(
+        tid === game.home_team_id
+          ? { home_score: (game.home_score || 0) + 1 }
+          : { away_score: (game.away_score || 0) + 1 }
+      )
       .eq("id", game.id);
+
+    // GA on opposing goalie
+    await bumpGoalieGA(tid === home.id ? away.id : home.id, +1);
 
     setGoalPick(null);
   }
 
   async function deleteRow(r) {
     if (r.goal) {
-      const ids = [r.goal.id, ...r.assists.map(a=>a.id)];
+      const ids = [r.goal.id, ...r.assists.map((a) => a.id)];
       await supabase.from("events").delete().in("id", ids);
+
       const isHome = r.goal.team_id === game.home_team_id;
-      const nextHome = isHome ? Math.max(0, (game.home_score||0)-1) : game.home_score;
-      const nextAway = isHome ? game.away_score : Math.max(0, (game.away_score||0)-1);
-      setGame((g)=> ({ ...g, home_score: nextHome, away_score: nextAway }));
-      await supabase.from("games").update({ home_score: nextHome, away_score: nextAway }).eq("id", game.id);
+      const nextHome = isHome ? Math.max(0, (game.home_score || 0) - 1) : game.home_score;
+      const nextAway = isHome ? game.away_score : Math.max(0, (game.away_score || 0) - 1);
+      setGame((g) => ({ ...g, home_score: nextHome, away_score: nextAway }));
+      await supabase
+        .from("games")
+        .update({ home_score: nextHome, away_score: nextAway })
+        .eq("id", game.id);
+
+      // undo GA on opposing goalie
+      await bumpGoalieGA(isHome ? away.id : home.id, -1);
     } else if (r.single) {
       await supabase.from("events").delete().eq("id", r.single.id);
     }
@@ -417,21 +553,34 @@ export default function LivePage() {
   return (
     <div className="container">
       <div className="button-group" style={{ marginBottom: 8 }}>
-        <Link className="btn btn-grey" to={`/games/${slug}/roster`}>Roster</Link>
-        <Link className="btn btn-grey" to={`/games/${slug}`}>Boxscore</Link>
-        <Link className="btn btn-grey" to="/games">Back to Games</Link>
+        <Link className="btn btn-grey" to={`/games/${slug}/roster`}>
+          Roster
+        </Link>
+        <Link className="btn btn-grey" to={`/games/${slug}`}>
+          Boxscore
+        </Link>
+        <Link className="btn btn-grey" to="/games">
+          Back to Games
+        </Link>
       </div>
 
       {/* header: scores + clock + shots */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "center" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr auto 1fr",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
         <div>
           <ScoreCard team={away} score={game.away_score || 0} side="left" />
           <ShotCounter
             label="Shots"
             value={awayShots}
-            onMinus={()=>changeAwayShots((awayShots||0)-1)}
-            onPlus={()=>changeAwayShots((awayShots||0)+1)}
-            onManual={(v)=>changeAwayShots(v)}
+            onMinus={() => changeAwayShots((awayShots || 0) - 1)}
+            onPlus={() => changeAwayShots((awayShots || 0) + 1)}
+            onManual={(v) => changeAwayShots(v)}
             align="left"
           />
         </div>
@@ -439,13 +588,17 @@ export default function LivePage() {
         <ClockBlock
           running={running}
           clock={clock}
-          onClockChange={(v)=>{ const clean=v.replace(/[^\d:]/g,""); setClock(clean); remainingMs.current = mmssToMs(clean); }}
-          onStart={()=> running ? stopClock() : startClock()}
+          onClockChange={(v) => {
+            const clean = v.replace(/[^\d:]/g, "");
+            setClock(clean);
+            remainingMs.current = mmssToMs(clean);
+          }}
+          onStart={() => (running ? stopClock() : startClock())}
           onReset={resetClock}
           period={period}
-          setPeriod={(v)=>setPeriod(clamp(v,1,9))}
+          setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
           lenMin={lenMin}
-          setLenMin={(v)=>setLenMin(clamp(v,1,30))}
+          setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
         />
 
         <div>
@@ -453,23 +606,32 @@ export default function LivePage() {
           <ShotCounter
             label="Shots"
             value={homeShots}
-            onMinus={()=>changeHomeShots((homeShots||0)-1)}
-            onPlus={()=>changeHomeShots((homeShots||0)+1)}
-            onManual={(v)=>changeHomeShots(v)}
+            onMinus={() => changeHomeShots((homeShots || 0) - 1)}
+            onPlus={() => changeHomeShots((homeShots || 0) + 1)}
+            onManual={(v) => changeHomeShots(v)}
             align="right"
           />
         </div>
       </div>
 
       {/* benches + rink */}
-      <div style={{ display: "grid", gridTemplateColumns: "190px 1fr 190px", gap: 12, marginTop: 10 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "190px 1fr 190px",
+          gap: 12,
+          marginTop: 10,
+        }}
+      >
         <Bench
           title={away.short_name || away.name}
           players={awayDressed}
           color={awayColor}
           height={RINK_H}
           benchTeamId={away.id}
-          onDropBack={(pid, tid) => tid===away.id && setOnIce((cur)=>cur.filter(t=>t.id!==pid))}
+          onDropBack={(pid, tid) =>
+            tid === away.id && setOnIce((cur) => cur.filter((t) => t.id !== pid))
+          }
         />
         <Rink
           height={RINK_H}
@@ -493,7 +655,9 @@ export default function LivePage() {
           color={homeColor}
           height={RINK_H}
           benchTeamId={home.id}
-          onDropBack={(pid, tid) => tid===home.id && setOnIce((cur)=>cur.filter(t=>t.id!==pid))}
+          onDropBack={(pid, tid) =>
+            tid === home.id && setOnIce((cur) => cur.filter((t) => t.id !== pid))
+          }
         />
       </div>
 
@@ -513,11 +677,17 @@ export default function LivePage() {
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 10, color: "#8a8a8a" }}>—</td></tr>
+              <tr>
+                <td colSpan={6} style={{ padding: 10, color: "#8a8a8a" }}>
+                  —
+                </td>
+              </tr>
             )}
             {rows.map((r, i) => {
               if (r.goal) {
-                const aTxt = r.assists.map((a)=>a.players?.name || (a.players?.number?`#${a.players.number}`:"—")).join(", ");
+                const aTxt = r.assists
+                  .map((a) => a.players?.name || (a.players?.number ? `#${a.players.number}` : "—"))
+                  .join(", ");
                 const teamLabel = r.goal.teams?.short_name || r.goal.teams?.name || "";
                 return (
                   <tr key={`g${i}`} style={{ borderTop: "1px solid #f0f0f0" }}>
@@ -526,12 +696,27 @@ export default function LivePage() {
                     <td style={{ padding: 8 }}>{teamLabel}</td>
                     <td style={{ padding: 8 }}>goal</td>
                     <td style={{ padding: 8 }}>
-                      <strong>{r.goal.players?.name || (r.goal.players?.number?`#${r.goal.players.number}`:"—")}</strong>
-                      {aTxt && <span style={{ color:"#666" }}> (A: {aTxt})</span>}
+                      <strong>
+                        {r.goal.players?.name ||
+                          (r.goal.players?.number ? `#${r.goal.players.number}` : "—")}
+                      </strong>
+                      {aTxt && <span style={{ color: "#666" }}> (A: {aTxt})</span>}
                     </td>
-                    <td style={{ padding: 8, textAlign: "right", display:"flex", gap:8, justifyContent:"flex-end" }}>
-                      <button className="btn btn-grey" onClick={()=>openGoalFor(null, null, r)}>Edit</button>
-                      <button className="btn btn-grey" onClick={() => deleteRow(r)}>Delete</button>
+                    <td
+                      style={{
+                        padding: 8,
+                        textAlign: "right",
+                        display: "flex",
+                        gap: 8,
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      <button className="btn btn-grey" onClick={() => openGoalFor(null, null, r)}>
+                        Edit
+                      </button>
+                      <button className="btn btn-grey" onClick={() => deleteRow(r)}>
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 );
@@ -543,9 +728,13 @@ export default function LivePage() {
                   <td style={{ padding: 8 }}>{e.time_mmss}</td>
                   <td style={{ padding: 8 }}>{e.teams?.short_name || e.teams?.name || ""}</td>
                   <td style={{ padding: 8 }}>{e.event}</td>
-                  <td style={{ padding: 8 }}>{e.players?.name || (e.players?.number?`#${e.players.number}`:"—")}</td>
+                  <td style={{ padding: 8 }}>
+                    {e.players?.name || (e.players?.number ? `#${e.players.number}` : "—")}
+                  </td>
                   <td style={{ padding: 8, textAlign: "right" }}>
-                    <button className="btn btn-grey" onClick={() => deleteRow(r)}>Delete</button>
+                    <button className="btn btn-grey" onClick={() => deleteRow(r)}>
+                      Delete
+                    </button>
                   </td>
                 </tr>
               );
@@ -562,56 +751,100 @@ export default function LivePage() {
               {goalPick.editKey ? "Edit Goal" : "Confirm Goal"}
             </div>
             <div className="muted" style={{ marginBottom: 8 }}>
-              {(goalPick.team_id === home.id ? (home.short_name || home.name) : (goalPick.team_id === away.id ? (away.short_name || away.name) : ""))}
+              {goalPick.team_id === home.id
+                ? home.short_name || home.name
+                : goalPick.team_id === away.id
+                ? away.short_name || away.name
+                : ""}
             </div>
 
-            <div style={{ display:"grid", gridTemplateColumns:"100px 120px 1fr", gap: 10, marginBottom: 10 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "100px 120px 1fr",
+                gap: 10,
+                marginBottom: 10,
+              }}
+            >
               <div>
                 <div className="muted">Period</div>
-                <input className="input" type="number" min={1} value={goalPeriod} onChange={(e)=>setGoalPeriod(parseInt(e.target.value||"1",10))}/>
+                <input
+                  className="input"
+                  type="number"
+                  min={1}
+                  value={goalPeriod}
+                  onChange={(e) => setGoalPeriod(parseInt(e.target.value || "1", 10))}
+                />
               </div>
               <div>
                 <div className="muted">Time</div>
-                <input className="input" value={goalTime} onChange={(e)=>setGoalTime(e.target.value.replace(/[^\d:]/g,""))}/>
+                <input
+                  className="input"
+                  value={goalTime}
+                  onChange={(e) => setGoalTime(e.target.value.replace(/[^\d:]/g, ""))}
+                />
               </div>
               <div>
                 <div className="muted">Scorer</div>
                 <select
                   className="input"
                   value={goalPick.scorer}
-                  onChange={(e)=>setGoalPick((g)=>({...g, scorer:Number(e.target.value)}))}
+                  onChange={(e) =>
+                    setGoalPick((g) => ({ ...g, scorer: Number(e.target.value) }))
+                  }
                 >
-                  {(goalPick.team_id === home.id ? homeDressed : awayDressed).map((p)=>(
-                    <option key={p.id} value={p.id}>{p.number?`#${p.number} `:""}{p.name}</option>
+                  {(goalPick.team_id === home.id ? homeDressed : awayDressed).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.number ? `#${p.number} ` : ""}
+                      {p.name}
+                    </option>
                   ))}
                 </select>
               </div>
             </div>
 
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <div>
                 <div className="muted">Assist 1</div>
-                <select className="input" value={assist1} onChange={(e)=>setAssist1(e.target.value)}>
+                <select
+                  className="input"
+                  value={assist1}
+                  onChange={(e) => setAssist1(e.target.value)}
+                >
                   <option value="">—</option>
-                  {assistChoices.map((p)=>(
-                    <option key={p.id} value={p.id}>{p.number?`#${p.number} `:""}{p.name}</option>
+                  {assistChoices.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.number ? `#${p.number} ` : ""}
+                      {p.name}
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
                 <div className="muted">Assist 2</div>
-                <select className="input" value={assist2} onChange={(e)=>setAssist2(e.target.value)}>
+                <select
+                  className="input"
+                  value={assist2}
+                  onChange={(e) => setAssist2(e.target.value)}
+                >
                   <option value="">—</option>
-                  {assistChoices.map((p)=>(
-                    <option key={p.id} value={p.id}>{p.number?`#${p.number} `:""}{p.name}</option>
+                  {assistChoices.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.number ? `#${p.number} ` : ""}
+                      {p.name}
+                    </option>
                   ))}
                 </select>
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
-              <button className="btn btn-grey" onClick={()=>setGoalPick(null)}>Cancel</button>
-              <button className="btn btn-blue" onClick={confirmGoal}>{goalPick.editKey ? "Save" : "Confirm Goal"}</button>
+              <button className="btn btn-grey" onClick={() => setGoalPick(null)}>
+                Cancel
+              </button>
+              <button className="btn btn-blue" onClick={confirmGoal}>
+                {goalPick.editKey ? "Save" : "Confirm Goal"}
+              </button>
             </div>
           </div>
         </Modal>
@@ -624,9 +857,29 @@ export default function LivePage() {
 
 function ScoreCard({ team, score, side }) {
   return (
-    <div className="card" style={{ padding: 10, display: "flex", alignItems: "center", gap: 12, justifyContent: side==="left" ? "flex-start" : "flex-end" }}>
+    <div
+      className="card"
+      style={{
+        padding: 10,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        justifyContent: side === "left" ? "flex-start" : "flex-end",
+      }}
+    >
       {side === "left" && <TeamLogoLarge team={team} />}
-      <div style={{ background:"#0d2a66", color:"#fff", fontWeight:900, fontSize:28, borderRadius:12, minWidth:76, textAlign:"center", padding:"10px 16px" }}>
+      <div
+        style={{
+          background: "#0d2a66",
+          color: "#fff",
+          fontWeight: 900,
+          fontSize: 28,
+          borderRadius: 12,
+          minWidth: 76,
+          textAlign: "center",
+          padding: "10px 16px",
+        }}
+      >
         {score}
       </div>
       {side === "right" && <TeamLogoLarge team={team} />}
@@ -634,13 +887,32 @@ function ScoreCard({ team, score, side }) {
   );
 }
 
-function ShotCounter({ label, value, onMinus, onPlus, onManual, align="left" }) {
+function ShotCounter({ label, value, onMinus, onPlus, onManual, align = "left" }) {
   return (
-    <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6, justifyContent: align==="left" ? "flex-start" : "flex-end" }}>
-      <span className="muted" style={{ minWidth: 50 }}>{label}</span>
-      <button className="btn btn-grey" onClick={onMinus}>−</button>
-      <input className="input" value={value} onChange={(e)=>onManual(parseInt(e.target.value||"0",10)||0)} style={{ width:70, textAlign:"center" }}/>
-      <button className="btn btn-grey" onClick={onPlus}>+</button>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginTop: 6,
+        justifyContent: align === "left" ? "flex-start" : "flex-end",
+      }}
+    >
+      <span className="muted" style={{ minWidth: 50 }}>
+        {label}
+      </span>
+      <button className="btn btn-grey" onClick={onMinus}>
+        −
+      </button>
+      <input
+        className="input"
+        value={value}
+        onChange={(e) => onManual(parseInt(e.target.value || "0", 10) || 0)}
+        style={{ width: 70, textAlign: "center" }}
+      />
+      <button className="btn btn-grey" onClick={onPlus}>
+        +
+      </button>
     </div>
   );
 }
@@ -651,33 +923,77 @@ function TeamLogoLarge({ team }) {
   return src ? (
     <img src={src} alt={name} style={{ width: 84, height: 48, objectFit: "contain" }} />
   ) : (
-    <div style={{ width: 84, height: 48, borderRadius: 10, background: "#f4f7ff",
-      display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:20 }}>
-      {name.split(" ").map((w)=>w[0]).join("").slice(0,3)}
+    <div
+      style={{
+        width: 84,
+        height: 48,
+        borderRadius: 10,
+        background: "#f4f7ff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 900,
+        fontSize: 20,
+      }}
+    >
+      {name
+        .split(" ")
+        .map((w) => w[0])
+        .join("")
+        .slice(0, 3)}
     </div>
   );
 }
 
-function ClockBlock({ running, clock, onClockChange, onStart, onReset, period, setPeriod, lenMin, setLenMin }) {
+function ClockBlock({
+  running,
+  clock,
+  onClockChange,
+  onStart,
+  onReset,
+  period,
+  setPeriod,
+  lenMin,
+  setLenMin,
+}) {
   return (
     <div className="card" style={{ padding: 12, textAlign: "center", minWidth: 340 }}>
       <input
         className="input"
         value={clock}
-        onChange={(e)=>onClockChange(e.target.value)}
+        onChange={(e) => onClockChange(e.target.value)}
         style={{ fontWeight: 900, fontSize: 34, textAlign: "center" }}
       />
-      <div style={{ display:"flex", gap:8, justifyContent:"center", marginTop:8, flexWrap:"wrap" }}>
-        <button className="btn btn-grey" onClick={onStart}>{running ? "Stop" : "Start"}</button>
-        <button className="btn btn-grey" onClick={onReset}>Reset</button>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
+        <button className="btn btn-grey" onClick={onStart}>
+          {running ? "Stop" : "Start"}
+        </button>
+        <button className="btn btn-grey" onClick={onReset}>
+          Reset
+        </button>
       </div>
-      <div style={{ display:"flex", gap:8, justifyContent:"center", marginTop:8 }}>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
         <span className="muted">Len</span>
-        <input className="input" type="number" min={1} max={30} value={lenMin} onChange={(e)=>setLenMin(parseInt(e.target.value||"15",10))} style={{ width: 70 }} />
+        <input
+          className="input"
+          type="number"
+          min={1}
+          max={30}
+          value={lenMin}
+          onChange={(e) => setLenMin(parseInt(e.target.value || "15", 10))}
+          style={{ width: 70 }}
+        />
         <span className="muted">min</span>
         <span style={{ width: 12 }} />
         <span className="muted">Period</span>
-        <input className="input" type="number" min={1} value={period} onChange={(e)=>setPeriod(parseInt(e.target.value||"1",10))} style={{ width: 70 }} />
+        <input
+          className="input"
+          type="number"
+          min={1}
+          value={period}
+          onChange={(e) => setPeriod(parseInt(e.target.value || "1", 10))}
+          style={{ width: 70 }}
+        />
       </div>
     </div>
   );
@@ -688,11 +1004,14 @@ function Bench({ title, players, color, height, benchTeamId, onDropBack }) {
     <div
       className="card"
       style={{ height }}
-      onDragOver={(e)=>e.preventDefault()}
-      onDrop={(e)=>{ e.preventDefault(); try{
-        const p = JSON.parse(e.dataTransfer.getData("text/plain")||"{}");
-        if (p?.id) onDropBack?.(p.id, p.team_id);
-      }catch{} }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        try {
+          const p = JSON.parse(e.dataTransfer.getData("text/plain") || "{}");
+          if (p?.id) onDropBack?.(p.id, p.team_id);
+        } catch {}
+      }}
     >
       <div style={{ fontWeight: 700, marginBottom: 6 }}>{title}</div>
       <div
@@ -709,15 +1028,24 @@ function Bench({ title, players, color, height, benchTeamId, onDropBack }) {
           <div
             key={p.id}
             draggable
-            onDragStart={(e)=>e.dataTransfer.setData("text/plain", JSON.stringify({ id:p.id, team_id: benchTeamId }))}
+            onDragStart={(e) =>
+              e.dataTransfer.setData("text/plain", JSON.stringify({ id: p.id, team_id: benchTeamId }))
+            }
             className="chip"
             title={`Drag #${p.number ?? "?"} onto the rink`}
             style={{
-              width: 56, height: 56, borderRadius: 999,
-              background: color, color: textOn(color),
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontWeight: 900, fontSize: 18, cursor: "grab",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.25)"
+              width: 56,
+              height: 56,
+              borderRadius: 999,
+              background: color,
+              color: textOn(color),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 900,
+              fontSize: 18,
+              cursor: "grab",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
             }}
           >
             {p.number ?? "•"}
@@ -730,65 +1058,127 @@ function Bench({ title, players, color, height, benchTeamId, onDropBack }) {
 
 function Rink({
   height,
-  onDrop, onDropTopNet, onDropBottomNet,
-  home, away, homeDressed, awayDressed,
-  onIce, setOnIce, goalieOnIce, setGoalie, homeColor, awayColor
+  onDrop,
+  onDropTopNet,
+  onDropBottomNet,
+  home,
+  away,
+  homeDressed,
+  awayDressed,
+  onIce,
+  setOnIce,
+  goalieOnIce,
+  setGoalie,
+  homeColor,
+  awayColor,
 }) {
   return (
     <div
       style={{
-        position:"relative", height,
-        borderRadius:16, border:"1px solid #d6e2ff", overflow:"hidden",
-        background:`repeating-linear-gradient(0deg,#1c5fe0,#1c5fe0 10px,#1a59d2 10px,#1a59d2 20px)`,
-        boxShadow:"inset 0 0 0 2px rgba(255,255,255,0.05)", userSelect:"none",
+        position: "relative",
+        height,
+        borderRadius: 16,
+        border: "1px solid #d6e2ff",
+        overflow: "hidden",
+        background: `repeating-linear-gradient(0deg,#1c5fe0,#1c5fe0 10px,#1a59d2 10px,#1a59d2 20px)`,
+        boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.05)",
+        userSelect: "none",
       }}
-      onDragOver={(e)=>e.preventDefault()}
+      onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
     >
       {/* yellow bands */}
-      <div style={{ position:"absolute", left:0, right:0, height:10, background:"#ffd400", top:0 }} />
-      <div style={{ position:"absolute", left:0, right:0, height:10, background:"#ffd400", bottom:0 }} />
-      <div style={{ position:"absolute", left:0, right:0, height:10, background:"#ffd400", top:"50%", transform:"translateY(-50%)" }} />
+      <div style={{ position: "absolute", left: 0, right: 0, height: 10, background: "#ffd400", top: 0 }} />
+      <div style={{ position: "absolute", left: 0, right: 0, height: 10, background: "#ffd400", bottom: 0 }} />
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          height: 10,
+          background: "#ffd400",
+          top: "50%",
+          transform: "translateY(-50%)",
+        }}
+      />
 
       {/* creases (top=HOME, bottom=AWAY) */}
       <div
-        onDragOver={(e)=>{ e.preventDefault(); e.stopPropagation(); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         onDrop={onDropTopNet}
         title="Drop HOME scorer here"
         style={{
-          position:"absolute", left:"50%", transform:"translateX(-50%)",
-          width:"28%", height:"14%", top:"5%",
-          borderRadius:12, border:"3px solid #ffd400", background:"rgba(255,212,0,0.10)",
+          position: "absolute",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "28%",
+          height: "14%",
+          top: "5%",
+          borderRadius: 12,
+          border: "3px solid #ffd400",
+          background: "rgba(255,212,0,0.10)",
         }}
       />
       <div
-        onDragOver={(e)=>{ e.preventDefault(); e.stopPropagation(); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         onDrop={onDropBottomNet}
         title="Drop AWAY scorer here"
         style={{
-          position:"absolute", left:"50%", transform:"translateX(-50%)",
-          width:"28%", height:"14%", bottom:"5%",
-          borderRadius:12, border:"3px solid #ffd400", background:"rgba(255,212,0,0.10)",
+          position: "absolute",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "28%",
+          height: "14%",
+          bottom: "5%",
+          borderRadius: 12,
+          border: "3px solid #ffd400",
+          background: "rgba(255,212,0,0.10)",
         }}
       />
 
-      {/* goalie selects (white text for visibility) */}
-      <div style={{ position:"absolute", top:10, left:10, color:"#fff", textShadow:"0 1px 2px rgba(0,0,0,0.35)" }}>
-        <div style={{ fontSize:12, marginBottom:4 }}>{away.short_name || away.name} Goalie</div>
-        <select className="input" value={goalieOnIce[away.id] || ""} onChange={(e)=>setGoalie(away.id, Number(e.target.value)||null)}>
+      {/* goalie selects */}
+      <div style={{ position: "absolute", top: 10, left: 10, color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>
+        <div style={{ fontSize: 12, marginBottom: 4 }}>{away.short_name || away.name} Goalie</div>
+        <select
+          className="input"
+          value={goalieOnIce[away.id] || ""}
+          onChange={(e) => setGoalie(away.id, Number(e.target.value) || null)}
+        >
           <option value="">—</option>
-          {awayDressed.filter((p)=> (p.position||"").toLowerCase().includes("g")).map((g)=>(
-            <option key={g.id} value={g.id}>{g.number?`#${g.number} `:""}{g.name}</option>
-          ))}
+          {awayDressed
+            .filter((p) => (p.position || "").toLowerCase().includes("g"))
+            .map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.number ? `#${g.number} ` : ""}
+                {g.name}
+              </option>
+            ))}
         </select>
       </div>
-      <div style={{ position:"absolute", bottom:10, right:10, color:"#fff", textShadow:"0 1px 2px rgba(0,0,0,0.35)" }}>
-        <div style={{ fontSize:12, marginBottom:4 }}>{home.short_name || home.name} Goalie</div>
-        <select className="input" value={goalieOnIce[home.id] || ""} onChange={(e)=>setGoalie(home.id, Number(e.target.value)||null)}>
+      <div
+        style={{ position: "absolute", bottom: 10, right: 10, color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}
+      >
+        <div style={{ fontSize: 12, marginBottom: 4 }}>{home.short_name || home.name} Goalie</div>
+        <select
+          className="input"
+          value={goalieOnIce[home.id] || ""}
+          onChange={(e) => setGoalie(home.id, Number(e.target.value) || null)}
+        >
           <option value="">—</option>
-          {homeDressed.filter((p)=> (p.position||"").toLowerCase().includes("g")).map((g)=>(
-            <option key={g.id} value={g.id}>{g.number?`#${g.number} `:""}{g.name}</option>
-          ))}
+          {homeDressed
+            .filter((p) => (p.position || "").toLowerCase().includes("g"))
+            .map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.number ? `#${g.number} ` : ""}
+                {g.name}
+              </option>
+            ))}
         </select>
       </div>
 
@@ -800,9 +1190,15 @@ function Rink({
         return (
           <IceToken
             key={`${t.team_id}-${t.id}`}
-            player={p} teamId={t.team_id} x={t.x} y={t.y} color={col}
-            onMove={(nx,ny)=>setOnIce((cur)=>cur.map((it)=>it.id===t.id?{...it,x:nx,y:ny}:it))}
-            onRemove={()=>setOnIce((cur)=>cur.filter((it)=>it.id!==t.id))}
+            player={p}
+            teamId={t.team_id}
+            x={t.x}
+            y={t.y}
+            color={col}
+            onMove={(nx, ny) =>
+              setOnIce((cur) => cur.map((it) => (it.id === t.id ? { ...it, x: nx, y: ny } : it)))
+            }
+            onRemove={() => setOnIce((cur) => cur.filter((it) => it.id !== t.id))}
           />
         );
       })}
@@ -812,8 +1208,10 @@ function Rink({
 
 function IceToken({ player, teamId, x, y, color, onMove, onRemove }) {
   const ref = useRef(null);
-  function onDragStart(e){ e.dataTransfer.setData("text/plain", JSON.stringify({ id:player.id, team_id: teamId })); }
-  function onDragEnd(e){
+  function onDragStart(e) {
+    e.dataTransfer.setData("text/plain", JSON.stringify({ id: player.id, team_id: teamId }));
+  }
+  function onDragEnd(e) {
     const parent = ref.current?.parentElement?.getBoundingClientRect();
     if (!parent) return;
     const nx = clamp(((e.clientX - parent.left) / parent.width) * 100, 0, 100);
@@ -828,12 +1226,21 @@ function IceToken({ player, teamId, x, y, color, onMove, onRemove }) {
       onDragEnd={onDragEnd}
       onDoubleClick={onRemove}
       style={{
-        position:"absolute", left:`calc(${x}% - 22px)`, top:`calc(${y}% - 22px)`,
-        width:44, height:44, borderRadius:999,
-        background: color, color: textOn(color),
-        display:"flex", alignItems:"center", justifyContent:"center",
-        fontWeight:900, fontSize:18, cursor:"grab",
-        boxShadow:"0 2px 6px rgba(0,0,0,0.25)"
+        position: "absolute",
+        left: `calc(${x}% - 22px)`,
+        top: `calc(${y}% - 22px)`,
+        width: 44,
+        height: 44,
+        borderRadius: 999,
+        background: color,
+        color: textOn(color),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 900,
+        fontSize: 18,
+        cursor: "grab",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
       }}
       title="Drag to move • Drag back to bench or double-click to remove"
     >
@@ -844,7 +1251,18 @@ function IceToken({ player, teamId, x, y, color, onMove, onRemove }) {
 
 function Modal({ children }) {
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", padding:12, zIndex:50 }}>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.4)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 12,
+        zIndex: 50,
+      }}
+    >
       {children}
     </div>
   );
