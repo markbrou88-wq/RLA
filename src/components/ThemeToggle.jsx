@@ -1,64 +1,82 @@
+// src/components/ThemeToggle.jsx
 import React from "react";
 
 export default function ThemeToggle() {
-  const safeGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
-  const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+  // Safe localStorage helpers (iOS private mode etc.)
+  const get = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+  const set = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} };
+
+  // System preference (for first run)
   const mql = typeof window !== "undefined" && window.matchMedia
     ? window.matchMedia("(prefers-color-scheme: dark)")
-    : { matches: false, addEventListener() {}, removeEventListener() {} };
+    : { matches: false, addEventListener(){}, removeEventListener(){} };
 
-  // If user has a saved theme, use it; otherwise follow system
-  const getInitial = () => {
-    const saved = safeGet("theme");
-    if (saved === "dark" || saved === "light") return saved;
+  const initialTheme = () => {
+    const saved = get("theme"); // "light" | "dark" | null
+    if (saved === "light" || saved === "dark") return saved;
     return mql.matches ? "dark" : "light";
   };
 
-  const [theme, setTheme] = React.useState(getInitial);
-  const [userLocked, setUserLocked] = React.useState(() => {
-    const saved = safeGet("theme");
-    return saved === "dark" || saved === "light";
+  const [theme, setTheme] = React.useState(initialTheme);
+  const [locked, setLocked] = React.useState(() => {
+    const saved = get("theme");
+    return saved === "light" || saved === "dark";
   });
 
-  // Apply to DOM + persist
-  React.useEffect(() => {
+  // Apply to DOM (cover all selector styles)
+  const apply = React.useCallback((t) => {
     const html = document.documentElement;
-    html.setAttribute("data-theme", theme);
-    html.classList.toggle("dark", theme === "dark");
+    const body = document.body;
 
-    // keep UA widgets consistent
+    // 1) Attribute selector
+    html.setAttribute("data-theme", t);
+
+    // 2) Class selectors
+    html.classList.toggle("dark", t === "dark");
+    body.classList.toggle("dark", t === "dark");
+    body.classList.toggle("theme-dark", t === "dark");
+    body.classList.toggle("theme-light", t === "light");
+
+    // 3) Native form controls & UA widgets
+    //    (lets inputs, scrollbars, pickers follow the theme)
+    //    Also helps some mobile browsers.
+    body.style.colorScheme = t; // CSS property
     let meta = document.querySelector('meta[name="color-scheme"]');
     if (!meta) {
       meta = document.createElement("meta");
-      meta.setAttribute("name", "color-scheme");
+      meta.name = "color-scheme";
       document.head.appendChild(meta);
     }
-    meta.setAttribute("content", theme === "dark" ? "dark light" : "light dark");
+    meta.content = t === "dark" ? "dark light" : "light dark";
+  }, []);
 
-    safeSet("theme", userLocked ? theme : ""); // only store if user explicitly chose
-  }, [theme, userLocked]);
-
-  // Follow system changes *until* user manually toggles
+  // On mount + whenever theme changes
   React.useEffect(() => {
-    const onChange = (e) => {
-      if (!userLocked) setTheme(e.matches ? "dark" : "light");
-    };
+    apply(theme);
+    // Persist only if user explicitly locked a choice
+    if (locked) set("theme", theme);
+    else set("theme", null);
+  }, [theme, locked, apply]);
+
+  // Follow system changes *until* user toggles manually
+  React.useEffect(() => {
+    const onChange = (e) => { if (!locked) setTheme(e.matches ? "dark" : "light"); };
     try {
       mql.addEventListener("change", onChange);
       return () => mql.removeEventListener("change", onChange);
     } catch {
-      // older browsers (no-op)
       return () => {};
     }
-  }, [userLocked]);
+  }, [locked]);
 
   const toggle = () => {
-    setUserLocked(true);
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
+    setLocked(true);           // from now on, keep user choice
+    setTheme((t) => t === "dark" ? "light" : "dark");
   };
 
   return (
     <button
+      type="button"
       className="btn secondary"
       onClick={toggle}
       title="Toggle theme"
