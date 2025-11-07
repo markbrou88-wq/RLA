@@ -572,3 +572,50 @@ tbody tr:hover,
 .tbl .tr:hover{
   background: var(--hover, color-mix(in oklab, var(--card) 85%, #000 15%));
 }
+/* === TeamPage: Roster & Player Stats table – dark/light fixes === */
+
+/* Header cells – readable in both themes */
+table thead th,
+table thead td {
+  background: var(--card-alt);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Body cells inherit theme text color */
+table tbody td {
+  color: var(--text);
+}
+
+/* Zebra striping to match the rest of the app */
+table tbody tr:nth-child(even) {
+  background: var(--row-alt);
+}
+
+/* Subtle hover */
+table tbody tr:hover {
+  background: var(--hover, color-mix(in oklab, var(--card) 85%, #000 15%));
+}
+
+/* The search field in the first header cell (or anywhere inside the table) */
+table input[type="text"],
+table input[type="search"],
+table .search-input {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+table ::placeholder {
+  color: color-mix(in oklab, var(--text) 55%, transparent);
+}
+
+/* If your Team page uses sticky headers, keep them visible on dark backgrounds */
+table thead th {
+  position: sticky;      /* safe if sticky header is already used; harmless otherwise */
+  top: 0;
+  z-index: 1;
+}
+
