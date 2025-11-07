@@ -1,393 +1,420 @@
 // src/pages/GamesPage.jsx
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
+function useMaybeI18n() {
+  try {
+    const { useI18n } = require("../i18n");
+    return useI18n();
+  } catch {
+    return { t: (s) => s };
+  }
+}
+
 export default function GamesPage() {
+  const { t } = useMaybeI18n();
   const navigate = useNavigate();
 
-  const [games, setGames] = React.useState([]);
   const [teams, setTeams] = React.useState([]);
+  const [teamMap, setTeamMap] = React.useState({});
+  const [games, setGames] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
 
-  // filters (date OR single team that matches either side)
+  // filters (date + single team that matches either side)
   const [filterDate, setFilterDate] = React.useState("");
   const [filterTeam, setFilterTeam] = React.useState("");
 
-  // create game state
-  const [newDate, setNewDate] = React.useState("");   // yyyy-MM-dd
-  const [newTime, setNewTime] = React.useState("");   // HH:mm
+  // create form
+  const [newDate, setNewDate] = React.useState("");
   const [newHome, setNewHome] = React.useState("");
   const [newAway, setNewAway] = React.useState("");
-
-  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
     async function load() {
       setLoading(true);
-      const [{ data: t }, { data: g }] = await Promise.all([
-        supabase.from("teams").select("id, name, short_name, logo_url"),
-        supabase
-          .from("games")
-          .select(
-            "id, slug, game_date, home_team_id, away_team_id, home_score, away_score, status"
-          )
-          .order("game_date", { ascending: false }),
-      ]);
-      if (cancelled) return;
-      setTeams(t || []);
-      setGames(g || []);
-      setLoading(false);
+
+      const [{ data: teamRows, error: e1 }, { data: gameRows, error: e2 }] =
+        await Promise.all([
+          supabase
+            .from("teams")
+            .select("id, name, short_name, logo_url")
+            .order("name"),
+          supabase
+            .from("games")
+            .select(
+              "id, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot, slug"
+            )
+            .order("game_date", { ascending: false }),
+        ]);
+
+      if (e1 || e2) {
+        console.error(e1 || e2);
+        if (!cancelled) setLoading(false);
+        return;
+      }
+
+      const map = Object.fromEntries(teamRows.map((t) => [t.id, t]));
+      if (!cancelled) {
+        setTeams(teamRows);
+        setTeamMap(map);
+        setGames(gameRows);
+        setLoading(false);
+      }
     }
+
     load();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const teamsById = React.useMemo(
-    () => new Map(teams.map((x) => [x.id, x])),
-    [teams]
-  );
-
-  const filtered = React.useMemo(() => {
-    return games.filter((g) => {
-      // date filter (matches same yyyy-MM-dd as local)
-      if (filterDate) {
-        const d = new Date(g.game_date);
-        const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-          2,
-          "0"
-        )}-${String(d.getDate()).padStart(2, "0")}`;
-        if (local !== filterDate) return false;
-      }
-      // team filter (match either home or away)
-      if (filterTeam) {
-        if (String(g.home_team_id) !== filterTeam && String(g.away_team_id) !== filterTeam) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [games, filterDate, filterTeam]);
-
-  async function handleCreateGame(e) {
-    e.preventDefault();
-    if (!newDate || !newTime || !newHome || !newAway) return;
-
-    // Build a Date from local inputs & normalize so the stored timestamp
-    // equals exactly what was picked (no timezone shift on save).
-    const local = new Date(`${newDate}T${newTime}:00`);
-    const utcIso = new Date(
-      local.getTime() - local.getTimezoneOffset() * 60000
-    ).toISOString();
-
-    const { data, error } = await supabase
-      .from("games")
-      .insert({
-        game_date: utcIso,
-        home_team_id: Number(newHome),
-        away_team_id: Number(newAway),
-        status: "scheduled",
-      })
-      .select()
-      .single();
-
-    if (!error && data) {
-      // push into list at top
-      setGames((prev) => [data, ...prev]);
-      // clear form
-      setNewDate("");
-      setNewTime("");
-      setNewHome("");
-      setNewAway("");
+  const filtered = games.filter((g) => {
+    const d = (g.game_date || "").slice(0, 10);
+    if (filterDate && d !== filterDate) return false;
+    if (filterTeam) {
+      const matchEither =
+        String(g.home_team_id) === String(filterTeam) ||
+        String(g.away_team_id) === String(filterTeam);
+      if (!matchEither) return false;
     }
-  }
+    return true;
+  });
 
   async function handleDelete(id) {
+    if (!window.confirm(t("Delete this game?"))) return;
     const { error } = await supabase.from("games").delete().eq("id", id);
-    if (!error) setGames((prev) => prev.filter((g) => g.id !== id));
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setGames((cur) => cur.filter((g) => g.id !== id));
   }
 
-  async function markFinal(id) {
+  function makeSlug(dateIso, homeId, awayId) {
+    const d = (dateIso || "").slice(0, 10).replaceAll("-", "");
+    const rand = Math.random().toString(36).slice(2, 6);
+    return `${d}-${homeId}-${awayId}-${rand}`;
+  }
+
+  function formatGameDate(s) {
+    if (!s) return "";
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return s.replace("T", " ");
+    return d.toLocaleString();
+  }
+
+  async function handleCreate() {
+    if (!newDate || !newHome || !newAway) {
+      alert(t("Please fill date, home and away."));
+      return;
+    }
+    if (newHome === newAway) {
+      alert(t("Home and away cannot be the same team."));
+      return;
+    }
+
+    setSaving(true);
+
+    // Convert local "datetime-local" value to UTC before storing to avoid drift later
+    const gameDateUtc = new Date(newDate).toISOString();
+
+    const slug = makeSlug(gameDateUtc, newHome, newAway);
+    const payload = {
+      game_date: gameDateUtc, // store UTC to keep what user picked
+      home_team_id: Number(newHome),
+      away_team_id: Number(newAway),
+      home_score: 0,
+      away_score: 0,
+      status: "scheduled",
+      went_ot: false,
+      slug,
+    };
+
     const { data, error } = await supabase
       .from("games")
-      .update({ status: "final" })
-      .eq("id", id)
+      .insert(payload)
       .select()
       .single();
-    if (!error && data) {
-      setGames((prev) => prev.map((g) => (g.id === id ? data : g)));
+    setSaving(false);
+    if (error) {
+      alert(error.message);
+      return;
     }
+    setGames((cur) => [data, ...cur]);
+    setNewDate("");
+    setNewHome("");
+    setNewAway("");
   }
-
-  function teamCell(tid, alignRight = false) {
-    const t = teamsById.get(tid);
-    if (!t) return <span>—</span>;
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          justifyContent: alignRight ? "flex-end" : "flex-start",
-        }}
-      >
-        {!alignRight && t.logo_url ? (
-          <img
-            src={t.logo_url}
-            alt={t.short_name || t.name}
-            style={{ width: 36, height: 36, objectFit: "contain" }}
-          />
-        ) : null}
-        <div style={{ fontSize: 16, fontWeight: 600 }}>
-          {t.short_name || t.name}
-        </div>
-        {alignRight && t.logo_url ? (
-          <img
-            src={t.logo_url}
-            alt={t.short_name || t.name}
-            style={{ width: 36, height: 36, objectFit: "contain" }}
-          />
-        ) : null}
-      </div>
-    );
-  }
-
-  function Score({ game }) {
-    const d = new Date(game.game_date);
-    const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    const dateStr = d.toLocaleDateString();
-    const isFinal = (game.status || "").toLowerCase() === "final";
-    return (
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 2 }}>
-          {game.away_score ?? 0} — {game.home_score ?? 0}
-        </div>
-        <div style={{ fontSize: 12, color: "#666" }}>
-          {dateStr}, {timeStr}
-        </div>
-        <div style={{ fontSize: 12, color: isFinal ? "#0a8" : "#999" }}>
-          {isFinal ? "final" : "scheduled"}
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) return <div>Loading…</div>;
 
   return (
-    <div>
-      <h2 style={{ margin: "4px 0 12px" }}>Games</h2>
+    <div className="gp-container">
+      {/* Scoped responsive styles */}
+      <style>{`
+        .gp-container { padding: 8px; }
+        .gp-h2 { margin: 8px 0 16px; }
 
-      {/* Filter row */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr auto",
-          gap: 8,
-          marginBottom: 10,
-        }}
-      >
+        .gp-grid { display: grid; gap: 10px; }
+
+        /* Filters row */
+        .gp-filter {
+          grid-template-columns: 170px 1fr auto;
+          align-items: center;
+          margin-bottom: 12px;
+        }
+
+        /* Create row */
+        .gp-create {
+          border: 1px solid #eee;
+          border-radius: 10px;
+          padding: 12px;
+          grid-template-columns: 170px 1fr 1fr auto;
+          align-items: center;
+          margin-bottom: 16px;
+        }
+
+        /* Game card */
+        .gp-card {
+          border: 1px solid #eee;
+          border-radius: 12px;
+          padding: 12px;
+          grid-template-columns: 1fr auto auto;
+          align-items: center;
+        }
+        .gp-card-actions {
+          display: flex;
+          gap: 8px;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+        }
+
+        .gp-team {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0; /* allow ellipsis */
+        }
+        .gp-team-name {
+          font-weight: 700;
+          font-size: 16px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .gp-score { font-weight: 800; font-size: 18px; }
+        .gp-sub { font-size: 12px; color: #666; }
+
+        .gp-logo {
+          width: 28px;
+          height: 28px;
+          object-fit: contain;
+          flex: 0 0 28px;
+        }
+
+        .gp-input {
+          height: 36px;
+          padding: 0 10px;
+          border-radius: 8px;
+          border: 1px solid #ddd;
+          outline: none;
+          width: 100%;
+        }
+
+        /* ---- Mobile (<= 640px) ---- */
+        @media (max-width: 640px) {
+          .gp-filter {
+            grid-template-columns: 1fr 1fr;
+            row-gap: 8px;
+          }
+          .gp-filter > *:last-child { grid-column: 1 / -1; }
+
+          .gp-create {
+            grid-template-columns: 1fr;
+            row-gap: 8px;
+          }
+          .gp-create button { width: 100%; }
+
+          .gp-card {
+            grid-template-columns: 1fr;
+            row-gap: 8px;
+          }
+          .gp-score { font-size: 20px; }
+          .gp-team-name { font-size: 15px; }
+          .gp-logo { width: 32px; height: 32px; } /* slightly bigger touch target */
+          .gp-card-actions { justify-content: flex-start; }
+          .gp-card-actions > button {
+            min-height: 36px;
+            padding: 8px 10px;
+          }
+        }
+      `}</style>
+
+      <h2 className="gp-h2">{t("Games")}</h2>
+
+      {/* Filters: Date + Team (matches either home or away) */}
+      <div className="gp-grid gp-filter">
         <input
           type="date"
           value={filterDate}
           onChange={(e) => setFilterDate(e.target.value)}
-          style={inputS}
+          className="gp-input"
         />
+
         <select
           value={filterTeam}
           onChange={(e) => setFilterTeam(e.target.value)}
-          style={inputS}
+          className="gp-input"
         >
-          <option value="">Team…</option>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.short_name || t.name}
+          <option value="">{t("Team…")}</option>
+          {teams.map((t_) => (
+            <option key={t_.id} value={t_.id}>
+              {t_.name}
             </option>
           ))}
         </select>
+
         <button
-          type="button"
           onClick={() => {
             setFilterDate("");
             setFilterTeam("");
           }}
-          style={btnS}
         >
-          Clear
+          {t("Clear")}
         </button>
       </div>
 
       {/* Create game */}
-      <form
-        onSubmit={handleCreateGame}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(5, minmax(120px, 1fr)) auto",
-          gap: 8,
-          marginBottom: 16,
-        }}
-      >
+      <div className="gp-grid gp-create">
         <input
-          type="date"
+          type="datetime-local"
           value={newDate}
           onChange={(e) => setNewDate(e.target.value)}
-          style={inputS}
-          required
+          className="gp-input"
         />
-        <input
-          type="time"
-          value={newTime}
-          onChange={(e) => setNewTime(e.target.value)}
-          style={inputS}
-          required
-        />
-        <select
-          value={newAway}
-          onChange={(e) => setNewAway(e.target.value)}
-          style={inputS}
-          required
-        >
-          <option value="">Away team…</option>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.short_name || t.name}
-            </option>
-          ))}
-        </select>
-        <div style={{ alignSelf: "center", textAlign: "center", color: "#666" }}>
-          @
-        </div>
+
         <select
           value={newHome}
           onChange={(e) => setNewHome(e.target.value)}
-          style={inputS}
-          required
+          className="gp-input"
         >
-          <option value="">Home team…</option>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.short_name || t.name}
+          <option value="">{t("Home team…")}</option>
+          {teams.map((t_) => (
+            <option key={t_.id} value={t_.id}>
+              {t_.name}
             </option>
           ))}
         </select>
-        <button type="submit" style={btnPrimaryS}>
-          Create
+
+        <select
+          value={newAway}
+          onChange={(e) => setNewAway(e.target.value)}
+          className="gp-input"
+        >
+          <option value="">{t("Away team…")}</option>
+          {teams.map((t_) => (
+            <option key={t_.id} value={t_.id}>
+              {t_.name}
+            </option>
+          ))}
+        </select>
+
+        <button onClick={handleCreate} disabled={saving}>
+          {saving ? t("Creating…") : t("Create")}
         </button>
-      </form>
-
-      {/* List */}
-      <div style={{ display: "grid", gap: 10 }}>
-        {filtered.map((g) => (
-          <div
-            key={g.id}
-            style={{
-              border: "1px solid #eee",
-              borderRadius: 10,
-              padding: 10,
-              display: "grid",
-              gridTemplateColumns: "1.4fr 0.8fr 1.4fr auto",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            {/* Away (left) */}
-            {teamCell(g.away_team_id, false)}
-
-            {/* Score/time */}
-            <Score game={g} />
-
-            {/* Home (right) */}
-            {teamCell(g.home_team_id, true)}
-
-            {/* actions */}
-            <div
-              style={{
-                display: "flex",
-                gap: 6,
-                justifySelf: "end",
-                flexWrap: "wrap",
-              }}
-            >
-              <button
-                type="button"
-                style={btnS}
-                onClick={() => navigate(`/games/${g.slug}/live`)}
-              >
-                Live
-              </button>
-              <button
-                type="button"
-                style={btnS}
-                onClick={() => navigate(`/games/${g.slug}/roster`)}
-              >
-                Roster
-              </button>
-              <button
-                type="button"
-                style={btnS}
-                onClick={() => navigate(`/games/${g.slug}/boxscore`)}
-              >
-                Boxscore
-              </button>
-              <button
-                type="button"
-                style={btnS}
-                onClick={() => navigate(`/games/${g.slug}`)}
-              >
-                Open
-              </button>
-              <button
-                type="button"
-                style={btnWarnS}
-                onClick={() => handleDelete(g.id)}
-              >
-                Delete
-              </button>
-              <button
-                type="button"
-                style={btnS}
-                onClick={() => markFinal(g.id)}
-              >
-                Mark as Final
-              </button>
-            </div>
-          </div>
-        ))}
       </div>
+
+      {/* Games list */}
+      {loading ? (
+        <div style={{ padding: 12 }}>{t("Loading…")}</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ padding: 12 }}>{t("No games match your filters.")}</div>
+      ) : (
+        <div className="gp-grid" style={{ gap: 12 }}>
+          {filtered.map((g) => {
+            const home = teamMap[g.home_team_id] || {};
+            const away = teamMap[g.away_team_id] || {};
+            const statusLabel = g.status;
+            const slug = g.slug || g.id;
+
+            return (
+              <div key={g.id} className="gp-grid gp-card">
+                {/* Matchup (away on the LEFT, home on the RIGHT) */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                  <TeamChip team={away} />
+                  <span className="gp-sub">{t("at")}</span>
+                  <TeamChip team={home} />
+                </div>
+
+                {/* Score + date + status */}
+                <div style={{ textAlign: "center" }}>
+                  <div className="gp-score">
+                    {g.away_score} — {g.home_score}
+                  </div>
+                  <div className="gp-sub">{formatGameDate(g.game_date)}</div>
+                  <div className="gp-sub">{statusLabel}</div>
+                </div>
+
+                {/* Actions */}
+                <div className="gp-card-actions">
+                  <button onClick={() => navigate(`/games/${slug}/live`)}>{t("Live")}</button>
+                  <button onClick={() => navigate(`/games/${slug}/roster`)}>{t("Roster")}</button>
+                  <button onClick={() => navigate(`/games/${slug}/boxscore`)}>{t("Boxscore")}</button>
+                  {g.status === "final" ? (
+                    <button onClick={() => updateStatus(g.id, "scheduled")}>{t("Open")}</button>
+                  ) : (
+                    <button onClick={() => updateStatus(g.id, "final")}>{t("Mark as Final")}</button>
+                  )}
+                  <button
+                    onClick={() => handleDelete(g.id)}
+                    style={{
+                      background: "crimson",
+                      color: "white",
+                      border: 0,
+                      borderRadius: 6,
+                      padding: "6px 10px",
+                    }}
+                  >
+                    {t("Delete")}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  async function updateStatus(id, status) {
+    const { data, error } = await supabase
+      .from("games")
+      .update({ status })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setGames((cur) => cur.map((g) => (g.id === id ? data : g)));
+  }
+}
+
+function TeamChip({ team }) {
+  return (
+    <div className="gp-team" title={team.name || ""}>
+      {team.logo_url ? (
+        <img
+          className="gp-logo"
+          src={team.logo_url}
+          alt={team.short_name || team.name || "team"}
+        />
+      ) : (
+        <span style={{ width: 28 }} />
+      )}
+      <span className="gp-team-name">{team.name || "—"}</span>
     </div>
   );
 }
-
-/* ---------- styles ---------- */
-const inputS = {
-  height: 36,
-  padding: "6px 10px",
-  border: "1px solid #dcdfe6",
-  borderRadius: 8,
-  fontSize: 14,
-};
-
-const btnS = {
-  height: 36,
-  padding: "0 10px",
-  border: "1px solid #dcdfe6",
-  borderRadius: 8,
-  background: "#f7f8fa",
-  cursor: "pointer",
-};
-
-const btnPrimaryS = {
-  ...btnS,
-  background: "#2d6cdf",
-  color: "#fff",
-  borderColor: "#2d6cdf",
-};
-
-const btnWarnS = {
-  ...btnS,
-  background: "#ffebee",
-  borderColor: "#ffcdd2",
-  color: "#c62828",
-};
