@@ -23,7 +23,7 @@ export default function GamesPage() {
 
   // filters (date + single team that matches either side)
   const [filterDate, setFilterDate] = React.useState("");
-  the const [filterTeam, setFilterTeam] = React.useState("");
+  const [filterTeam, setFilterTeam] = React.useState("");
 
   // create form
   const [newDate, setNewDate] = React.useState("");
@@ -133,11 +133,7 @@ export default function GamesPage() {
       slug,
     };
 
-    const { data, error } = await supabase
-      .from("games")
-      .insert(payload)
-      .select()
-      .single();
+    const { data, error } = await supabase.from("games").insert(payload).select().single();
     setSaving(false);
     if (error) {
       alert(error.message);
@@ -150,123 +146,27 @@ export default function GamesPage() {
   }
 
   return (
-    <div className="gp-container">
-      {/* Scoped responsive styles */}
-      <style>{`
-        .gp-container { padding: 8px; }
-        .gp-h2 { margin: 8px 0 16px; }
-
-        .gp-grid { display: grid; gap: 10px; }
-
-        /* Filters row */
-        .gp-filter {
-          grid-template-columns: 170px 1fr auto;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-
-        /* Create row */
-        .gp-create {
-          border: 1px solid #eee;
-          border-radius: 10px;
-          padding: 12px;
-          grid-template-columns: 170px 1fr 1fr auto;
-          align-items: center;
-          margin-bottom: 16px;
-        }
-
-        /* Game card */
-        .gp-card {
-          border: 1px solid #eee;
-          border-radius: 12px;
-          padding: 12px;
-          grid-template-columns: 1fr auto auto;
-          align-items: center;
-        }
-        .gp-card-actions {
-          display: flex;
-          gap: 8px;
-          justify-content: flex-end;
-          flex-wrap: wrap;
-        }
-
-        .gp-team {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          min-width: 0; /* allow ellipsis */
-        }
-        .gp-team-name {
-          font-weight: 700;
-          font-size: 16px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .gp-score { font-weight: 800; font-size: 18px; }
-        .gp-sub { font-size: 12px; color: #666; }
-
-        .gp-logo {
-          width: 28px;
-          height: 28px;
-          object-fit: contain;
-          flex: 0 0 28px;
-        }
-
-        .gp-input {
-          height: 36px;
-          padding: 0 10px;
-          border-radius: 8px;
-          border: 1px solid #ddd;
-          outline: none;
-          width: 100%;
-        }
-
-        /* ---- Mobile (<= 640px) ---- */
-        @media (max-width: 640px) {
-          .gp-filter {
-            grid-template-columns: 1fr 1fr;
-            row-gap: 8px;
-          }
-          .gp-filter > *:last-child { grid-column: 1 / -1; }
-
-          .gp-create {
-            grid-template-columns: 1fr;
-            row-gap: 8px;
-          }
-          .gp-create button { width: 100%; }
-
-          .gp-card {
-            grid-template-columns: 1fr;
-            row-gap: 8px;
-          }
-          .gp-score { font-size: 20px; }
-          .gp-team-name { font-size: 15px; }
-          .gp-logo { width: 32px; height: 32px; } /* slightly bigger touch target */
-          .gp-card-actions { justify-content: flex-start; }
-          .gp-card-actions > button {
-            min-height: 36px;
-            padding: 8px 10px;
-          }
-        }
-      `}</style>
-
-      <h2 className="gp-h2">{t("Games")}</h2>
+    <div>
+      <h2 style={{ margin: "8px 0 16px" }}>{t("Games")}</h2>
 
       {/* Filters: Date + Team (matches either home or away) */}
-      <div className="gp-grid gp-filter">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "170px 1fr auto",
+          gap: 10,
+          alignItems: "center",
+          marginBottom: 12,
+        }}
+      >
         <input
           type="date"
           value={filterDate}
           onChange={(e) => setFilterDate(e.target.value)}
-          className="gp-input"
+          style={inputS}
         />
 
-        <select
-          value={filterTeam}
-          onChange={(e) => setFilterTeam(e.target.value)}
-          className="gp-input"
-        >
+        <select value={filterTeam} onChange={(e) => setFilterTeam(e.target.value)} style={inputS}>
           <option value="">{t("Team…")}</option>
           {teams.map((t_) => (
             <option key={t_.id} value={t_.id}>
@@ -286,19 +186,26 @@ export default function GamesPage() {
       </div>
 
       {/* Create game */}
-      <div className="gp-grid gp-create">
+      <div
+        style={{
+          border: "1px solid #eee",
+          borderRadius: 10,
+          padding: 12,
+          marginBottom: 16,
+          display: "grid",
+          gridTemplateColumns: "170px 1fr 1fr auto",
+          gap: 10,
+          alignItems: "center",
+        }}
+      >
         <input
           type="datetime-local"
           value={newDate}
           onChange={(e) => setNewDate(e.target.value)}
-          className="gp-input"
+          style={inputS}
         />
 
-        <select
-          value={newHome}
-          onChange={(e) => setNewHome(e.target.value)}
-          className="gp-input"
-        >
+        <select value={newHome} onChange={(e) => setNewHome(e.target.value)} style={inputS}>
           <option value="">{t("Home team…")}</option>
           {teams.map((t_) => (
             <option key={t_.id} value={t_.id}>
@@ -307,11 +214,7 @@ export default function GamesPage() {
           ))}
         </select>
 
-        <select
-          value={newAway}
-          onChange={(e) => setNewAway(e.target.value)}
-          className="gp-input"
-        >
+        <select value={newAway} onChange={(e) => setNewAway(e.target.value)} style={inputS}>
           <option value="">{t("Away team…")}</option>
           {teams.map((t_) => (
             <option key={t_.id} value={t_.id}>
@@ -331,7 +234,7 @@ export default function GamesPage() {
       ) : filtered.length === 0 ? (
         <div style={{ padding: 12 }}>{t("No games match your filters.")}</div>
       ) : (
-        <div className="gp-grid" style={{ gap: 12 }}>
+        <div style={{ display: "grid", gap: 12 }}>
           {filtered.map((g) => {
             const home = teamMap[g.home_team_id] || {};
             const away = teamMap[g.away_team_id] || {};
@@ -339,33 +242,53 @@ export default function GamesPage() {
             const slug = g.slug || g.id;
 
             return (
-              <div key={g.id} className="gp-grid gp-card">
+              <div
+                key={g.id}
+                style={{
+                  border: "1px solid #eee",
+                  borderRadius: 12,
+                  padding: 12,
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto auto",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
                 {/* Matchup (away on the LEFT, home on the RIGHT) */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <TeamChip team={away} />
-                  <span className="gp-sub">{t("at")}</span>
+                  <span style={{ color: "#666" }}>{t("at")}</span>
                   <TeamChip team={home} />
                 </div>
 
                 {/* Score + date + status */}
                 <div style={{ textAlign: "center" }}>
-                  <div className="gp-score">
+                  <div style={{ fontWeight: 800, fontSize: 18 }}>
                     {g.away_score} — {g.home_score}
                   </div>
-                  <div className="gp-sub">{formatGameDate(g.game_date)}</div>
-                  <div className="gp-sub">{statusLabel}</div>
+                  <div style={{ fontSize: 12, color: "#666" }}>{formatGameDate(g.game_date)}</div>
+                  <div style={{ fontSize: 12, color: "#666" }}>{statusLabel}</div>
                 </div>
 
                 {/* Actions */}
-                <div className="gp-card-actions">
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  {/* LIVE = interactive rink */}
                   <button onClick={() => navigate(`/games/${slug}/live`)}>{t("Live")}</button>
+
+                  {/* ROSTER toggle page */}
                   <button onClick={() => navigate(`/games/${slug}/roster`)}>{t("Roster")}</button>
+
+                  {/* BOXSCORE = read-only summary */}
                   <button onClick={() => navigate(`/games/${slug}/boxscore`)}>{t("Boxscore")}</button>
+
+                  {/* Final/Open toggle */}
                   {g.status === "final" ? (
                     <button onClick={() => updateStatus(g.id, "scheduled")}>{t("Open")}</button>
                   ) : (
                     <button onClick={() => updateStatus(g.id, "final")}>{t("Mark as Final")}</button>
                   )}
+
+                  {/* Delete */}
                   <button
                     onClick={() => handleDelete(g.id)}
                     style={{
@@ -403,18 +326,27 @@ export default function GamesPage() {
 }
 
 function TeamChip({ team }) {
+  const size = 28;
   return (
-    <div className="gp-team" title={team.name || ""}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       {team.logo_url ? (
         <img
-          className="gp-logo"
           src={team.logo_url}
           alt={team.short_name || team.name || "team"}
+          style={{ width: size, height: size, objectFit: "contain" }}
         />
       ) : (
-        <span style={{ width: 28 }} />
+        <span style={{ width: size }} />
       )}
-      <span className="gp-team-name">{team.name || "—"}</span>
+      <span style={{ fontWeight: 700, fontSize: 16 }}>{team.name || "—"}</span>
     </div>
   );
 }
+
+const inputS = {
+  height: 36,
+  padding: "0 10px",
+  borderRadius: 8,
+  border: "1px solid #ddd",
+  outline: "none",
+};
