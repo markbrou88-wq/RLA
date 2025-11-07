@@ -341,3 +341,11 @@ input:focus,select:focus{outline:2px solid color-mix(in oklab,var(--primary),tra
   /* background & border are already inlined from the component */
 }
 
+/* styles.css – minimal fallback; keep or tweak */
+:root { --bg: #ffffff; --fg: #111; }
+:root[data-theme="dark"],
+html.dark,
+body.dark,
+body.theme-dark { --bg: #0f1115; --fg: #eaeaea; }
+
+html, body { background: var(--bg); color: var(--fg); }
