@@ -1,4 +1,4 @@
-// LivePage.jsx — drop-in
+// LivePage.jsx — sticky shots & clock, Boxscore button removed
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
@@ -40,7 +40,7 @@ export default function LivePage() {
 
   const [rows, setRows] = useState([]);
 
-  // shots (persisted to games)
+  // shots (persisted)
   const [homeShots, setHomeShots] = useState(0);
   const [awayShots, setAwayShots] = useState(0);
 
@@ -60,16 +60,29 @@ export default function LivePage() {
   const [goalTime, setGoalTime] = useState("");
   const [goalPeriod, setGoalPeriod] = useState(1);
 
+  // ---------- localStorage helpers ----------
+  const lsKey = (id) => `live:${id}`;
+  const loadLS = (id) => {
+    try {
+      const raw = localStorage.getItem(lsKey(id));
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+  const saveLS = (id, patch) => {
+    try {
+      const cur = loadLS(id);
+      localStorage.setItem(lsKey(id), JSON.stringify({ ...cur, ...patch }));
+    } catch {}
+  };
+
   /* ---------- initial load ---------- */
   useEffect(() => {
     let dead = false;
     (async () => {
-      const { data: g, error: eg } = await supabase
-        .from("games")
-        .select("*")
-        .eq("slug", slug)
-        .single();
-      if (eg || !g) return;
+      const { data: g } = await supabase.from("games").select("*").eq("slug", slug).single();
+      if (!g) return;
 
       const [{ data: ht }, { data: at }] = await Promise.all([
         supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
@@ -107,16 +120,38 @@ export default function LivePage() {
         (ar || []).map((r) => r.players).sort((a, b) => (a.number || 0) - (b.number || 0))
       );
 
+      // length from DB or default
       const baseLen = g.period_seconds ? Math.round(g.period_seconds / 60) : 15;
-      setLenMin(baseLen);
-      setClock(msToMMSS(baseLen * 60 * 1000));
+
+      // Restore persisted UI state (prefer DB shots if available, otherwise LS)
+      const ls = loadLS(g.id);
+
+      setLenMin(ls.lenMin ?? baseLen);
+      const startMs = mmssToMs(ls.clock ?? msToMMSS((ls.lenMin ?? baseLen) * 60 * 1000));
+      remainingMs.current = startMs;
+      setClock(ls.clock ?? msToMMSS(startMs));
+      setPeriod(ls.period ?? 1);
+      setRunning(false); // per request: not running on return
 
       const map = {};
       (gg || []).forEach((row) => (map[row.team_id] = row.player_id));
       setGoalieOnIce(map);
 
-      setHomeShots(g.home_shots ?? 0);
-      setAwayShots(g.away_shots ?? 0);
+      // shots: DB if present, else fallback to LS
+      setHomeShots(
+        typeof g.home_shots === "number"
+          ? g.home_shots
+          : typeof ls.homeShots === "number"
+          ? ls.homeShots
+          : 0
+      );
+      setAwayShots(
+        typeof g.away_shots === "number"
+          ? g.away_shots
+          : typeof ls.awayShots === "number"
+          ? ls.awayShots
+          : 0
+      );
 
       await refreshEvents(g.id);
     })();
@@ -124,6 +159,7 @@ export default function LivePage() {
       dead = true;
       clearInterval(tickTimer.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   /* realtime events */
@@ -173,6 +209,12 @@ export default function LivePage() {
   }
 
   /* ---------- clock ---------- */
+  useEffect(() => {
+    if (!game?.id) return;
+    // persist UI clock/period/len to LS whenever they change
+    saveLS(game.id, { clock, period, lenMin, running });
+  }, [game?.id, clock, period, lenMin, running]);
+
   function startClock() {
     if (running) return;
     remainingMs.current = mmssToMs(clock);
@@ -273,13 +315,24 @@ export default function LivePage() {
       .eq("player_id", playerId)
       .eq("is_goalie", true)
       .maybeSingle();
-    return gs?.id || (
-      await supabase
-        .from("game_stats")
-        .insert([{ game_id: game.id, team_id: teamId, player_id: playerId, is_goalie: true, goalie_shots_against: 0 }])
-        .select("id")
-        .single()
-    )?.data?.id;
+    return (
+      gs?.id ||
+      (
+        await supabase
+          .from("game_stats")
+          .insert([
+            {
+              game_id: game.id,
+              team_id: teamId,
+              player_id: playerId,
+              is_goalie: true,
+              goalie_shots_against: 0,
+            },
+          ])
+          .select("id")
+          .single()
+      )?.data?.id
+    );
   }
   async function upsertGameGoalieRow(teamId, playerId) {
     const { data: gg } = await supabase
@@ -298,6 +351,16 @@ export default function LivePage() {
   }
 
   /* ---------- SHOTS: persist + push SA to opposing goalie ---------- */
+  useEffect(() => {
+    if (!game?.id) return;
+    saveLS(game.id, { homeShots });
+  }, [game?.id, homeShots]);
+
+  useEffect(() => {
+    if (!game?.id) return;
+    saveLS(game.id, { awayShots });
+  }, [game?.id, awayShots]);
+
   async function bumpGoalieSA(goalieTeamId, delta) {
     if (!delta) return;
     const goalieId = goalieOnIce[goalieTeamId];
@@ -334,6 +397,7 @@ export default function LivePage() {
     }
 
     setHomeShots(v);
+    // DB mirror (if columns exist)
     try {
       await supabase.from("games").update({ home_shots: v }).eq("id", game.id);
     } catch {}
@@ -556,9 +620,7 @@ export default function LivePage() {
         <Link className="btn btn-grey" to={`/games/${slug}/roster`}>
           Roster
         </Link>
-        <Link className="btn btn-grey" to={`/games/${slug}`}>
-          Boxscore
-        </Link>
+        {/* Boxscore button removed per request */}
         <Link className="btn btn-grey" to="/games">
           Back to Games
         </Link>
