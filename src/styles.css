@@ -349,3 +349,193 @@ body.dark,
 body.theme-dark { --bg: #0f1115; --fg: #eaeaea; }
 
 html, body { background: var(--bg); color: var(--fg); }
+
+/* ---------- THEME VARIABLES ---------- */
+:root {
+  /* Light (default) */
+  --bg: #ffffff;
+  --text: #0f172a;             /* slate-900 */
+  --muted: #64748b;            /* slate-500 */
+  --card: #ffffff;
+  --card-alt: #f8fafc;         /* slate-50 */
+  --border: #e2e8f0;           /* slate-200 */
+  --row-alt: #f5f7fb;          /* very light stripe */
+  --link: #2563eb;             /* blue-600 */
+  --link-hover: #1d4ed8;       /* blue-700 */
+  --accent: #3b82f6;           /* blue-500 */
+
+  --chip-bg: #f1f5f9;          /* chip/pill background */
+  --chip-text: #0f172a;
+
+  --btn-bg: #1f2937;           /* neutral button */
+  --btn-text: #ffffff;
+  --btn-border: #1f2937;
+
+  --input-bg: #ffffff;
+  --input-text: #0f172a;
+  --input-placeholder: #64748b;
+
+  --table-head-bg: #f1f5f9;
+  --table-head-text: #0f172a;
+
+  --score-bubble-bg: #111827;
+  --score-bubble-text: #ffffff;
+
+  --timer-bg: #111827;
+  --timer-text: #ffffff;
+}
+
+:root[data-theme="dark"] {
+  /* Dark */
+  --bg: #0b1220;               /* very dark indigo/slate */
+  --text: #e5e7eb;             /* slate-200 */
+  --muted: #94a3b8;            /* slate-400 */
+  --card: #111827;             /* slate-900 */
+  --card-alt: #0f172a;         /* slate-950-ish */
+  --border: #1f2937;           /* slate-800 */
+  --row-alt: #0c1424;          /* subtle row stripe */
+  --link: #60a5fa;             /* blue-400 */
+  --link-hover: #93c5fd;       /* blue-300 */
+  --accent: #60a5fa;           /* blue-400 */
+
+  --chip-bg: #1f2937;
+  --chip-text: #e5e7eb;
+
+  --btn-bg: #334155;           /* slate-700 */
+  --btn-text: #e5e7eb;
+  --btn-border: #475569;
+
+  --input-bg: #0f172a;
+  --input-text: #e5e7eb;
+  --input-placeholder: #94a3b8;
+
+  --table-head-bg: #0f172a;
+  --table-head-text: #e5e7eb;
+
+  --score-bubble-bg: #1f2937;
+  --score-bubble-text: #e5e7eb;
+
+  --timer-bg: #0f172a;
+  --timer-text: #e5e7eb;
+}
+
+/* ---------- GLOBAL BASICS ---------- */
+html, body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+a:hover { color: var(--link-hover); }
+
+/* ---------- COMMON SURFACES ---------- */
+.card, .panel, .box, .sheet, .toolbar, .nav, .header, .footer {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+hr, .divider { border-color: var(--border); }
+
+.badge, .chip, .pill {
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  border: 1px solid var(--border);
+}
+
+/* ---------- TABLES ---------- */
+table {
+  width: 100%;
+  background: var(--card);
+  color: var(--text);
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+}
+thead th {
+  background: var(--table-head-bg);
+  color: var(--table-head-text);
+  border-bottom: 1px solid var(--border);
+}
+tbody tr { border-bottom: 1px solid var(--border); }
+tbody tr:nth-child(even) { background: var(--row-alt); }
+th, td {
+  padding: .65rem .8rem;
+}
+
+/* sortable headers often have icons; keep them visible */
+th .sort-icon { filter: brightness(1.25); }
+
+/* ---------- FORMS ---------- */
+input, select, textarea {
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+input::placeholder, textarea::placeholder {
+  color: var(--input-placeholder);
+}
+
+/* ---------- BUTTONS ---------- */
+button, .btn {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 1px solid var(--btn-border);
+  border-radius: 8px;
+}
+button:hover, .btn:hover { filter: brightness(1.08); }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* If you have .btn-outline variations */
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* ---------- SCORE BUBBLES / COUNTERS ---------- */
+.score-bubble, .counter, .shots-bubble {
+  background: var(--score-bubble-bg);
+  color: var(--score-bubble-text);
+  border: 1px solid var(--border);
+}
+
+/* ---------- TIMER / CLOCK STRIP ---------- */
+.timer, .clock, .clock-strip {
+  background: var(--timer-bg);
+  color: var(--timer-text);
+  border: 1px solid var(--border);
+}
+
+/* ---------- RINK CANVAS CONTAINERS (if they have a box) ---------- */
+.rink-panel {
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+}
+
+/* ---------- NAV LINKS ACTIVE ---------- */
+.nav a.active, .tabs .active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------- MISC UTILS ---------- */
+.muted { color: var(--muted); }
+
+/* “W/L/OTL record” or faint captions */
+.caption, .subtle { color: var(--muted); }
+
+/* Make SVG and icon strokes legible in dark */
+:root[data-theme="dark"] svg {
+  color: var(--text);
+  fill: currentColor;
+}
