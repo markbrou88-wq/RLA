@@ -539,3 +539,36 @@ button:hover, .btn:hover { filter: brightness(1.08); }
   color: var(--text);
   fill: currentColor;
 }
+/* === Standings / table readability – theme-aware overrides === */
+
+/* Use theme tokens for all table surfaces */
+:root {
+  --table-head-bg: var(--table-head-bg, var(--card-alt));
+  --table-head-text: var(--table-head-text, var(--text));
+}
+
+/* Grid-table header row */
+.tr.thead{
+  background: var(--table-head-bg);
+  border-bottom: 1px solid var(--border);
+}
+.tr.thead .td,
+.tr.thead .th-resizable .th-btn{
+  color: var(--table-head-text);
+}
+
+/* Grid-table body cells – inherit theme text */
+.tbl .td{ color: var(--text); }
+
+/* Standard <table> surfaces already theme with your vars,
+   but make the striping match in both modes */
+tbody tr:nth-child(even),
+.tbl .tr:nth-child(even){
+  background: var(--row-alt);
+}
+
+/* Keep hover subtle in both themes */
+tbody tr:hover,
+.tbl .tr:hover{
+  background: var(--hover, color-mix(in oklab, var(--card) 85%, #000 15%));
+}
