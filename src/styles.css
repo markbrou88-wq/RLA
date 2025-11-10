@@ -1,621 +1,255 @@
-/* src/styles.css
-   (Adds rink + token styles, score badges with logos, responsive button group) */
+/* ----------------------------------------------------------------------------------
+   Red Lite Design System
+   ---------------------------------------------------------------------------------- */
 
-/* ---------- THEME (unchanged core) ---------- */
+/* Brand */
 :root {
-  --bg:#fafafa; --text:#222; --muted:#666; --card:#fff; --card-border:#eee;
-  --table-head:#f4f5f8; --hover:#f9f9ff; --primary:#3b5fff; --primary-strong:#2443e3;
-  --btn-text:#fff; --shadow:0 2px 6px rgba(0,0,0,.06);
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#0e1116; --text:#e9eef7; --muted:#a7b1c2; --card:#151923; --card-border:#262b36;
-    --table-head:#1a1f2b; --hover:#1a2030; --primary:#6a8bff; --primary-strong:#8ea5ff;
-    --btn-text:#0e1116; --shadow:0 2px 10px rgba(0,0,0,.35);
-  }
-}
-:root[data-theme="light"] { /* same as light above */ }
-:root[data-theme="dark"]  { /* same as dark above  */ }
-html{transition:background-color .2s ease,color .2s ease;}
-*{box-sizing:border-box;font-family:"Inter","Segoe UI",system-ui,Arial,sans-serif;}
-body{margin:0;background:var(--bg);color:var(--text);}
-a{color:var(--primary);text-decoration:none;font-weight:500;}
-a:hover{text-decoration:underline}
+  --rl-red: #E21E2B;            /* primary brand red */
+  --rl-red-600: #c91925;
+  --rl-red-700: #b41621;
 
-/* ---------- Layout / Cards / Tables ---------- */
-.container{max-width:1000px;margin:0 auto;padding:24px 16px}
-.card{background:var(--card);padding:16px;margin-bottom:16px;border-radius:10px;
-  box-shadow:var(--shadow);border:1px solid var(--card-border)}
-h1,h2,h3{margin:0;font-weight:600} h1{font-size:1.8rem} h2{font-size:1.4rem}
-.kicker{font-size:.8rem;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:4px}
-table{width:100%;border-collapse:collapse;background:var(--card);border-radius:10px;overflow:hidden;
-  box-shadow:var(--shadow);border:1px solid var(--card-border)}
-th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--card-border)}
-th{background:var(--table-head);font-size:.9rem;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.02em}
-tr:hover{background:var(--hover)}
-
-/* ---------- Inputs / Buttons ---------- */
-button,.btn{background:var(--primary);color:var(--btn-text);border:none;border-radius:6px;
-  padding:6px 14px;cursor:pointer;font-size:.9rem;font-weight:600;transition:background .15s ease,opacity .15s ease}
-button:hover,.btn:hover{background:var(--primary-strong)}
-button:disabled{opacity:.6;cursor:not-allowed}
-.btn.secondary{background:transparent;color:var(--text);border:1px solid var(--card-border)}
-.btn.secondary:hover{background:var(--hover)}
-.btn-green{background:#16a34a;color:#fff}.btn-red{background:#ef4444;color:#fff}
-input[type="text"],input[type="date"],input[type="number"],input[type="datetime-local"],select{
-  padding:6px 10px;border:1px solid var(--card-border);border-radius:6px;font-size:.9rem;background:var(--card);color:var(--text)}
-input:focus,select:focus{outline:2px solid color-mix(in oklab,var(--primary),transparent 70%)}
-
-/* Read-only summary */
-.summary-wrap { max-width: 980px; margin: 0 auto; padding: 12px; }
-.summary-header { display: grid; grid-template-columns: 80px 1fr 80px; align-items: center; gap: 12px; margin-bottom: 4px; }
-.summary-title { text-align: center; margin: 0; }
-.summary-logo { width: 64px; height: 64px; object-fit: contain; }
-.summary-subtitle { text-align: center; font-size: 12px; color: #666; margin-bottom: 16px; }
-
-.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 860px) { .summary-grid { grid-template-columns: 1fr; } }
-
-.summary-card {
-  border: 1px solid #eee;
-  border-radius: 10px;
-  padding: 12px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  --radius: 12px;
+  --shadow-1: 0 1px 2px rgba(0,0,0,.12);
+  --shadow-2: 0 10px 30px rgba(0,0,0,.25);
+  --font-ui: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
 }
 
-.nice-table { width: 100%; border-collapse: collapse; }
-.nice-table th, .nice-table td { padding: 8px 10px; border-bottom: 1px solid #eee; }
-.nice-table thead th { background: #fafafa; font-weight: 600; text-align: left; }
+/* Light theme (white/red) */
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-elev: #fafafa;
+  --bg-panel: #ffffff;
+  --text: #101113;
+  --muted: #6b7280;
+  --border: #e5e7eb;
 
+  --chip-bg: #f3f4f6;
+  --chip-text: #111827;
+  --link: #0b66ff;
 
-/* ---------- Nav & Score badges ---------- */
-.nav{display:flex;gap:12px;margin-bottom:16px}
-.nav a{font-weight:500;color:var(--text);padding-bottom:2px;border-bottom:2px solid transparent}
-.nav a:hover{border-color:var(--primary)} .nav a.active{color:var(--primary);border-color:var(--primary)}
-
-.score-badge{
-  display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--card-border);
-  border-radius:12px;padding:10px 14px;box-shadow:var(--shadow);min-width:110px;justify-content:space-between;
-}
-.score-badge .logo{height:24px;object-fit:contain}
-.score-badge .num{background:#0f2a6b;color:#fff;border-radius:8px;padding:6px 10px;font-weight:800;font-size:1.1rem;min-width:36px;text-align:center}
-
-/* ---------- Button group (Games list actions) ---------- */
-.button-group{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
-.button-group .btn{min-width:80px;text-align:center}
-.button-group button{flex:0 1 auto;min-width:70px;white-space:nowrap}
-@media (max-width:700px){
-  .button-group{justify-content:center;gap:6px}
-  .button-group .btn,.button-group button{flex:1 1 45%;min-width:0}
-}
-@media (max-width:400px){
-  .button-group{overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;-webkit-overflow-scrolling:touch}
-  .button-group .btn,.button-group button{flex:0 0 auto}
+  --topbar-bg: var(--rl-red);
+  --topbar-text: #fff;
 }
 
-/* ---------- Rink & Tokens (Live) ---------- */
-.rink-wrap{display:grid;grid-template-columns:1fr 2.2fr 1fr;gap:16px;align-items:start}
-.rink-toolbar{display:flex;gap:8px;justify-content:center;margin:8px 0 12px}
-.rink{
-  position:relative;border:3px solid #ffd84d;border-radius:16px;background:
-    repeating-linear-gradient(0deg,#1557d6 0,#1557d6 10px,#1652c7 10px,#1652c7 20px);
-  aspect-ratio: 200 / 120; /* wide rectangle like dek */
-  width:100%;
-}
-.rink .center-line{position:absolute;left:0;right:0;top:50%;height:6px;background:#ffd84d;transform:translateY(-50%)}
-.crease{position:absolute;width:140px;height:72px;border-radius:12px;border:3px dashed #ffd84d;background:#ffffff1a}
-.crease.top{top:26px;left:calc(50% - 70px)}
-.crease.bot{bottom:26px;left:calc(50% - 70px)}
+/* Dark theme (black/red) */
+:root[data-theme="dark"] {
+  --bg: #0e0f11;
+  --bg-elev: #141518;
+  --bg-panel: #111216;
+  --text: #edf1f7;
+  --muted: #9aa3b2;
+  --border: #23252b;
 
-.bench{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-height:560px;overflow:auto;padding:8px;background:var(--card);
-  border:1px solid var(--card-border);border-radius:12px;box-shadow:var(--shadow)}
-.token{
-  width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-weight:800;color:#fff;user-select:none;box-shadow:0 2px 6px rgba(0,0,0,.2);border:2px solid #fff;
-}
-.token.blue{background:#2563eb}
-.token.red{background:#dc2626}
-.token.black{background:#111}
-.token.ghost{opacity:.5}
+  --chip-bg: #1a1b20;
+  --chip-text: #f3f4f6;
+  --link: #7aa2ff;
 
-/* token anchor when on the ice */
-.token-on-ice{position:absolute;transform:translate(-50%,-50%);}
-
-/* ---------- Shots widget ---------- */
-.shots{display:flex;align-items:center;gap:6px}
-.shots input{width:56px;text-align:center}
-
-/* ---------- Events table tweaks ---------- */
-.events td .actions{display:flex;gap:8px;justify-content:flex-end}
-
-/* ---------- Responsive ---------- */
-@media (max-width:960px){
-  .rink-wrap{grid-template-columns:1fr}
+  --topbar-bg: var(--rl-red);
+  --topbar-text: #fff;
 }
 
-/* helpers */
-.h-title { font-size: 22px; font-weight: 700; margin: 6px 0 12px; }
-.card { background: var(--bgElev, #fff); border:1px solid #eee; border-radius:12px; padding:14px; }
-.card.pad { padding:20px; }
-.card-title { font-weight:700; margin-bottom:8px; }
-.row { display:flex; align-items:flex-start; }
-.align-center { align-items: center; }
-.space-between { justify-content: space-between; }
-.wrap { flex-wrap: wrap; }
-.gap { gap:12px; }
-.gap.xs { gap:6px; }
-.link { color:#2563eb; text-decoration:none; }
-.link:hover { text-decoration:underline; }
-
-.pill { padding:2px 8px; border-radius:999px; font-size:12px; }
-.pill-green { background:#e8fbef; color:#047857; }
-.pill-gray { background:#eee; color:#444; }
-
-.tbl { display:block; width:100%; }
-.tr { display:grid; grid-template-columns: 1fr 64px 64px 64px 64px 64px 64px 72px 72px; gap:8px; padding:8px 10px; align-items:center; }
-.tr .td { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tr .td.left { text-align:left; }
-.tr .td.right { text-align:right; }
-.tr .td.c { text-align:center; }
-.tr .td.b { font-weight:700; }
-.tr.thead { font-weight:700; background: #f8fafc; border-bottom:1px solid #eee; }
-@media (max-width: 800px) {
-  .tr { grid-template-columns: 1fr repeat(6, 48px) 56px 56px; font-size: 13px; }
-}
-
-.btn { background:#3b82f6; color:#fff; border:0; border-radius:8px; padding:6px 10px; cursor:pointer; }
-.btn:hover { filter:brightness(0.95); }
-.btn.ghost { background:#eef2ff; color:#1f2937; }
-.btn.small { padding:4px 8px; font-size:12px; }
-.btn.danger { background:crimson; }
-.in { height:34px; border:1px solid #ddd; border-radius:8px; padding:0 10px; outline:none; }
-.clickable { cursor:pointer; user-select:none; }
-
-/* ---- Team roster table sizing & alignment ---- */
-.team-roster table,
-.team-roster { width: 100%; }
-
-.team-roster table {
-  table-layout: fixed;           /* predictable column widths */
-  border-collapse: collapse;
-}
-
-/* General cells */
-.team-roster th,
-.team-roster td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--card-border);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Header look */
-.team-roster thead th {
-  background: var(--table-head);
-  font-weight: 600;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-  color: var(--text);
-}
-
-/* Column widths: # | Player | POS | Actions */
-.team-roster th:nth-child(1),
-.team-roster td:nth-child(1) {   /* # */
-  width: 64px;
-  text-align: right;
-  color: var(--muted);
-}
-
-.team-roster th:nth-child(2),
-.team-roster td:nth-child(2) {   /* Player (flex) */
-  width: auto;
-}
-
-.team-roster th:nth-child(3),
-.team-roster td:nth-child(3) {   /* POS */
-  width: 72px;
-  text-align: center;
-  color: var(--muted);
-}
-
-.team-roster th:nth-child(4),
-.team-roster td:nth-child(4) {   /* Actions */
-  width: 170px;                  /* room for Edit + Delete */
-}
-
-/* Keep buttons tidy on the right */
-.team-roster td:last-child {
-  white-space: nowrap;
-}
-.team-roster td:last-child .btn,
-.team-roster td:last-child button {
-  margin-inline-start: 6px;
-}
-
-/* Row hover */
-.team-roster tbody tr:hover {
-  background: var(--hover);
-}
-/* Resizable column header */
-.th-resizable {
-  position: relative;
-  user-select: none;
-  display: flex;
-  align-items: center;
-  padding-right: 6px; /* room for handle */
-}
-.th-resizable .th-label {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.col-resize {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 6px;
+html, body, #root {
   height: 100%;
-  cursor: col-resize;
 }
-.ellipsis {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+html { color-scheme: light dark; }
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  color: var(--text);
+  background: radial-gradient(1200px 900px at -10% -20%, rgba(226,30,43,.075), transparent 60%),
+              radial-gradient(1000px 800px at 110% 10%, rgba(226,30,43,.05), transparent 60%),
+              var(--bg);
 }
 
-/* Headers are buttons now (click to sort) */
-.th-resizable .th-btn {
+/* ----------------------------------------------------------------------------------
+   Layout Shell
+   ---------------------------------------------------------------------------------- */
+.layout {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--topbar-bg);
+  color: var(--topbar-text);
+  box-shadow: var(--shadow-1);
+}
+.topbar__inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  gap: 16px;
+  align-items: center;
+}
+.brand { text-decoration: none; color: inherit; display: inline-flex; }
+.brand__script {
+  font-weight: 900;
+  letter-spacing: .2px;
+  font-size: 22px;
+  text-shadow: 0 1px 0 rgba(0,0,0,.2);
+}
+
+.topnav {
+  display: inline-flex;
+  gap: 16px;
+  align-items: center;
+}
+.topnav__link {
+  color: rgba(255,255,255,.85);
+  text-decoration: none;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background .2s ease;
+}
+.topnav__link.active,
+.topnav__link:hover { background: rgba(255,255,255,.15); color:#fff; }
+
+.topbar__actions { display: inline-flex; gap: 8px; }
+
+.layout__content {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.pagehead {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 0 8px;
+}
+.pagehead__title { margin: 0; font-size: 28px; }
+.pagehead__sub   { margin: 6px 0 0; color: var(--muted); }
+
+/* Secondary nav (Standings / Games / Stats) */
+.subnav {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px;
+}
+.subnav__link {
+  text-decoration: none;
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.subnav__link:hover { background: var(--chip-bg); }
+.subnav__link.active { background: var(--rl-red); color: #fff; }
+
+/* Main content wrapper */
+.main { padding: 16px 0 32px; }
+
+/* Footer */
+.footer {
+  margin: 24px 0 40px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ----------------------------------------------------------------------------------
+   Reusable UI
+   ---------------------------------------------------------------------------------- */
+.btn {
   appearance: none;
-  border: none;
-  background: transparent;
-  padding: 0;
-  margin: 0;
-  font: inherit;
+  border: 1px solid transparent;
+  background: var(--rl-red);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 10px;
   font-weight: 600;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  transition: transform .04s ease, filter .2s ease, background .2s ease;
 }
-
-/* Visible column grab handle */
-.col-resize.grip {
-  position: absolute;
-  top: 0;
-  right: -2px;
-  width: 10px;           /* bigger target */
-  height: 100%;
-  cursor: col-resize;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      transparent 0 6px,
-      rgba(0,0,0,0.06) 6px 7px
-    );
-  opacity: .35;
-  transition: opacity .15s ease, background-color .15s ease;
-}
-.th-resizable:hover .col-resize.grip {
-  opacity: .7;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      transparent 0 6px,
-      rgba(0,0,0,0.18) 6px 7px
-    );
-}
-
-/* Prevent header/label overflow and enable ellipsis in cells */
-.th-resizable { position: relative; user-select: none; display: flex; align-items: center; padding-right: 12px; }
-.ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-
-/* Make table header readable even on light backgrounds */
-.tr.thead { 
-  background: #f7f7fb;          /* subtle contrast */
-  border-bottom: 1px solid #e5e7eb;
-}
-.tr.thead .td,
-.tr.thead .th-resizable .th-btn {
-  color: #111827;               /* force dark text */
-}
-
-/* Keep body rows normal text color */
-.tbl .td { color: #1f2937; }     /* slate-800-ish */
-
-/* Optional: a faint column divider for header to cue resizing */
-.tr.thead .col-resize.grip {
-  background:
-    repeating-linear-gradient(90deg, transparent 0 6px, rgba(0,0,0,.15) 6px 7px);
-  opacity: .5;
-}
-/* make header buttons dark & clear */
-.th-btn { color: #111 !important; }
-
-/* ensure the grip is easy to see / grab */
-.th-resizable { position: relative; }
-.th-resizable .grip {
-  position: absolute; top: 0; bottom: 0;
-  cursor: col-resize;
-  /* background & border are already inlined from the component */
-}
-
-/* styles.css – minimal fallback; keep or tweak */
-:root { --bg: #ffffff; --fg: #111; }
-:root[data-theme="dark"],
-html.dark,
-body.dark,
-body.theme-dark { --bg: #0f1115; --fg: #eaeaea; }
-
-html, body { background: var(--bg); color: var(--fg); }
-
-/* ---------- THEME VARIABLES ---------- */
-:root {
-  /* Light (default) */
-  --bg: #ffffff;
-  --text: #0f172a;             /* slate-900 */
-  --muted: #64748b;            /* slate-500 */
-  --card: #ffffff;
-  --card-alt: #f8fafc;         /* slate-50 */
-  --border: #e2e8f0;           /* slate-200 */
-  --row-alt: #f5f7fb;          /* very light stripe */
-  --link: #2563eb;             /* blue-600 */
-  --link-hover: #1d4ed8;       /* blue-700 */
-  --accent: #3b82f6;           /* blue-500 */
-
-  --chip-bg: #f1f5f9;          /* chip/pill background */
-  --chip-text: #0f172a;
-
-  --btn-bg: #1f2937;           /* neutral button */
-  --btn-text: #ffffff;
-  --btn-border: #1f2937;
-
-  --input-bg: #ffffff;
-  --input-text: #0f172a;
-  --input-placeholder: #64748b;
-
-  --table-head-bg: #f1f5f9;
-  --table-head-text: #0f172a;
-
-  --score-bubble-bg: #111827;
-  --score-bubble-text: #ffffff;
-
-  --timer-bg: #111827;
-  --timer-text: #ffffff;
-}
-
-:root[data-theme="dark"] {
-  /* Dark */
-  --bg: #0b1220;               /* very dark indigo/slate */
-  --text: #e5e7eb;             /* slate-200 */
-  --muted: #94a3b8;            /* slate-400 */
-  --card: #111827;             /* slate-900 */
-  --card-alt: #0f172a;         /* slate-950-ish */
-  --border: #1f2937;           /* slate-800 */
-  --row-alt: #0c1424;          /* subtle row stripe */
-  --link: #60a5fa;             /* blue-400 */
-  --link-hover: #93c5fd;       /* blue-300 */
-  --accent: #60a5fa;           /* blue-400 */
-
-  --chip-bg: #1f2937;
-  --chip-text: #e5e7eb;
-
-  --btn-bg: #334155;           /* slate-700 */
-  --btn-text: #e5e7eb;
-  --btn-border: #475569;
-
-  --input-bg: #0f172a;
-  --input-text: #e5e7eb;
-  --input-placeholder: #94a3b8;
-
-  --table-head-bg: #0f172a;
-  --table-head-text: #e5e7eb;
-
-  --score-bubble-bg: #1f2937;
-  --score-bubble-text: #e5e7eb;
-
-  --timer-bg: #0f172a;
-  --timer-text: #e5e7eb;
-}
-
-/* ---------- GLOBAL BASICS ---------- */
-html, body {
-  background: var(--bg);
-  color: var(--text);
-}
-
-a {
-  color: var(--link);
-  text-decoration: none;
-}
-a:hover { color: var(--link-hover); }
-
-/* ---------- COMMON SURFACES ---------- */
-.card, .panel, .box, .sheet, .toolbar, .nav, .header, .footer {
-  background: var(--card);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-
-hr, .divider { border-color: var(--border); }
-
-.badge, .chip, .pill {
+.btn:hover { filter: brightness(.98); }
+.btn:active { transform: translateY(1px); }
+.btn--subtle {
   background: var(--chip-bg);
-  color: var(--chip-text);
+  color: var(--text);
   border: 1px solid var(--border);
 }
 
-/* ---------- TABLES ---------- */
+.input {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.authbar {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  align-items: center; padding: 12px 0;
+}
+.authbar__form { display: flex; gap: 8px; flex-wrap: wrap; }
+.authbar__status { color: #d1fae5; }
+.authbar__hint { color: var(--muted); }
+
+/* Toggle */
+.themetoggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+:root[data-theme="light"] .themetoggle {
+  background: #fff; color: var(--text); border-color: var(--border);
+}
+.themetoggle__label { font-weight: 600; }
+
+/* Cards / Panels */
+.card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+}
+
+/* Tables (used on standings/stats/team/player pages) */
 table {
   width: 100%;
-  background: var(--card);
-  color: var(--text);
   border-collapse: collapse;
+  background: var(--bg-panel);
   border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 thead th {
-  background: var(--table-head-bg);
-  color: var(--table-head-text);
+  text-align: left;
+  padding: 12px;
+  background: linear-gradient(0deg, transparent, transparent),
+              var(--bg-elev);
   border-bottom: 1px solid var(--border);
-}
-tbody tr { border-bottom: 1px solid var(--border); }
-tbody tr:nth-child(even) { background: var(--row-alt); }
-th, td {
-  padding: .65rem .8rem;
-}
-
-/* sortable headers often have icons; keep them visible */
-th .sort-icon { filter: brightness(1.25); }
-
-/* ---------- FORMS ---------- */
-input, select, textarea {
-  background: var(--input-bg);
-  color: var(--input-text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-input::placeholder, textarea::placeholder {
-  color: var(--input-placeholder);
-}
-
-/* ---------- BUTTONS ---------- */
-button, .btn {
-  background: var(--btn-bg);
-  color: var(--btn-text);
-  border: 1px solid var(--btn-border);
-  border-radius: 8px;
-}
-button:hover, .btn:hover { filter: brightness(1.08); }
-
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-/* If you have .btn-outline variations */
-.btn-outline {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-/* ---------- SCORE BUBBLES / COUNTERS ---------- */
-.score-bubble, .counter, .shots-bubble {
-  background: var(--score-bubble-bg);
-  color: var(--score-bubble-text);
-  border: 1px solid var(--border);
-}
-
-/* ---------- TIMER / CLOCK STRIP ---------- */
-.timer, .clock, .clock-strip {
-  background: var(--timer-bg);
-  color: var(--timer-text);
-  border: 1px solid var(--border);
-}
-
-/* ---------- RINK CANVAS CONTAINERS (if they have a box) ---------- */
-.rink-panel {
-  background: var(--card-alt);
-  border: 1px solid var(--border);
-}
-
-/* ---------- NAV LINKS ACTIVE ---------- */
-.nav a.active, .tabs .active {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-/* ---------- MISC UTILS ---------- */
-.muted { color: var(--muted); }
-
-/* “W/L/OTL record” or faint captions */
-.caption, .subtle { color: var(--muted); }
-
-/* Make SVG and icon strokes legible in dark */
-:root[data-theme="dark"] svg {
-  color: var(--text);
-  fill: currentColor;
-}
-/* === Standings / table readability – theme-aware overrides === */
-
-/* Use theme tokens for all table surfaces */
-:root {
-  --table-head-bg: var(--table-head-bg, var(--card-alt));
-  --table-head-text: var(--table-head-text, var(--text));
-}
-
-/* Grid-table header row */
-.tr.thead{
-  background: var(--table-head-bg);
-  border-bottom: 1px solid var(--border);
-}
-.tr.thead .td,
-.tr.thead .th-resizable .th-btn{
-  color: var(--table-head-text);
-}
-
-/* Grid-table body cells – inherit theme text */
-.tbl .td{ color: var(--text); }
-
-/* Standard <table> surfaces already theme with your vars,
-   but make the striping match in both modes */
-tbody tr:nth-child(even),
-.tbl .tr:nth-child(even){
-  background: var(--row-alt);
-}
-
-/* Keep hover subtle in both themes */
-tbody tr:hover,
-.tbl .tr:hover{
-  background: var(--hover, color-mix(in oklab, var(--card) 85%, #000 15%));
-}
-/* === TeamPage: Roster & Player Stats table – dark/light fixes === */
-
-/* Header cells – readable in both themes */
-table thead th,
-table thead td {
-  background: var(--card-alt);
-  color: var(--text);
-  border-bottom: 1px solid var(--border);
-}
-
-/* Body cells inherit theme text color */
-table tbody td {
   color: var(--text);
 }
+tbody td {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+tbody tr:hover { background: var(--bg-elev); }
 
-/* Zebra striping to match the rest of the app */
-table tbody tr:nth-child(even) {
-  background: var(--row-alt);
+/* Links */
+a { color: var(--link); }
+a:where(.topnav__link, .subnav__link) { color: inherit; }
+
+/* Small chips (W/L circles etc) */
+.chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 28px; padding: 0 10px;
+  font-weight: 700; font-size: 12px;
+  background: var(--chip-bg); color: var(--chip-text);
+  border-radius: 999px;
 }
 
-/* Subtle hover */
-table tbody tr:hover {
-  background: var(--hover, color-mix(in oklab, var(--card) 85%, #000 15%));
-}
+/* Utility spacing */
+.mt-16 { margin-top: 16px; }
+.mt-24 { margin-top: 24px; }
 
-/* The search field in the first header cell (or anywhere inside the table) */
-table input[type="text"],
-table input[type="search"],
-table .search-input {
-  background: var(--card);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 8px;
-}
-
-table ::placeholder {
-  color: color-mix(in oklab, var(--text) 55%, transparent);
-}
-
-/* If your Team page uses sticky headers, keep them visible on dark backgrounds */
-table thead th {
-  position: sticky;      /* safe if sticky header is already used; harmless otherwise */
-  top: 0;
-  z-index: 1;
-}
-
+/* Make forms & controls legible on both themes */
+input, select, button { font: inherit; }
