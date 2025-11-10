@@ -1,20 +1,14 @@
 // src/App.jsx
 import React from "react";
-import { Routes, Route, NavLink } from "react-router-dom";
+import { Routes, Route, NavLink, Link } from "react-router-dom";
 import { supabase } from "./supabaseClient.js";
 
-// PAGES
+// PAGES (unchanged)
 import StandingsPage from "./pages/StandingsPage.jsx";
 import GamesPage from "./pages/GamesPage.jsx";
-
-// READ-ONLY BOX SCORE (summary you wanted)
 import SummaryPage from "./pages/SummaryPage.jsx";
-
-// INTERACTIVE EDITING
-import LivePage from "./pages/LivePage.jsx";       // interactive rink
-import RosterPage from "./pages/RosterPage.jsx";   // who played
-
-// Other sections
+import LivePage from "./pages/LivePage.jsx";
+import RosterPage from "./pages/RosterPage.jsx";
 import StatsPage from "./pages/StatsPage.jsx";
 import TeamPage from "./pages/TeamPage.jsx";
 import PlayerPage from "./pages/PlayerPage.jsx";
@@ -61,75 +55,108 @@ function AuthBar() {
   }
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "8px 0" }}>
+    <div className="authbar">
       {user ? (
         <>
-          <span style={{ color: "#0a7e07" }}>Signed in{user?.email ? ` as ${user.email}` : ""}</span>
-          <button onClick={signOut}>Sign out</button>
+          <span className="authbar__status">
+            Signed in{user?.email ? ` as ${user.email}` : ""}
+          </span>
+          <button className="btn" onClick={signOut}>Sign out</button>
         </>
       ) : (
-        <form style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
-          <input type="password" placeholder="Password" value={password} onChange={(e)=>setPassword(e.target.value)} required />
-          <button onClick={signIn}>Sign in</button>
-          <button type="button" onClick={signUp}>Sign up</button>
-          <button type="button" onClick={sendReset}>Forgot password?</button>
+        <form className="authbar__form">
+          <input className="input" type="email" placeholder="Email"
+                 value={email} onChange={(e)=>setEmail(e.target.value)} required />
+          <input className="input" type="password" placeholder="Password"
+                 value={password} onChange={(e)=>setPassword(e.target.value)} required />
+          <button className="btn" onClick={signIn}>Sign in</button>
+          <button className="btn btn--subtle" type="button" onClick={signUp}>Sign up</button>
+          <button className="btn btn--subtle" type="button" onClick={sendReset}>Forgot password?</button>
         </form>
       )}
-      <span style={{ color: "#666" }}>{status}</span>
+      <span className="authbar__hint">{status}</span>
     </div>
   );
 }
 
 /* ------------------------------ Shell ------------------------------ */
-function AppInner() {
-  const { t } = useI18n();
-
+function TopBar() {
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "16px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h1 style={{ margin: 0 }}>{t("RLA Hockey League")}</h1>
-          <p style={{ margin: "4px 0 8px", color: "var(--muted)" }}>
-            {t("Standings • Games • Live Boxscore")}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
+    <header className="topbar">
+      <div className="topbar__inner">
+        <Link to="/" className="brand">
+          {/* stylized text (keeps it light & local) */}
+          <span className="brand__script">Red Lite</span>
+        </Link>
+
+        <nav className="topnav">
+          <NavLink to="/" end className="topnav__link">Dashboard</NavLink>
+          <NavLink to="/games" className="topnav__link">Games</NavLink>
+          <NavLink to="/stats" className="topnav__link">Players</NavLink>
+          <NavLink to="/" className="topnav__link">Teams</NavLink>
+          <NavLink to="/" className="topnav__link">Settings</NavLink>
+        </nav>
+
+        <div className="topbar__actions">
           <LanguageToggle />
           <ThemeToggle />
         </div>
       </div>
+    </header>
+  );
+}
 
-      <AuthBar />
+function SubNav() {
+  const { t } = useI18n();
+  return (
+    <nav className="subnav">
+      <NavLink to="/" end className="subnav__link">{t("Standings")}</NavLink>
+      <NavLink to="/games" className="subnav__link">{t("Games")}</NavLink>
+      <NavLink to="/stats" className="subnav__link">{t("Stats")}</NavLink>
+    </nav>
+  );
+}
 
-      <nav className="nav">
-        <NavLink to="/" end>{t("Standings")}</NavLink>
-        <NavLink to="/games">{t("Games")}</NavLink>
-        <NavLink to="/stats">{t("Stats")}</NavLink>
-      </nav>
+function AppInner() {
+  const { t } = useI18n();
 
-      <main style={{ padding: "16px 0" }}>
-        <Routes>
-          <Route path="/" element={<StandingsPage />} />
-          <Route path="/games" element={<GamesPage />} />
+  return (
+    <div className="layout">
+      <TopBar />
+      <div className="layout__content">
+        <div className="pagehead">
+          <div>
+            <h1 className="pagehead__title">{t("RLA Hockey League")}</h1>
+            <p className="pagehead__sub">{t("Standings • Games • Live Boxscore")}</p>
+          </div>
+        </div>
 
-          {/* READ-ONLY summary (this is the one you want when clicking Boxscore) */}
-          <Route path="/games/:slug/boxscore" element={<SummaryPage />} />
+        <SubNav />
+        <AuthBar />
 
-          {/* Editing pages */}
-          <Route path="/games/:slug/live" element={<LivePage />} />
-          <Route path="/games/:slug/roster" element={<RosterPage />} />
+        <main className="main">
+          <Routes>
+            <Route path="/" element={<StandingsPage />} />
+            <Route path="/games" element={<GamesPage />} />
 
-          {/* Other sections */}
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/teams/:id" element={<TeamPage />} />
-          <Route path="/players/:id" element={<PlayerPage />} />
-        </Routes>
-      </main>
+            {/* READ-ONLY summary */}
+            <Route path="/games/:slug/boxscore" element={<SummaryPage />} />
 
-      <footer style={{ padding: "16px 0", color: "var(--muted)", fontSize: 12 }}>
-        Built with React + Supabase • Realtime edits for boxscores
-      </footer>
+            {/* Editing pages */}
+            <Route path="/games/:slug/live" element={<LivePage />} />
+            <Route path="/games/:slug/roster" element={<RosterPage />} />
+
+            {/* Other sections */}
+            <Route path="/stats" element={<StatsPage />} />
+            <Route path="/teams/:id" element={<TeamPage />} />
+            <Route path="/players/:id" element={<PlayerPage />} />
+          </Routes>
+        </main>
+
+        <footer className="footer">
+          Built with React + Supabase • Realtime edits for boxscores
+        </footer>
+      </div>
     </div>
   );
 }
