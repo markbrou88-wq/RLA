@@ -2,6 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
+import './styles.css'
 
 // --- Synchronous theme boot (runs before React mounts) ---
 (() => {
@@ -24,7 +25,7 @@ import App from './App.jsx'
   html.setAttribute('data-theme', theme);           // for [data-theme="dark"] CSS
   html.classList.toggle('dark', theme === 'dark');  // for .dark { ... } CSS
 
-  // Make form controls & UA widgets match the theme
+  // Hint to UA controls
   let meta = document.querySelector('meta[name="color-scheme"]');
   if (!meta) {
     meta = document.createElement('meta');
