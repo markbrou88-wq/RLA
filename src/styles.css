@@ -253,3 +253,39 @@ a:where(.topnav__link, .subnav__link) { color: inherit; }
 
 /* Make forms & controls legible on both themes */
 input, select, button { font: inherit; }
+
+/* --- HARD RESET: make real tables act like tables --- */
+table {
+  display: table !important;
+  table-layout: auto !important;
+  border-collapse: collapse !important;
+  width: 100% !important;
+}
+
+thead { display: table-header-group !important; }
+tbody { display: table-row-group !important; }
+tr    { display: table-row !important; }
+
+th, td {
+  display: table-cell !important;
+  vertical-align: middle;
+  white-space: nowrap;       /* keep headers on one line */
+  word-break: normal;
+}
+
+/* allow wrapping on small screens if needed */
+@media (max-width: 640px) {
+  th, td { white-space: normal; }
+}
+
+/* if you copied our earlier rule, drop the overflow on table */
+table { overflow: visible !important; border-radius: 0; }
+
+/* optional: round the "table" using a wrapper instead of the table element */
+.table-wrap {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+}
