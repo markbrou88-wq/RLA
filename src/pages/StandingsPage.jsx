@@ -1,40 +1,81 @@
 // src/pages/StandingsPage.jsx
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
+// Helper: resolve season by slug when URL has /s/:seasonSlug
+async function getSeasonBySlug(slug) {
+  if (!slug) return null;
+  const { data, error } = await supabase
+    .from("seasons")
+    .select("id, slug, name")
+    .eq("slug", slug)
+    .single();
+  if (error) {
+    console.warn("getSeasonBySlug:", error.message);
+    return null;
+  }
+  return data;
+}
+
+// Generic loader that tries season filter first and falls back if the view has no column
+async function loadStandings({ seasonId }) {
+  const base = supabase.from("standings_current")
+    .select("team_id, name, gp, w, l, otl, pts, gf, ga, diff")
+    .order("pts", { ascending: false })
+    .order("diff", { ascending: false });
+
+  if (!seasonId) {
+    // No season → old behavior
+    return base;
+  }
+
+  // Try with season filter
+  let { data, error } = await base.eq("season_id", seasonId);
+  if (error && /column .*season_id/i.test(error.message)) {
+    // View not seasonized yet → try again without eq
+    const res = await base;
+    return res;
+  }
+  return { data, error };
+}
+
 export default function StandingsPage() {
+  const { seasonSlug } = useParams(); // undefined for back-compat URLs
   const [rows, setRows] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [season, setSeason] = React.useState(null);
 
   React.useEffect(() => {
     let cancelled = false;
-    async function load() {
+    async function run() {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("standings_current") // view
-        .select("team_id, name, gp, w, l, otl, pts, gf, ga, diff")
-        .order("pts", { ascending: false })
-        .order("diff", { ascending: false });
+      // get season id if slug in URL
+      const s = await getSeasonBySlug(seasonSlug);
+      if (!cancelled) setSeason(s);
+
+      const { data, error } = await loadStandings({ seasonId: s?.id });
       if (!cancelled) {
         if (error) console.error(error);
         setRows(data || []);
         setLoading(false);
       }
     }
-    load();
-    // live-ish refresh when you navigate back
-    const vis = () => document.visibilityState === "visible" && load();
+    run();
+
+    const vis = () => document.visibilityState === "visible" && run();
     document.addEventListener("visibilitychange", vis);
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", vis);
     };
-  }, []);
+  }, [seasonSlug]);
 
   return (
     <div>
-      <h2 className="h-title">Standings</h2>
+      <h2 className="h-title">
+        {season ? `Standings — ${season.name}` : "Standings"}
+      </h2>
 
       {loading ? (
         <div className="card pad">Loading…</div>
@@ -55,7 +96,6 @@ export default function StandingsPage() {
             {rows.map((r) => (
               <div key={r.team_id} className="tr">
                 <div className="td left">
-                  {/* Clickable team name → Team page (same tab) */}
                   <Link className="link" to={`/teams/${r.team_id}`}>{r.name}</Link>
                 </div>
                 <div className="td c">{r.gp}</div>
@@ -74,3 +114,5 @@ export default function StandingsPage() {
     </div>
   );
 }
+
+/* Built from your original StandingsPage.jsx with season-awareness added.  :contentReference[oaicite:4]{index=4} */
