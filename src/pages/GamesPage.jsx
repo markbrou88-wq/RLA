@@ -3,6 +3,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
+// Tiny optional i18n hook (keeps your UI strings working even if i18n isn't present)
 function useMaybeI18n() {
   try {
     const { useI18n } = require("../i18n");
@@ -16,6 +17,7 @@ export default function GamesPage() {
   const { t } = useMaybeI18n();
   const navigate = useNavigate();
 
+  // data
   const [teams, setTeams] = React.useState([]);
   const [teamMap, setTeamMap] = React.useState({});
   const [games, setGames] = React.useState([]);
@@ -102,6 +104,7 @@ export default function GamesPage() {
   function formatGameDate(s) {
     if (!s) return "";
     const d = new Date(s);
+    // if backend value isn't ISO parseable, just show raw (with a space instead of T)
     if (Number.isNaN(d.getTime())) return s.replace("T", " ");
     return d.toLocaleString();
   }
@@ -118,12 +121,12 @@ export default function GamesPage() {
 
     setSaving(true);
 
-    // Convert local "datetime-local" value to UTC before storing to avoid drift later
+    // Convert local “datetime-local” to UTC ISO to preserve what user picked
     const gameDateUtc = new Date(newDate).toISOString();
 
     const slug = makeSlug(gameDateUtc, newHome, newAway);
     const payload = {
-      game_date: gameDateUtc, // store UTC to keep what user picked
+      game_date: gameDateUtc,
       home_team_id: Number(newHome),
       away_team_id: Number(newAway),
       home_score: 0,
@@ -138,6 +141,7 @@ export default function GamesPage() {
       .insert(payload)
       .select()
       .single();
+
     setSaving(false);
     if (error) {
       alert(error.message);
@@ -151,7 +155,7 @@ export default function GamesPage() {
 
   return (
     <div className="gp-container">
-      {/* Scoped responsive styles */}
+      {/* Lightweight scoped styles to improve responsiveness without touching global CSS */}
       <style>{`
         .gp-container { padding: 8px; }
         .gp-h2 { margin: 8px 0 16px; }
@@ -194,7 +198,7 @@ export default function GamesPage() {
           display: flex;
           align-items: center;
           gap: 10px;
-          min-width: 0; /* allow ellipsis */
+          min-width: 0; /* allows text ellipsis */
         }
         .gp-team-name {
           font-weight: 700;
@@ -242,7 +246,7 @@ export default function GamesPage() {
           }
           .gp-score { font-size: 20px; }
           .gp-team-name { font-size: 15px; }
-          .gp-logo { width: 32px; height: 32px; } /* slightly bigger touch target */
+          .gp-logo { width: 32px; height: 32px; } /* larger touch target */
           .gp-card-actions { justify-content: flex-start; }
           .gp-card-actions > button {
             min-height: 36px;
@@ -253,7 +257,7 @@ export default function GamesPage() {
 
       <h2 className="gp-h2">{t("Games")}</h2>
 
-      {/* Filters: Date + Team (matches either home or away) */}
+      {/* Filters: Date + Team (team matches either home or away) */}
       <div className="gp-grid gp-filter">
         <input
           type="date"
@@ -340,7 +344,7 @@ export default function GamesPage() {
 
             return (
               <div key={g.id} className="gp-grid gp-card">
-                {/* Matchup (away on the LEFT, home on the RIGHT) */}
+                {/* Matchup (AWAY on the LEFT, HOME on the RIGHT as requested) */}
                 <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
                   <TeamChip team={away} />
                   <span className="gp-sub">{t("at")}</span>
@@ -394,6 +398,7 @@ export default function GamesPage() {
       .eq("id", id)
       .select()
       .single();
+
     if (error) {
       alert(error.message);
       return;
