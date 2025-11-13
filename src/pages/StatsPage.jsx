@@ -1,4 +1,4 @@
-// StatsPage.jsx — no functional changes except ensuring goalie section
+// StatsPage.jsx — no functional changes except ensuring goalie section TEST
 // reads the aggregated goalie view so SA/GA/W/L/OTL/SO reflect edits.
 // Also keeps existing styling/dark-mode friendly table head colors.
 import React from "react";
