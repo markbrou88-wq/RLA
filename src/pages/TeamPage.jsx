@@ -109,7 +109,7 @@ function useRoster(teamId) {
   return { players, setPlayers, reload };
 }
 
-/** Skater stats from player_stats_current (GP/G/A/PTS) */
+/** Skater stats from leaders_current (GP/G/A/PTS) */
 function useStatsForPlayers(playerIds) {
   const [map, setMap] = React.useState(new Map());
 
@@ -121,7 +121,7 @@ function useStatsForPlayers(playerIds) {
     let stop = false;
     (async () => {
       const { data, error } = await supabase
-        .from("player_stats_current")
+        .from("leaders_current")
         .select("player_id, gp, g, a, pts")
         .in("player_id", playerIds);
 
