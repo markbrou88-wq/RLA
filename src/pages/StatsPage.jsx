@@ -1,4 +1,4 @@
-// src/pages/StatsPage.jsx
+// src/pages/StatsPage.jsx TEST
 import React from "react";
 import { supabase } from "../supabaseClient";
 import PlayerLink from "../components/PlayerLink";
