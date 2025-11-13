@@ -32,7 +32,7 @@ export default function StatsPage() {
       ] = await Promise.all([
         // One view for everything: GP, G, A, PTS
         supabase
-          .from("player_stats_current")
+          .from("leaders_current")
           .select("player_id, player, team, gp, g, a, pts")
           .order("pts", { ascending: false })
           .order("g", { ascending: false })
