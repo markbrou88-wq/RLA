@@ -620,35 +620,44 @@ table thead th {
   z-index: 1;
 }
 
-
-
-/* === FINAL OVERRIDE: make Team column visible on small screens === */
+/* === FINAL OVERRIDE: mobile standings – full-width portrait & full team name === */
 @media (max-width: 600px) {
+  /* Use full screen width, no forced horizontal scroll for standings card */
   .standings-page .card {
-    overflow-x: auto;
+    overflow-x: visible;
   }
 
+  /* Let the grid compress to the viewport instead of forcing 640px */
   .standings-page .tbl {
-    min-width: 640px;
+    width: 100%;
   }
 
+  /* Tighter grid on mobile, but still keeps all columns */
   .standings-page .tr {
     grid-template-columns:
-      2.4fr  /* Team */
-      1fr    /* GP  */
-      1fr    /* W   */
-      1fr    /* L   */
-      1fr    /* OTL */
-      1fr    /* GF  */
-      1fr    /* GA  */
-      1.2fr  /* DIFF*/
-      1.2fr; /* PTS */
+      2fr    /* Team (more space) */
+      0.9fr  /* GP  */
+      0.9fr  /* W   */
+      0.9fr  /* L   */
+      0.9fr  /* OTL */
+      0.9fr  /* GF  */
+      0.9fr  /* GA  */
+      1.1fr  /* DIFF*/
+      1.1fr; /* PTS */
     font-size: 11px;
     gap: 4px;
     padding: 6px 6px;
   }
 
-  .standings-page .td {
+  /* Allow the team name to wrap instead of being cut off */
+  .standings-page .tr .td.left {
+    white-space: normal;
+    text-overflow: clip;
+    overflow: visible;
+  }
+
+  /* Keep other cells on one line so numbers stay compact */
+  .standings-page .tr .td:not(.left) {
     white-space: nowrap;
   }
 }
