@@ -312,7 +312,7 @@ input:focus,select:focus{outline:2px solid color-mix(in oklab,var(--primary),tra
 .ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 /* Make table header readable even on light backgrounds */
-.tr.thead { 
+.tr.thead{ 
   background: #f7f7fb;          /* subtle contrast */
   border-bottom: 1px solid #e5e7eb;
 }
@@ -338,7 +338,6 @@ input:focus,select:focus{outline:2px solid color-mix(in oklab,var(--primary),tra
 .th-resizable .grip {
   position: absolute; top: 0; bottom: 0;
   cursor: col-resize;
-  /* background & border are already inlined from the component */
 }
 
 /* styles.css – minimal fallback; keep or tweak */
@@ -539,6 +538,7 @@ button:hover, .btn:hover { filter: brightness(1.08); }
   color: var(--text);
   fill: currentColor;
 }
+
 /* === Standings / table readability – theme-aware overrides === */
 
 /* Use theme tokens for all table surfaces */
@@ -572,6 +572,7 @@ tbody tr:hover,
 .tbl .tr:hover{
   background: var(--hover, color-mix(in oklab, var(--card) 85%, #000 15%));
 }
+
 /* === TeamPage: Roster & Player Stats table – dark/light fixes === */
 
 /* Header cells – readable in both themes */
@@ -619,64 +620,48 @@ table thead th {
   z-index: 1;
 }
 
-/* ---------- Standings: phone-friendly tweaks (same table layout) ---------- */
+/* ---------- Standings: phone-friendly layout tweaks ---------- */
 
-.standings-page .card {
-  /* keep normal look but allow the grid to breathe on tiny screens */
-  overflow-x: auto;
-}
-
-.standings-page .tbl {
-  width: 100%;
-}
-
-/* On small screens, tighten spacing & font so all columns fit better */
-@media (max-width: 600px) {
-  .standings-page .h-title {
-    font-size: 20px;
-  }
-
-  .standings-page .tr {
-    grid-template-columns: 1fr repeat(6, 40px) 48px 48px;
-    gap: 4px;
-    padding: 6px 6px;
-    font-size: 12px;
-  }
-
-  .standings-page .td {
-    padding: 0; /* visual padding is from grid gap */
-  }
-}
-
-/* ---- Fix standings team name visibility on phones ---- */
-
+/* Base: keep desktop/tablet exactly as-is; only touch small screens */
 @media (max-width: 600px) {
 
-  /* Allow horizontal scrolling without breaking layout */
+  /* No need for horizontal scroll if we drop a few stats */
   .standings-page .card {
-    overflow-x: auto;
+    overflow-x: visible;
   }
 
   .standings-page .tbl {
-    min-width: 700px; /* ensures columns don't squeeze each other */
+    width: 100%;
   }
 
-  /* Make the Team column readable */
+  /* Compact grid: keep Team + GP/W/L/OTL + PTS fully visible */
   .standings-page .tr {
     grid-template-columns:
-      minmax(140px, 1fr)   /* TEAM column: minimum 140px, but flexible */
-      40px                 /* GP */
-      40px                 /* W  */
-      40px                 /* L  */
-      40px                 /* OTL */
-      40px                 /* GF */
-      40px                 /* GA */
-      48px                 /* DIFF */
-      48px;                /* PTS */
-
+      minmax(130px, 2fr)  /* Team */
+      40px                /* GP */
+      40px                /* W  */
+      40px                /* L  */
+      40px                /* OTL */
+      0px                 /* GF (hidden) */
+      0px                 /* GA (hidden) */
+      0px                 /* DIFF (hidden) */
+      48px;               /* PTS */
     gap: 6px;
     padding: 6px 8px;
     font-size: 12px;
+  }
+
+  /* Hide GF / GA / DIFF cells on small screens */
+  .standings-page .tr .td:nth-child(6),
+  .standings-page .tr .td:nth-child(7),
+  .standings-page .tr .td:nth-child(8) {
+    display: none;
+  }
+
+  .standings-page .tr.thead .td:nth-child(6),
+  .standings-page .tr.thead .td:nth-child(7),
+  .standings-page .tr.thead .td:nth-child(8) {
+    display: none;
   }
 
   .standings-page .td {
