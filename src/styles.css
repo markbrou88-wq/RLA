@@ -647,3 +647,39 @@ table thead th {
     padding: 0; /* visual padding is from grid gap */
   }
 }
+
+/* ---- Fix standings team name visibility on phones ---- */
+
+@media (max-width: 600px) {
+
+  /* Allow horizontal scrolling without breaking layout */
+  .standings-page .card {
+    overflow-x: auto;
+  }
+
+  .standings-page .tbl {
+    min-width: 700px; /* ensures columns don't squeeze each other */
+  }
+
+  /* Make the Team column readable */
+  .standings-page .tr {
+    grid-template-columns:
+      minmax(140px, 1fr)   /* TEAM column: minimum 140px, but flexible */
+      40px                 /* GP */
+      40px                 /* W  */
+      40px                 /* L  */
+      40px                 /* OTL */
+      40px                 /* GF */
+      40px                 /* GA */
+      48px                 /* DIFF */
+      48px;                /* PTS */
+
+    gap: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .standings-page .td {
+    white-space: nowrap;
+  }
+}
