@@ -620,79 +620,35 @@ table thead th {
   z-index: 1;
 }
 
-/* ---------- Standings: phone-friendly layout tweaks ---------- */
 
-/* Base: keep desktop/tablet exactly as-is; only touch small screens */
+
+/* === FINAL OVERRIDE: make Team column visible on small screens === */
 @media (max-width: 600px) {
-
-  /* No need for horizontal scroll if we drop a few stats */
   .standings-page .card {
-    overflow-x: visible;
+    overflow-x: auto;
   }
 
   .standings-page .tbl {
-    width: 100%;
+    min-width: 640px;
   }
 
-  /* Compact grid: keep Team + GP/W/L/OTL + PTS fully visible */
   .standings-page .tr {
     grid-template-columns:
-      minmax(130px, 2fr)  /* Team */
-      40px                /* GP */
-      40px                /* W  */
-      40px                /* L  */
-      40px                /* OTL */
-      0px                 /* GF (hidden) */
-      0px                 /* GA (hidden) */
-      0px                 /* DIFF (hidden) */
-      48px;               /* PTS */
-    gap: 6px;
-    padding: 6px 8px;
-    font-size: 12px;
-  }
-
-  /* Hide GF / GA / DIFF cells on small screens */
-  .standings-page .tr .td:nth-child(6),
-  .standings-page .tr .td:nth-child(7),
-  .standings-page .tr .td:nth-child(8) {
-    display: none;
-  }
-
-  .standings-page .tr.thead .td:nth-child(6),
-  .standings-page .tr.thead .td:nth-child(7),
-  .standings-page .tr.thead .td:nth-child(8) {
-    display: none;
+      2.4fr  /* Team */
+      1fr    /* GP  */
+      1fr    /* W   */
+      1fr    /* L   */
+      1fr    /* OTL */
+      1fr    /* GF  */
+      1fr    /* GA  */
+      1.2fr  /* DIFF*/
+      1.2fr; /* PTS */
+    font-size: 11px;
+    gap: 4px;
+    padding: 6px 6px;
   }
 
   .standings-page .td {
     white-space: nowrap;
   }
 }
-
-/* === FINAL OVERRIDE: make Team visible on phones === */
-@media (max-width: 600px) {
-
-  /* Apply to ANY grid-table (.tbl/.tr), so it works even if
-     the .standings-page wrapper is missing */
-  .tbl .tr {
-    grid-template-columns:
-      2.5fr    /* Team */
-      1fr      /* GP  */
-      1fr      /* W   */
-      1fr      /* L   */
-      1fr      /* OTL */
-      1fr      /* GF  */
-      1fr      /* GA  */
-      1.2fr    /* DIFF */
-      1.2fr;   /* PTS  */
-
-    font-size: 11px;
-    gap: 4px;
-    padding: 6px 4px;
-  }
-
-  .tbl .td {
-    white-space: nowrap;
-  }
-}
-
