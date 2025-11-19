@@ -668,3 +668,31 @@ table thead th {
     white-space: nowrap;
   }
 }
+
+/* === FINAL OVERRIDE: make Team visible on phones === */
+@media (max-width: 600px) {
+
+  /* Apply to ANY grid-table (.tbl/.tr), so it works even if
+     the .standings-page wrapper is missing */
+  .tbl .tr {
+    grid-template-columns:
+      2.5fr    /* Team */
+      1fr      /* GP  */
+      1fr      /* W   */
+      1fr      /* L   */
+      1fr      /* OTL */
+      1fr      /* GF  */
+      1fr      /* GA  */
+      1.2fr    /* DIFF */
+      1.2fr;   /* PTS  */
+
+    font-size: 11px;
+    gap: 4px;
+    padding: 6px 4px;
+  }
+
+  .tbl .td {
+    white-space: nowrap;
+  }
+}
+
