@@ -23,7 +23,7 @@ import ThemeToggle from "./components/ThemeToggle";
 import LanguageToggle from "./components/LanguageToggle";
 import { I18nProvider, useI18n } from "./i18n.jsx";
 
-import "./styles.css";
+import './styles.css?v=999999';
 
 /* ----------------------------- Auth bar ----------------------------- */
 function AuthBar() {
