@@ -9,7 +9,6 @@ export default function StandingsPage() {
 
   React.useEffect(() => {
     let cancelled = false;
-
     async function load() {
       setLoading(true);
       const { data, error } = await supabase
@@ -24,7 +23,6 @@ export default function StandingsPage() {
         setLoading(false);
       }
     }
-
     load();
 
     // live-ish refresh when you navigate back
@@ -37,103 +35,45 @@ export default function StandingsPage() {
   }, []);
 
   return (
-    <div className="page standings-page">
+    <div className="standings-page">
       <h2 className="h-title">Standings</h2>
 
       {loading ? (
         <div className="card pad">Loading…</div>
-      ) : rows.length === 0 ? (
-        <div className="card pad">No standings to display yet.</div>
       ) : (
-        <>
-          {/* Desktop / tablet layout: keep your current table */}
-          <div className="card standings-table desktop-only">
-            <div className="tbl">
-              <div className="tr thead">
-                <div className="td left">Team</div>
-                <div className="td c">GP</div>
-                <div className="td c">W</div>
-                <div className="td c">L</div>
-                <div className="td c">OTL</div>
-                <div className="td c">GF</div>
-                <div className="td c">GA</div>
-                <div className="td c">DIFF</div>
-                <div className="td c">PTS</div>
-              </div>
-              {rows.map((r) => (
-                <div key={r.team_id} className="tr">
-                  <div className="td left">
-                    {/* Clickable team name → Team page (same tab) */}
-                    <Link className="link" to={`/teams/${r.team_id}`}>
-                      {r.name}
-                    </Link>
-                  </div>
-                  <div className="td c">{r.gp}</div>
-                  <div className="td c">{r.w}</div>
-                  <div className="td c">{r.l}</div>
-                  <div className="td c">{r.otl}</div>
-                  <div className="td c">{r.gf}</div>
-                  <div className="td c">{r.ga}</div>
-                  <div className="td c">{r.diff}</div>
-                  <div className="td c b">{r.pts}</div>
-                </div>
-              ))}
+        <div className="card">
+          <div className="tbl">
+            <div className="tr thead">
+              <div className="td left">Team</div>
+              <div className="td c">GP</div>
+              <div className="td c">W</div>
+              <div className="td c">L</div>
+              <div className="td c">OTL</div>
+              <div className="td c">GF</div>
+              <div className="td c">GA</div>
+              <div className="td c">DIFF</div>
+              <div className="td c">PTS</div>
             </div>
-          </div>
-
-          {/* Mobile layout: cards, easier to read on phone */}
-          <div className="standings-mobile mobile-only">
             {rows.map((r) => (
-              <div key={r.team_id} className="card standings-card">
-                <div className="standings-card-header">
-                  <Link className="link team-name" to={`/teams/${r.team_id}`}>
+              <div key={r.team_id} className="tr">
+                <div className="td left">
+                  {/* Clickable team name → Team page (same tab) */}
+                  <Link className="link" to={`/teams/${r.team_id}`}>
                     {r.name}
                   </Link>
-                  <div className="pts-badge">
-                    {r.pts}
-                    <span className="pts-label">PTS</span>
-                  </div>
                 </div>
-
-                <div className="standings-card-body">
-                  <div className="stats-row">
-                    <div className="stat">
-                      <span className="label">GP</span>
-                      <span className="value">{r.gp}</span>
-                    </div>
-                    <div className="stat">
-                      <span className="label">W</span>
-                      <span className="value">{r.w}</span>
-                    </div>
-                    <div className="stat">
-                      <span className="label">L</span>
-                      <span className="value">{r.l}</span>
-                    </div>
-                    <div className="stat">
-                      <span className="label">OTL</span>
-                      <span className="value">{r.otl}</span>
-                    </div>
-                  </div>
-
-                  <div className="stats-row">
-                    <div className="stat">
-                      <span className="label">GF</span>
-                      <span className="value">{r.gf}</span>
-                    </div>
-                    <div className="stat">
-                      <span className="label">GA</span>
-                      <span className="value">{r.ga}</span>
-                    </div>
-                    <div className="stat">
-                      <span className="label">DIFF</span>
-                      <span className="value">{r.diff}</span>
-                    </div>
-                  </div>
-                </div>
+                <div className="td c">{r.gp}</div>
+                <div className="td c">{r.w}</div>
+                <div className="td c">{r.l}</div>
+                <div className="td c">{r.otl}</div>
+                <div className="td c">{r.gf}</div>
+                <div className="td c">{r.ga}</div>
+                <div className="td c">{r.diff}</div>
+                <div className="td c b">{r.pts}</div>
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
