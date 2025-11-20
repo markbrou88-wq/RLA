@@ -891,7 +891,7 @@ table thead th {
 /* === Roster page layout (desktop + phone) === */
 
 .roster-page .roster-grid {
-  /* Always two team columns: left = away, right = home */
+  /* Two team columns (away + home) */
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
@@ -920,7 +920,7 @@ table thead th {
   margin: 0;
 }
 
-/* One player per line, full width inside each team column */
+/* Players: one per line, bubble only as wide as the text */
 .roster-page .chips-wrap {
   display: flex;
   flex-direction: column;
@@ -929,12 +929,58 @@ table thead th {
 }
 
 .roster-page .roster-chip {
-  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;     /* stops full-width stretch */
+  width: auto;                /* bubble ends after name */
+  max-width: 100%;
   justify-content: flex-start;
   text-align: left;
+
   border-radius: 999px;
-  padding: 8px 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: all 0.15s ease;
+  padding: 6px 12px;
   font-size: 0.85rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  white-space: nowrap;        /* keep name on one line */
+  overflow: hidden;
+  text-overflow: ellipsis;    /* clip gracefully if too long */
 }
+
+/* Desktop refinements: a bit slimmer */
+@media (min-width: 901px) {
+  .roster-page .roster-chip {
+    padding: 6px 10px;
+    font-size: 0.82rem;
+  }
+}
+
+/* Phone / small tablets: smaller bubbles, still side-by-side teams */
+@media (max-width: 900px) {
+  .roster-page .roster-grid {
+    grid-template-columns: 1fr 1fr;   /* keep teams next to each other */
+    gap: 10px;
+  }
+
+  .roster-page .roster-column {
+    padding: 10px;
+  }
+
+  .roster-page .roster-logo {
+    height: 34px;
+  }
+
+  .roster-page .roster-chip {
+    padding: 4px 8px;
+    font-size: 0.78rem;
+  }
+}
+
+/* Very small phones: even tighter so text stays on one line */
+@media (max-width: 480px) {
+  .roster-page .roster-chip {
+    padding: 3px 7px;
+    font-size: 0.74rem;
+  }
+}
+
