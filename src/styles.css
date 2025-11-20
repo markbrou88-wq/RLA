@@ -734,3 +734,156 @@ table thead th {
     white-space: normal !important;
   }
 }
+
+/* === Games page layout & responsiveness === */
+
+.games-page.gp-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 16px 12px 40px;
+}
+
+.gp-h2 {
+  margin: 8px 0 16px;
+}
+
+.gp-grid {
+  display: grid;
+  gap: 10px;
+}
+
+/* Filters row: date | team | Clear */
+.gp-filter {
+  grid-template-columns: 170px 1fr auto;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* Create row: datetime | home | away | Create */
+.gp-create {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  grid-template-columns: 170px 1fr 1fr auto;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* Game card */
+.gp-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+}
+
+.gp-center {
+  text-align: center;
+}
+
+.gp-card-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.gp-team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0; /* allow ellipsis */
+}
+
+.gp-team-name {
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gp-score {
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.gp-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.gp-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex: 0 0 28px;
+}
+
+.gp-input {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  outline: none;
+  width: 100%;
+  background: var(--input-bg);
+  color: var(--input-text);
+}
+
+/* ---- Mobile (<= 600px) ---- */
+@media (max-width: 600px) {
+  .games-page.gp-container {
+    padding-inline: 8px;
+  }
+
+  /* Filters become 2 columns, Clear goes full width below */
+  .gp-filter {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 8px;
+  }
+
+  .gp-filter > *:last-child {
+    grid-column: 1 / -1;
+  }
+
+  /* Create game: stacked fields, Create full width */
+  .gp-create {
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+  }
+
+  .gp-create .btn {
+    width: 100%;
+  }
+
+  /* Game cards: stacked sections, buttons easier to tap */
+  .gp-card {
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+  }
+
+  .gp-score {
+    font-size: 20px;
+  }
+
+  .gp-team-name {
+    font-size: 15px;
+  }
+
+  .gp-logo {
+    width: 32px;
+    height: 32px;
+  }
+
+  .gp-card-actions {
+    justify-content: flex-start;
+  }
+
+  .gp-card-actions .btn {
+    min-height: 36px;
+    padding: 8px 10px;
+    flex: 1 1 calc(50% - 4px); /* 2 per row on tight screens */
+  }
+}
