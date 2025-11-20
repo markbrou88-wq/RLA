@@ -39,6 +39,7 @@ export default function SummaryPage() {
     (async () => {
       setLoading(true);
 
+      // Find game by slug or id
       const isId = /^\d+$/.test(slug);
       const gameQuery = isId
         ? supabase.from("games").select("*").eq("id", Number(slug)).single()
@@ -53,6 +54,7 @@ export default function SummaryPage() {
         return;
       }
 
+      // Teams + records
       const [{ data: home }, { data: away }] = await Promise.all([
         supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
@@ -71,6 +73,7 @@ export default function SummaryPage() {
           .maybeSingle(),
       ]);
 
+      // Rosters
       const { data: rosterRows } = await supabase
         .from("game_rosters")
         .select(
@@ -92,6 +95,7 @@ export default function SummaryPage() {
             pos: r.players.position || "",
           }))
           .sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
+
         const goalies = entries.filter((p) => (p.pos || "").toUpperCase() === "G");
         const skaters = entries.filter((p) => (p.pos || "").toUpperCase() !== "G");
         return { skaters, goalies };
@@ -121,6 +125,7 @@ export default function SummaryPage() {
         getGoalieRec(awayLU.goalies[0]),
       ]);
 
+      // Events
       const { data: ev } = await supabase
         .from("events")
         .select(`
@@ -210,7 +215,7 @@ export default function SummaryPage() {
         {scoreline}
       </div>
 
-      {/* two team cards – always side by side */}
+      {/* TWO TEAM BOXES */}
       <div className="summary-lineups">
         <div className="summary-team-column">
           <LineupCard
@@ -231,14 +236,15 @@ export default function SummaryPage() {
         </div>
       </div>
 
-      {/* big events box */}
-      <div className="card" style={{ padding: 12 }}>
+      {/* BIG EVENTS BOX */}
+      <div className="card summary-events-card" style={{ padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>{t("Goals / Events")}</h3>
         {rows.length === 0 ? (
           <div style={{ color: "#777" }}>{t("No events yet.")}</div>
         ) : (
           <div className="table-responsive">
             <table
+              className="summary-events-table"
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
@@ -342,8 +348,9 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
   const direction = alignRight ? "row-reverse" : "row";
 
   return (
-    <div className="card" style={{ padding: 10 }}>
+    <div className="card summary-team-card">
       <div
+        className="summary-team-header"
         style={{
           display: "flex",
           alignItems: "center",
@@ -357,7 +364,7 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
           <img
             src={team.logo_url}
             alt={team.short_name || team.name || "logo"}
-            style={{ width: 110, height: 55, objectFit: "contain" }}
+            className="summary-team-logo"
           />
         ) : null}
         <div style={{ textAlign: alignRight ? "right" : "left" }}>
@@ -369,18 +376,12 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
       </div>
 
       <div className="table-responsive">
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            /* no minWidth here so it can shrink on phone */
-          }}
-        >
+        <table className="summary-lineup-table">
           <thead>
             <tr>
-              <Th style={{ width: 40 }}>#</Th>
+              <Th>#</Th>
               <Th>PLAYER</Th>
-              <Th style={{ width: 55 }}>POS</Th>
+              <Th>POS</Th>
             </tr>
           </thead>
           <tbody>
