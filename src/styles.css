@@ -620,19 +620,17 @@ table thead th {
   z-index: 1;
 }
 
-/* === FINAL OVERRIDE: mobile standings – full-width portrait & full team name === */
+/* === FINAL OVERRIDE: mobile standings + team/stats/player pages === */
 @media (max-width: 600px) {
-  /* Use full screen width, no forced horizontal scroll for standings card */
+  /* Standings: full screen width, no horizontal scroll */
   .standings-page .card {
     overflow-x: visible;
   }
 
-  /* Let the grid compress to the viewport instead of forcing 640px */
   .standings-page .tbl {
     width: 100%;
   }
 
-  /* Tighter grid on mobile, but still keeps all columns */
   .standings-page .tr {
     grid-template-columns:
       2fr    /* Team (more space) */
@@ -649,15 +647,75 @@ table thead th {
     padding: 6px 6px;
   }
 
-  /* Allow the team name to wrap instead of being cut off */
   .standings-page .tr .td.left {
     white-space: normal;
     text-overflow: clip;
     overflow: visible;
   }
 
-  /* Keep other cells on one line so numbers stay compact */
   .standings-page .tr .td:not(.left) {
     white-space: nowrap;
+  }
+
+  /* --- Team page: roster grid fits portrait --- */
+  .team-page .tr {
+    /* Player | # | POS | GP | G | A | PTS | Actions */
+    grid-template-columns:
+      2.4fr  /* player name */
+      0.8fr  /* # */
+      0.8fr  /* POS */
+      0.8fr  /* GP */
+      0.8fr  /* G */
+      0.8fr  /* A */
+      0.9fr  /* PTS */
+      1.1fr; /* Actions */
+    font-size: 11px;
+    gap: 4px;
+    padding: 6px 6px;
+  }
+
+  /* Override inline widths from resizable columns so it can shrink */
+  .team-page .tr .td {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .team-page .tr .td.left {
+    white-space: normal !important;
+    text-overflow: clip !important;
+    overflow: visible !important;
+  }
+
+  .team-page .row.space-between {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .team-page .row.space-between .row {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  /* --- Stats & Player pages: compact tables that fit width --- */
+  .stats-page table,
+  .player-page table {
+    font-size: 11px !important;
+  }
+
+  .stats-page th,
+  .stats-page td,
+  .player-page th,
+  .player-page td {
+    padding: 6px 6px !important;
+  }
+
+  /* Allow name/team columns to wrap instead of forcing scroll */
+  .stats-page td:first-child,
+  .stats-page td:nth-child(2),
+  .player-page td:first-child,
+  .player-page td:nth-child(2) {
+    white-space: normal !important;
   }
 }
