@@ -1,4 +1,4 @@
-// src/pages/StatsPage.jsx TEST
+// src/pages/StatsPage.jsx
 import React from "react";
 import { supabase } from "../supabaseClient";
 import PlayerLink from "../components/PlayerLink";
@@ -30,7 +30,6 @@ export default function StatsPage() {
         { data: stats, error: e1 },
         { data: gl, error: e2 },
       ] = await Promise.all([
-        // One view for everything: GP, G, A, PTS
         supabase
           .from("leaders_current")
           .select("player_id, player, team, gp, g, a, pts")
@@ -39,7 +38,9 @@ export default function StatsPage() {
           .order("a", { ascending: false }),
         supabase
           .from("goalie_stats_current")
-          .select("player_id, goalie, team, sa, ga, sv_pct, gaa, toi_seconds, wins, losses, otl, so")
+          .select(
+            "player_id, goalie, team, sa, ga, sv_pct, gaa, toi_seconds, wins, losses, otl, so"
+          )
           .order("sv_pct", { ascending: false, nullsFirst: false }),
       ]);
 
@@ -70,7 +71,7 @@ export default function StatsPage() {
   }, []);
 
   return (
-    <div>
+    <div className="stats-page">
       <h2 style={{ marginTop: 0 }}>{t("Stats")}</h2>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
@@ -91,7 +92,13 @@ export default function StatsPage() {
       {loading ? (
         <div>{t("Loading…")}</div>
       ) : tab === "skaters" ? (
-        <div style={{ overflowX: "auto", border: "1px solid #eee", borderRadius: 10 }}>
+        <div
+          style={{
+            overflowX: "auto",
+            border: "1px solid #eee",
+            borderRadius: 10,
+          }}
+        >
           <table style={tbl}>
             <thead style={thead}>
               <tr>
@@ -120,7 +127,13 @@ export default function StatsPage() {
           </table>
         </div>
       ) : (
-        <div style={{ overflowX: "auto", border: "1px solid #eee", borderRadius: 10 }}>
+        <div
+          style={{
+            overflowX: "auto",
+            border: "1px solid #eee",
+            borderRadius: 10,
+          }}
+        >
           <table style={tbl}>
             <thead style={thead}>
               <tr>
@@ -144,7 +157,9 @@ export default function StatsPage() {
                   <td style={td}>{g.team}</td>
                   <td style={tdRight}>{g.sa ?? 0}</td>
                   <td style={tdRight}>{g.ga ?? 0}</td>
-                  <td style={tdRight}>{g.sv_pct != null ? `${g.sv_pct}%` : "—"}</td>
+                  <td style={tdRight}>
+                    {g.sv_pct != null ? `${g.sv_pct}%` : "—"}
+                  </td>
                   <td style={tdRight}>{g.gaa != null ? g.gaa : "—"}</td>
                   <td style={tdRight}>{fmtTOI(g.toi_seconds)}</td>
                   <td style={tdRight}>{`${g.wins ?? 0}-${g.losses ?? 0}-${g.otl ?? 0}`}</td>
@@ -166,8 +181,21 @@ function fmtTOI(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-const tbl = { width: "100%", borderCollapse: "collapse", fontSize: 14 };
+const tbl = {
+  width: "100%",
+  borderCollapse: "collapse",
+  fontSize: 14,
+};
 const thead = { background: "var(--table-head, #f4f5f8)" };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #eee", whiteSpace: "nowrap" };
-const td = { padding: "10px 12px", borderBottom: "1px solid #f3f3f3", whiteSpace: "nowrap" };
+const th = {
+  textAlign: "left",
+  padding: "10px 12px",
+  borderBottom: "1px solid #eee",
+  whiteSpace: "nowrap",
+};
+const td = {
+  padding: "10px 12px",
+  borderBottom: "1px solid #f3f3f3",
+  whiteSpace: "nowrap",
+};
 const tdRight = { ...td, textAlign: "right" };
