@@ -888,9 +888,10 @@ table thead th {
   }
 }
 
-/* === Roster page layout (desktop + mobile) === */
+/* === Roster page layout (desktop + phone) === */
 
 .roster-page .roster-grid {
+  /* Always two team columns: left = away, right = home */
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
@@ -919,24 +920,21 @@ table thead th {
   margin: 0;
 }
 
+/* One player per line, full width inside each team column */
 .roster-page .chips-wrap {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
 }
 
 .roster-page .roster-chip {
-  cursor: pointer;
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
   border-radius: 999px;
   padding: 8px 12px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition: all 0.15s ease;
   font-size: 0.85rem;
-}
-
-/* Stack the two team cards on narrow screens so there's no horizontal scroll */
-@media (max-width: 700px) {
-  .roster-page .roster-grid {
-    grid-template-columns: 1fr;
-  }
 }
