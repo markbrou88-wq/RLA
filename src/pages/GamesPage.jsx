@@ -150,111 +150,11 @@ export default function GamesPage() {
   }
 
   return (
-    <div className="gp-container">
-      {/* Scoped responsive styles */}
-      <style>{`
-        .gp-container { padding: 8px; }
-        .gp-h2 { margin: 8px 0 16px; }
-
-        .gp-grid { display: grid; gap: 10px; }
-
-        /* Filters row */
-        .gp-filter {
-          grid-template-columns: 170px 1fr auto;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-
-        /* Create row */
-        .gp-create {
-          border: 1px solid #eee;
-          border-radius: 10px;
-          padding: 12px;
-          grid-template-columns: 170px 1fr 1fr auto;
-          align-items: center;
-          margin-bottom: 16px;
-        }
-
-        /* Game card */
-        .gp-card {
-          border: 1px solid #eee;
-          border-radius: 12px;
-          padding: 12px;
-          grid-template-columns: 1fr auto auto;
-          align-items: center;
-        }
-        .gp-card-actions {
-          display: flex;
-          gap: 8px;
-          justify-content: flex-end;
-          flex-wrap: wrap;
-        }
-
-        .gp-team {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          min-width: 0; /* allow ellipsis */
-        }
-        .gp-team-name {
-          font-weight: 700;
-          font-size: 16px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .gp-score { font-weight: 800; font-size: 18px; }
-        .gp-sub { font-size: 12px; color: #666; }
-
-        .gp-logo {
-          width: 28px;
-          height: 28px;
-          object-fit: contain;
-          flex: 0 0 28px;
-        }
-
-        .gp-input {
-          height: 36px;
-          padding: 0 10px;
-          border-radius: 8px;
-          border: 1px solid #ddd;
-          outline: none;
-          width: 100%;
-        }
-
-        /* ---- Mobile (<= 640px) ---- */
-        @media (max-width: 640px) {
-          .gp-filter {
-            grid-template-columns: 1fr 1fr;
-            row-gap: 8px;
-          }
-          .gp-filter > *:last-child { grid-column: 1 / -1; }
-
-          .gp-create {
-            grid-template-columns: 1fr;
-            row-gap: 8px;
-          }
-          .gp-create button { width: 100%; }
-
-          .gp-card {
-            grid-template-columns: 1fr;
-            row-gap: 8px;
-          }
-          .gp-score { font-size: 20px; }
-          .gp-team-name { font-size: 15px; }
-          .gp-logo { width: 32px; height: 32px; } /* slightly bigger touch target */
-          .gp-card-actions { justify-content: flex-start; }
-          .gp-card-actions > button {
-            min-height: 36px;
-            padding: 8px 10px;
-          }
-        }
-      `}</style>
-
+    <div className="games-page gp-container">
       <h2 className="gp-h2">{t("Games")}</h2>
 
       {/* Filters: Date + Team (matches either home or away) */}
-      <div className="gp-grid gp-filter">
+      <div className="gp-grid gp-filter card">
         <input
           type="date"
           value={filterDate}
@@ -276,6 +176,7 @@ export default function GamesPage() {
         </select>
 
         <button
+          className="btn"
           onClick={() => {
             setFilterDate("");
             setFilterTeam("");
@@ -286,7 +187,7 @@ export default function GamesPage() {
       </div>
 
       {/* Create game */}
-      <div className="gp-grid gp-create">
+      <div className="gp-grid gp-create card">
         <input
           type="datetime-local"
           value={newDate}
@@ -320,7 +221,7 @@ export default function GamesPage() {
           ))}
         </select>
 
-        <button onClick={handleCreate} disabled={saving}>
+        <button className="btn" onClick={handleCreate} disabled={saving}>
           {saving ? t("Creating…") : t("Create")}
         </button>
       </div>
@@ -339,16 +240,24 @@ export default function GamesPage() {
             const slug = g.slug || g.id;
 
             return (
-              <div key={g.id} className="gp-grid gp-card">
+              <div key={g.id} className="gp-grid gp-card card">
                 {/* Matchup (away on the LEFT, home on the RIGHT) */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                <div
+                  className="gp-match"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    minWidth: 0,
+                  }}
+                >
                   <TeamChip team={away} />
                   <span className="gp-sub">{t("at")}</span>
                   <TeamChip team={home} />
                 </div>
 
                 {/* Score + date + status */}
-                <div style={{ textAlign: "center" }}>
+                <div className="gp-center">
                   <div className="gp-score">
                     {g.away_score} — {g.home_score}
                   </div>
@@ -358,23 +267,43 @@ export default function GamesPage() {
 
                 {/* Actions */}
                 <div className="gp-card-actions">
-                  <button onClick={() => navigate(`/games/${slug}/live`)}>{t("Live")}</button>
-                  <button onClick={() => navigate(`/games/${slug}/roster`)}>{t("Roster")}</button>
-                  <button onClick={() => navigate(`/games/${slug}/boxscore`)}>{t("Boxscore")}</button>
+                  <button
+                    className="btn"
+                    onClick={() => navigate(`/games/${slug}/live`)}
+                  >
+                    {t("Live")}
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => navigate(`/games/${slug}/roster`)}
+                  >
+                    {t("Roster")}
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => navigate(`/games/${slug}/boxscore`)}
+                  >
+                    {t("Boxscore")}
+                  </button>
                   {g.status === "final" ? (
-                    <button onClick={() => updateStatus(g.id, "scheduled")}>{t("Open")}</button>
+                    <button
+                      className="btn"
+                      onClick={() => updateStatus(g.id, "scheduled")}
+                    >
+                      {t("Open")}
+                    </button>
                   ) : (
-                    <button onClick={() => updateStatus(g.id, "final")}>{t("Mark as Final")}</button>
+                    <button
+                      className="btn"
+                      onClick={() => updateStatus(g.id, "final")}
+                    >
+                      {t("Mark as Final")}
+                    </button>
                   )}
                   <button
+                    className="btn"
                     onClick={() => handleDelete(g.id)}
-                    style={{
-                      background: "crimson",
-                      color: "white",
-                      border: 0,
-                      borderRadius: 6,
-                      padding: "6px 10px",
-                    }}
+                    style={{ background: "crimson" }}
                   >
                     {t("Delete")}
                   </button>
