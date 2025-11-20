@@ -128,7 +128,9 @@ export default function PlayerPage() {
               as: gm?.away_score ?? 0,
             };
           })
-          .sort((a, b) => (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0));
+          .sort(
+            (a, b) => (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0)
+          );
       }
 
       // ---------- GOALIE LOG (roster-based, like skater) ----------
@@ -170,7 +172,9 @@ export default function PlayerPage() {
             so: overlay?.shutout ? 1 : 0,
           };
         })
-        .sort((a, b) => (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0));
+        .sort(
+          (a, b) => (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0)
+        );
 
       if (!cancelled) {
         setPlayer(pRow);
@@ -195,7 +199,7 @@ export default function PlayerPage() {
   const isGoalie = String(player.position || "").trim().toUpperCase() === "G";
 
   return (
-    <div>
+    <div className="player-page">
       {/* back link, no short name at top-right */}
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <Link to="/stats" style={{ textDecoration: "none" }}>
@@ -266,9 +270,7 @@ export default function PlayerPage() {
                   <SR label="GA" v={goalieStat.ga ?? 0} />
                   <SR
                     label="SV%"
-                    v={
-                      goalieStat.sv_pct != null ? `${goalieStat.sv_pct}%` : "—"
-                    }
+                    v={goalieStat.sv_pct != null ? `${goalieStat.sv_pct}%` : "—"}
                   />
                   <SR
                     label="GAA"
@@ -295,7 +297,13 @@ export default function PlayerPage() {
       {!isGoalie && (
         <section style={{ marginTop: 18 }}>
           <h3 style={{ margin: "8px 0" }}>Game log (Skater)</h3>
-          <div style={{ overflowX: "auto", border: "1px solid #eee", borderRadius: 10 }}>
+          <div
+            style={{
+              overflowX: "auto",
+              border: "1px solid #eee",
+              borderRadius: 10,
+            }}
+          >
             <table style={logTbl}>
               <thead style={theadS}>
                 <tr>
@@ -343,7 +351,13 @@ export default function PlayerPage() {
       {isGoalie && (
         <section style={{ marginTop: 18 }}>
           <h3 style={{ margin: "8px 0" }}>Game log (Goalie)</h3>
-          <div style={{ overflowX: "auto", border: "1px solid #eee", borderRadius: 10 }}>
+          <div
+            style={{
+              overflowX: "auto",
+              border: "1px solid #eee",
+              borderRadius: 10,
+            }}
+          >
             <table style={logTbl}>
               <thead style={theadS}>
                 <tr>
@@ -368,7 +382,9 @@ export default function PlayerPage() {
                 ) : (
                   goalieLog.map((r) => {
                     const svpct =
-                      r.sa > 0 ? `${Math.round((1 - r.ga / r.sa) * 1000) / 10}%` : "—";
+                      r.sa > 0
+                        ? `${Math.round((1 - r.ga / r.sa) * 1000) / 10}%`
+                        : "—";
                     return (
                       <tr key={`gl-${r.game_id}`}>
                         <td style={tdS}>
