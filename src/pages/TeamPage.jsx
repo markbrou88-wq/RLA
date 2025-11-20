@@ -72,7 +72,12 @@ function useTeamSummary(teamId) {
         .limit(20);
       if (error) return console.error(error);
 
-      let gp = 0, w = 0, l = 0, otl = 0, gf = 0, ga = 0;
+      let gp = 0,
+        w = 0,
+        l = 0,
+        otl = 0,
+        gf = 0,
+        ga = 0;
       const recent = [];
       const chart = [];
       for (const g of games) {
@@ -80,14 +85,25 @@ function useTeamSummary(teamId) {
         const tGF = isHome ? g.home_score : g.away_score;
         const tGA = isHome ? g.away_score : g.home_score;
         if (g.status === "final") {
-          gp++; gf += tGF || 0; ga += tGA || 0;
-          if (tGF > tGA) w++; else if (tGF < tGA) (g.went_ot ? otl++ : l++);
+          gp++;
+          gf += tGF || 0;
+          ga += tGA || 0;
+          if (tGF > tGA) w++;
+          else if (tGF < tGA) (g.went_ot ? otl++ : l++);
           if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
           if (chart.length < 10)
-            chart.push({ date: (g.game_date || "").slice(5, 10), diff: (tGF || 0) - (tGA || 0) });
+            chart.push({
+              date: (g.game_date || "").slice(5, 10),
+              diff: (tGF || 0) - (tGA || 0),
+            });
         }
       }
-      if (!stop) setSummary({ record: { gp, w, l, otl, gf, ga }, recent: recent.reverse(), chart: chart.reverse() });
+      if (!stop)
+        setSummary({
+          record: { gp, w, l, otl, gf, ga },
+          recent: recent.reverse(),
+          chart: chart.reverse(),
+        });
     })();
     return () => (stop = true);
   }, [teamId]);
@@ -143,7 +159,9 @@ function useStatsForPlayers(playerIds) {
       if (!stop) setMap(m);
     })();
 
-    return () => { stop = true; };
+    return () => {
+      stop = true;
+    };
   }, [playerIds]);
 
   return map;
@@ -189,7 +207,14 @@ export default function TeamPage() {
   const statsMap = useStatsForPlayers(playerIds);
 
   const { widths, startResize } = useResizableColumns(id, {
-    player: 260, number: 70, pos: 70, gp: 70, g: 70, a: 70, pts: 80, actions: 200,
+    player: 260,
+    number: 70,
+    pos: 70,
+    gp: 70,
+    g: 70,
+    a: 70,
+    pts: 80,
+    actions: 200,
   });
 
   // Add / Edit / Delete
@@ -213,7 +238,9 @@ export default function TeamPage() {
   function beginEdit(pid) {
     setPlayers((cur) =>
       cur.map((p) =>
-        p.id === pid ? { ...p, __edit: { number: p.number ?? "", name: p.name, position: p.position || "F" } } : p
+        p.id === pid
+          ? { ...p, __edit: { number: p.number ?? "", name: p.name, position: p.position || "F" } }
+          : p
       )
     );
   }
@@ -244,8 +271,15 @@ export default function TeamPage() {
     return players.map((p) => {
       const s = statsMap.get(p.id) || { gp: 0, g: 0, a: 0, pts: 0 };
       return {
-        id: p.id, number: p.number ?? "", name: p.name, position: p.position || "",
-        gp: s.gp, g: s.g, a: s.a, pts: s.pts, __edit: p.__edit,
+        id: p.id,
+        number: p.number ?? "",
+        name: p.name,
+        position: p.position || "",
+        gp: s.gp,
+        g: s.g,
+        a: s.a,
+        pts: s.pts,
+        __edit: p.__edit,
       };
     });
   }, [players, statsMap]);
@@ -266,7 +300,10 @@ export default function TeamPage() {
   }, [rows, sortKey, sortDir]);
   const clickSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(key); setSortDir("desc"); }
+    else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
   };
 
   const Th = ({ col, label, sortKeyFor }) => (
@@ -280,43 +317,66 @@ export default function TeamPage() {
         title="Click to sort"
         style={{ color: "#111" }}
       >
-        {label} {sortKey === (sortKeyFor ?? col) ? <span className="muted">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
+        {label}{" "}
+        {sortKey === (sortKeyFor ?? col) ? (
+          <span className="muted">{sortDir === "asc" ? "▲" : "▼"}</span>
+        ) : null}
       </button>
       <span
         className="col-resize grip"
         onMouseDown={(e) => startResize(col, e.clientX)}
         aria-hidden
         style={{
-          width: 8, right: -3, borderLeft: "2px solid #d0d5dd",
-          background: "repeating-linear-gradient(180deg,#e5e7eb 0,#e5e7eb 4px,#fff 4px,#fff 8px)"
+          width: 8,
+          right: -3,
+          borderLeft: "2px solid #d0d5dd",
+          background:
+            "repeating-linear-gradient(180deg,#e5e7eb 0,#e5e7eb 4px,#fff 4px,#fff 8px)",
         }}
       />
     </div>
   );
 
   return (
-    <div>
+    <div className="team-page">
       {/* Back + header */}
       <div className="row gap">
-        <Link to="/standings" className="btn ghost small">← Back to Standings</Link>
+        <Link to="/standings" className="btn ghost small">
+          ← Back to Standings
+        </Link>
       </div>
 
       <div className="row gap wrap">
         <div className="card row gap align-center" style={{ minWidth: 300 }}>
-          <img src={team?.logo_url || ""} alt={team?.short_name || team?.name || "team"} style={{ width: 96, height: 96, objectFit: "contain" }} />
+          <img
+            src={team?.logo_url || ""}
+            alt={team?.short_name || team?.name || "team"}
+            style={{ width: 96, height: 96, objectFit: "contain" }}
+          />
           <div>
-            <div className="h-title" style={{ marginBottom: 6 }}>{team?.name || "Team"}</div>
-            <div className="muted">
-              GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL {summary.record.otl}
+            <div className="h-title" style={{ marginBottom: 6 }}>
+              {team?.name || "Team"}
             </div>
             <div className="muted">
-              GF {summary.record.gf} • GA {summary.record.ga} • Diff {summary.record.gf - summary.record.ga}
+              GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL{" "}
+              {summary.record.otl}
+            </div>
+            <div className="muted">
+              GF {summary.record.gf} • GA {summary.record.ga} • Diff{" "}
+              {summary.record.gf - summary.record.ga}
             </div>
             <div className="row gap xs" style={{ marginTop: 6 }}>
               {summary.recent.map((r, i) => (
-                <span key={i} className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}>{r}</span>
+                <span
+                  key={i}
+                  className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}
+                >
+                  {r}
+                </span>
               ))}
-              {summary.recent.length === 0 && <span className="muted">No final games yet</span>}
+              {summary.recent.length === 0 && (
+                <span className="muted">No final games yet</span>
+              )}
             </div>
           </div>
         </div>
@@ -330,23 +390,56 @@ export default function TeamPage() {
       </div>
 
       {/* Add player bar */}
-      <div className="row space-between align-center" style={{ marginTop: 16, marginBottom: 8 }}>
+      <div
+        className="row space-between align-center"
+        style={{ marginTop: 16, marginBottom: 8 }}
+      >
         <div className="card-title">Roster &amp; Player Stats</div>
         {!adding ? (
-          <button className="btn" onClick={() => setAdding(true)}>Add Player</button>
+          <button className="btn" onClick={() => setAdding(true)}>
+            Add Player
+          </button>
         ) : (
           <div className="row gap">
-            <input className="in" placeholder="#" style={{ width: 70, textAlign: "center" }}
+            <input
+              className="in"
+              placeholder="#"
+              style={{ width: 70, textAlign: "center" }}
               value={newPlayer.number}
-              onChange={(e) => setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))} />
-            <input className="in" placeholder="Player name" style={{ width: 260 }}
-              value={newPlayer.name} onChange={(e) => setNewPlayer((s) => ({ ...s, name: e.target.value }))} />
-            <select className="in" style={{ width: 80 }} value={newPlayer.position}
-              onChange={(e) => setNewPlayer((s) => ({ ...s, position: e.target.value }))}>
-              <option value="F">F</option><option value="D">D</option><option value="G">G</option>
+              onChange={(e) =>
+                setNewPlayer((s) => ({
+                  ...s,
+                  number: e.target.value.replace(/\D/g, ""),
+                }))
+              }
+            />
+            <input
+              className="in"
+              placeholder="Player name"
+              style={{ width: 260 }}
+              value={newPlayer.name}
+              onChange={(e) =>
+                setNewPlayer((s) => ({ ...s, name: e.target.value }))
+              }
+            />
+            <select
+              className="in"
+              style={{ width: 80 }}
+              value={newPlayer.position}
+              onChange={(e) =>
+                setNewPlayer((s) => ({ ...s, position: e.target.value }))
+              }
+            >
+              <option value="F">F</option>
+              <option value="D">D</option>
+              <option value="G">G</option>
             </select>
-            <button className="btn" onClick={addPlayer}>Save</button>
-            <button className="btn ghost" onClick={() => setAdding(false)}>Cancel</button>
+            <button className="btn" onClick={addPlayer}>
+              Save
+            </button>
+            <button className="btn ghost" onClick={() => setAdding(false)}>
+              Cancel
+            </button>
           </div>
         )}
       </div>
@@ -367,54 +460,242 @@ export default function TeamPage() {
         {sortedRows.map((r) =>
           r.__edit ? (
             <div className="tr" key={r.id}>
-              <div className="td" style={{ width: widths.player, minWidth: widths.player, maxWidth: widths.player }}>
-                <input className="in" value={r.__edit.name}
-                  onChange={(e) =>
-                    setPlayers((cur) => cur.map((x) => x.id === r.id ? { ...x, __edit: { ...x.__edit, name: e.target.value } } : x))
-                  } />
-              </div>
-              <div className="td c" style={{ width: widths.number, minWidth: widths.number, maxWidth: widths.number }}>
-                <input className="in" style={{ textAlign: "center" }} value={r.__edit.number}
+              <div
+                className="td"
+                style={{
+                  width: widths.player,
+                  minWidth: widths.player,
+                  maxWidth: widths.player,
+                }}
+              >
+                <input
+                  className="in"
+                  value={r.__edit.name}
                   onChange={(e) =>
                     setPlayers((cur) =>
-                      cur.map((x) => x.id === r.id
-                        ? { ...x, __edit: { ...x.__edit, number: e.target.value.replace(/\D/g, "") } }
-                        : x)
-                    )} />
+                      cur.map((x) =>
+                        x.id === r.id
+                          ? {
+                              ...x,
+                              __edit: { ...x.__edit, name: e.target.value },
+                            }
+                          : x
+                      )
+                    )
+                  }
+                />
               </div>
-              <div className="td c" style={{ width: widths.pos, minWidth: widths.pos, maxWidth: widths.pos }}>
-                <select className="in" value={r.__edit.position}
+              <div
+                className="td c"
+                style={{
+                  width: widths.number,
+                  minWidth: widths.number,
+                  maxWidth: widths.number,
+                }}
+              >
+                <input
+                  className="in"
+                  style={{ textAlign: "center" }}
+                  value={r.__edit.number}
                   onChange={(e) =>
-                    setPlayers((cur) => cur.map((x) => x.id === r.id ? { ...x, __edit: { ...x.__edit, position: e.target.value } } : x))
-                  }>
-                  <option value="F">F</option><option value="D">D</option><option value="G">G</option>
+                    setPlayers((cur) =>
+                      cur.map((x) =>
+                        x.id === r.id
+                          ? {
+                              ...x,
+                              __edit: {
+                                ...x.__edit,
+                                number: e.target.value.replace(/\D/g, ""),
+                              },
+                            }
+                          : x
+                      )
+                    )
+                  }
+                />
+              </div>
+              <div
+                className="td c"
+                style={{
+                  width: widths.pos,
+                  minWidth: widths.pos,
+                  maxWidth: widths.pos,
+                }}
+              >
+                <select
+                  className="in"
+                  value={r.__edit.position}
+                  onChange={(e) =>
+                    setPlayers((cur) =>
+                      cur.map((x) =>
+                        x.id === r.id
+                          ? {
+                              ...x,
+                              __edit: { ...x.__edit, position: e.target.value },
+                            }
+                          : x
+                      )
+                    )
+                  }
+                >
+                  <option value="F">F</option>
+                  <option value="D">D</option>
+                  <option value="G">G</option>
                 </select>
               </div>
-              <div className="td c" style={{ width: widths.gp, minWidth: widths.gp, maxWidth: widths.gp }}>{r.gp}</div>
-              <div className="td c" style={{ width: widths.g, minWidth: widths.g, maxWidth: widths.g }}>{r.g}</div>
-              <div className="td c" style={{ width: widths.a, minWidth: widths.a, maxWidth: widths.a }}>{r.a}</div>
-              <div className="td c b" style={{ width: widths.pts, minWidth: widths.pts, maxWidth: widths.pts }}>{r.pts}</div>
-              <div className="td right" style={{ width: widths.actions, minWidth: widths.actions, maxWidth: widths.actions }}>
-                <button className="btn" onClick={() => saveEdit(r.id)}>Save</button>
-                <button className="btn ghost" style={{ marginLeft: 8 }} onClick={() => cancelEdit(r.id)}>Cancel</button>
+              <div
+                className="td c"
+                style={{
+                  width: widths.gp,
+                  minWidth: widths.gp,
+                  maxWidth: widths.gp,
+                }}
+              >
+                {r.gp}
+              </div>
+              <div
+                className="td c"
+                style={{
+                  width: widths.g,
+                  minWidth: widths.g,
+                  maxWidth: widths.g,
+                }}
+              >
+                {r.g}
+              </div>
+              <div
+                className="td c"
+                style={{
+                  width: widths.a,
+                  minWidth: widths.a,
+                  maxWidth: widths.a,
+                }}
+              >
+                {r.a}
+              </div>
+              <div
+                className="td c b"
+                style={{
+                  width: widths.pts,
+                  minWidth: widths.pts,
+                  maxWidth: widths.pts,
+                }}
+              >
+                {r.pts}
+              </div>
+              <div
+                className="td right"
+                style={{
+                  width: widths.actions,
+                  minWidth: widths.actions,
+                  maxWidth: widths.actions,
+                }}
+              >
+                <button className="btn" onClick={() => saveEdit(r.id)}>
+                  Save
+                </button>
+                <button
+                  className="btn ghost"
+                  style={{ marginLeft: 8 }}
+                  onClick={() => cancelEdit(r.id)}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           ) : (
             <div className="tr" key={r.id}>
-              <div className="td left ellipsis"
-                   style={{ width: widths.player, minWidth: widths.player, maxWidth: widths.player }}
-                   title={r.name}>
-                <Link className="link" to={`/players/${r.id}`}>{r.name}</Link>
+              <div
+                className="td left ellipsis"
+                style={{
+                  width: widths.player,
+                  minWidth: widths.player,
+                  maxWidth: widths.player,
+                }}
+                title={r.name}
+              >
+                <Link className="link" to={`/players/${r.id}`}>
+                  {r.name}
+                </Link>
               </div>
-              <div className="td c" style={{ width: widths.number, minWidth: widths.number, maxWidth: widths.number }}>{r.number}</div>
-              <div className="td c" style={{ width: widths.pos, minWidth: widths.pos, maxWidth: widths.pos }}>{r.position}</div>
-              <div className="td c" style={{ width: widths.gp, minWidth: widths.gp, maxWidth: widths.gp }}>{r.gp}</div>
-              <div className="td c" style={{ width: widths.g, minWidth: widths.g, maxWidth: widths.g }}>{r.g}</div>
-              <div className="td c" style={{ width: widths.a, minWidth: widths.a, maxWidth: widths.a }}>{r.a}</div>
-              <div className="td c b" style={{ width: widths.pts, minWidth: widths.pts, maxWidth: widths.pts }}>{r.pts}</div>
-              <div className="td right" style={{ width: widths.actions, minWidth: widths.actions, maxWidth: widths.actions }}>
-                <button className="btn" onClick={() => beginEdit(r.id)}>Edit</button>
-                <button className="btn danger" style={{ marginLeft: 8 }} onClick={() => deletePlayer(r.id)}>Delete</button>
+              <div
+                className="td c"
+                style={{
+                  width: widths.number,
+                  minWidth: widths.number,
+                  maxWidth: widths.number,
+                }}
+              >
+                {r.number}
+              </div>
+              <div
+                className="td c"
+                style={{
+                  width: widths.pos,
+                  minWidth: widths.pos,
+                  maxWidth: widths.pos,
+                }}
+              >
+                {r.position}
+              </div>
+              <div
+                className="td c"
+                style={{
+                  width: widths.gp,
+                  minWidth: widths.gp,
+                  maxWidth: widths.gp,
+                }}
+              >
+                {r.gp}
+              </div>
+              <div
+                className="td c"
+                style={{
+                  width: widths.g,
+                  minWidth: widths.g,
+                  maxWidth: widths.g,
+                }}
+              >
+                {r.g}
+              </div>
+              <div
+                className="td c"
+                style={{
+                  width: widths.a,
+                  minWidth: widths.a,
+                  maxWidth: widths.a,
+                }}
+              >
+                {r.a}
+              </div>
+              <div
+                className="td c b"
+                style={{
+                  width: widths.pts,
+                  minWidth: widths.pts,
+                  maxWidth: widths.pts,
+                }}
+              >
+                {r.pts}
+              </div>
+              <div
+                className="td right"
+                style={{
+                  width: widths.actions,
+                  minWidth: widths.actions,
+                  maxWidth: widths.actions,
+                }}
+              >
+                <button className="btn" onClick={() => beginEdit(r.id)}>
+                  Edit
+                </button>
+                <button
+                  className="btn danger"
+                  style={{ marginLeft: 8 }}
+                  onClick={() => deletePlayer(r.id)}
+                >
+                  Delete
+                </button>
               </div>
             </div>
           )
