@@ -31,7 +31,7 @@ export default function SummaryPage() {
   const [homeGoalieRec, setHomeGoalieRec] = React.useState(null);
   const [awayGoalieRec, setAwayGoalieRec] = React.useState(null);
 
-  const [rows, setRows] = React.useState([]); // grouped events for display
+  const [rows, setRows] = React.useState([]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -39,7 +39,6 @@ export default function SummaryPage() {
     (async () => {
       setLoading(true);
 
-      // Accept either numeric id or slug
       const isId = /^\d+$/.test(slug);
       const gameQuery = isId
         ? supabase.from("games").select("*").eq("id", Number(slug)).single()
@@ -54,13 +53,11 @@ export default function SummaryPage() {
         return;
       }
 
-      // Teams
       const [{ data: home }, { data: away }] = await Promise.all([
         supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
       ]);
 
-      // Records (best-effort) from standings_current
       const [{ data: recHome }, { data: recAway }] = await Promise.all([
         supabase
           .from("standings_current")
@@ -74,7 +71,6 @@ export default function SummaryPage() {
           .maybeSingle(),
       ]);
 
-      // Lineups (from game_rosters)
       const { data: rosterRows } = await supabase
         .from("game_rosters")
         .select(
@@ -104,7 +100,6 @@ export default function SummaryPage() {
       const homeLU = split(rosterRows, g.home_team_id);
       const awayLU = split(rosterRows, g.away_team_id);
 
-      // Goalie record (best-effort) from goalie_stats_current
       const getGoalieRec = async (goalie) => {
         if (!goalie) return null;
         const { data } = await supabase
@@ -126,7 +121,6 @@ export default function SummaryPage() {
         getGoalieRec(awayLU.goalies[0]),
       ]);
 
-      // ----- Events (same grouping model as LivePage) -----
       const { data: ev } = await supabase
         .from("events")
         .select(`
@@ -164,13 +158,10 @@ export default function SummaryPage() {
         setAwayTeam(away || null);
         setHomeRecord(recHome || null);
         setAwayRecord(recAway || null);
-
         setLineupHome(homeLU);
         setLineupAway(awayLU);
-
         setHomeGoalieRec(homeGoalieRecData);
         setAwayGoalieRec(awayGoalieRecData);
-
         setRows(grouped || []);
         setLoading(false);
       }
@@ -203,14 +194,12 @@ export default function SummaryPage() {
 
   return (
     <div className="container summary-page" style={{ maxWidth: 1100 }}>
-      {/* Top actions */}
       <div className="button-group" style={{ marginBottom: 12 }}>
         <Link className="btn btn-grey" to="/games">
           {t("Back to Games")}
         </Link>
       </div>
 
-      {/* Game header */}
       <h2 style={{ textAlign: "center", margin: "6px 0" }}>
         {(awayTeam?.name || "—")} @ {(homeTeam?.name || "—")}
       </h2>
@@ -221,7 +210,7 @@ export default function SummaryPage() {
         {scoreline}
       </div>
 
-      {/* Lineups: ALWAYS two boxes side-by-side (desktop + phone) */}
+      {/* two team cards – always side by side */}
       <div className="summary-lineups">
         <div className="summary-team-column">
           <LineupCard
@@ -242,7 +231,7 @@ export default function SummaryPage() {
         </div>
       </div>
 
-      {/* Goals / Events (single big box at bottom) */}
+      {/* big events box */}
       <div className="card" style={{ padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>{t("Goals / Events")}</h3>
         {rows.length === 0 ? (
@@ -342,7 +331,6 @@ export default function SummaryPage() {
 }
 
 function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
-  // Record as W-L-OTL (best-effort)
   const recText =
     record &&
     (record.w !== undefined ||
@@ -351,18 +339,16 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
       ? `• ${record.w ?? 0} W • ${record.l ?? 0} L • ${record.otl ?? 0} OTL`
       : null;
 
-  // Put the logo on the outside edge:
-  // away card => logo left; home card (alignRight) => logo right
   const direction = alignRight ? "row-reverse" : "row";
 
   return (
-    <div className="card" style={{ padding: 12, minHeight: 160 }}>
+    <div className="card" style={{ padding: 10 }}>
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 12,
-          marginBottom: 10,
+          gap: 8,
+          marginBottom: 8,
           justifyContent: alignRight ? "flex-end" : "flex-start",
           flexDirection: direction,
         }}
@@ -371,24 +357,23 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
           <img
             src={team.logo_url}
             alt={team.short_name || team.name || "logo"}
-            style={{ width: 140, height: 70, objectFit: "contain" }}
+            style={{ width: 110, height: 55, objectFit: "contain" }}
           />
         ) : null}
         <div style={{ textAlign: alignRight ? "right" : "left" }}>
-          <h3 style={{ margin: 0 }}>{team?.name || "—"}</h3>
+          <h3 style={{ margin: 0, fontSize: 16 }}>{team?.name || "—"}</h3>
           {recText && (
             <div style={{ fontSize: 12, color: "#666" }}>{recText}</div>
           )}
         </div>
       </div>
 
-      {/* Roster table */}
       <div className="table-responsive">
         <table
           style={{
             width: "100%",
             borderCollapse: "collapse",
-            minWidth: 260,
+            /* no minWidth here so it can shrink on phone */
           }}
         >
           <thead>
@@ -427,9 +412,7 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
                   <RosterRow
                     key={`g-${p.id}`}
                     p={p}
-                    goalieRec={
-                      idx === 0 ? goalieRec : null // show record on first goalie only
-                    }
+                    goalieRec={idx === 0 ? goalieRec : null}
                   />
                 ))}
               </>
@@ -448,7 +431,7 @@ function RosterRow({ p, goalieRec }) {
       <Td>
         <Link to={`/players/${p.id}`}>{p.name}</Link>
         {goalieRec && (
-          <span style={{ color: "#666", marginLeft: 8, fontSize: 12 }}>
+          <span style={{ color: "#666", marginLeft: 6, fontSize: 11 }}>
             {[
               goalieRec.w != null ? `${goalieRec.w} W` : null,
               goalieRec.l != null ? `${goalieRec.l} L` : null,
