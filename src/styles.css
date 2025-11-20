@@ -984,3 +984,25 @@ table thead th {
   }
 }
 
+/* Summary page layout */
+.summary-page {
+  padding-bottom: 24px;
+}
+
+.summary-lineups {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.summary-team-column {
+  flex: 1 1 0;
+  min-width: 0; /* lets tables shrink nicely on small phones */
+}
+
+/* Optional: small extra spacing on phones */
+@media (max-width: 600px) {
+  .summary-page .card {
+    margin-bottom: 12px;
+  }
+}
