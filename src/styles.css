@@ -661,14 +661,14 @@ table thead th {
   .team-page .tr {
     /* Player | # | POS | GP | G | A | PTS | Actions */
     grid-template-columns:
-      2.4fr  /* player name */
-      0.8fr  /* # */
-      0.8fr  /* POS */
-      0.8fr  /* GP */
-      0.8fr  /* G */
-      0.8fr  /* A */
+      2.2fr  /* player name */
+      0.7fr  /* # */
+      0.7fr  /* POS */
+      0.7fr  /* GP */
+      0.7fr  /* G */
+      0.7fr  /* A */
       0.9fr  /* PTS */
-      1.1fr; /* Actions */
+      1.6fr; /* Actions – extra room for Edit + Delete */
     font-size: 11px;
     gap: 4px;
     padding: 6px 6px;
@@ -685,6 +685,21 @@ table thead th {
     white-space: normal !important;
     text-overflow: clip !important;
     overflow: visible !important;
+  }
+
+  /* Let the Actions cell wrap buttons instead of clipping Delete */
+  .team-page .tr .td.right {
+    white-space: normal !important;
+    overflow: visible !important;
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    flex-wrap: wrap;     /* if too tight, stack buttons */
+  }
+
+  .team-page .tr .td.right .btn {
+    padding: 4px 8px;
+    font-size: 11px;
   }
 
   .team-page .row.space-between {
