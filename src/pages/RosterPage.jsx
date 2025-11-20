@@ -76,28 +76,27 @@ export default function RosterPage() {
   if (!game) return null;
 
   return (
-    <div className="container">
+    <div className="container roster-page">
       <div className="button-group" style={{ marginBottom: 12 }}>
-        <Link className="btn btn-grey" to={`/games/${slug}/live`}>Live</Link>
-        <Link className="btn btn-grey" to={`/games/${slug}`}>Boxscore</Link>
-        <Link className="btn btn-grey" to="/games">Back to Games</Link>
+        <Link className="btn btn-grey" to={`/games/${slug}/live`}>
+          Live
+        </Link>
+        <Link className="btn btn-grey" to={`/games/${slug}`}>
+          Boxscore
+        </Link>
+        <Link className="btn btn-grey" to="/games">
+          Back to Games
+        </Link>
       </div>
 
       <h2>Roster</h2>
       <p className="muted">
-        {awayTeam?.name ?? game.away?.name ?? "Away"} vs {homeTeam?.name ?? game.home?.name ?? "Home"}
+        {awayTeam?.name ?? game.away?.name ?? "Away"} vs{" "}
+        {homeTeam?.name ?? game.home?.name ?? "Home"}
       </p>
 
-      {/* Side-by-side: AWAY (left) and HOME (right) */}
-      <div
-        className="grid-two"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 16,
-          alignItems: "start",
-        }}
-      >
+      {/* Side-by-side on desktop, stacked on small screens */}
+      <div className="roster-grid">
         {/* Away column (left) */}
         <RosterColumn
           title={awayTeam?.name ?? game.away?.name ?? "Away"}
@@ -139,28 +138,29 @@ function teamTint(name = "") {
   return { base: "#334155", text: "#ffffff" }; // slate-700
 }
 
-function RosterColumn({ title, logo, teamId, players, rosterMap, onToggle, teamTint }) {
+function RosterColumn({
+  title,
+  logo,
+  teamId,
+  players,
+  rosterMap,
+  onToggle,
+  teamTint,
+}) {
   return (
-    <div className="card" style={{ padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+    <div className="card roster-column">
+      <div className="roster-header">
         {logo ? (
           <img
             src={logo}
             alt={`${title} logo`}
-            style={{ height: 42, width: "auto", objectFit: "contain" }}
+            className="roster-logo"
           />
         ) : null}
-        <h3 style={{ margin: 0 }}>{title}</h3>
+        <h3 className="roster-title">{title}</h3>
       </div>
 
-      <div
-        className="chips-wrap"
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-        }}
-      >
+      <div className="chips-wrap">
         {players.map((p) => {
           const row = rosterMap.get(`${teamId}:${p.id}`);
           const on = !!row?.dressed;
@@ -169,16 +169,11 @@ function RosterColumn({ title, logo, teamId, players, rosterMap, onToggle, teamT
               key={p.id}
               onClick={() => onToggle(teamId, p)}
               title="Toggle dressed"
-              className="chip"
+              className="chip roster-chip"
               style={{
-                cursor: "pointer",
-                borderRadius: 999,
-                padding: "8px 12px",
                 border: `1px solid ${on ? teamTint.base : "#e5e7eb"}`,
                 background: on ? teamTint.base : "#ffffff",
                 color: on ? teamTint.text : "#111827",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-                transition: "all .15s ease",
               }}
             >
               #{p.number} {p.name}
