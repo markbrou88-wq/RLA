@@ -984,11 +984,13 @@ table thead th {
   }
 }
 
-/* Summary page layout */
+/* ===== SUMMARY PAGE ===== */
+
 .summary-page {
   padding-bottom: 24px;
 }
 
+/* Two team cards */
 .summary-lineups {
   display: flex;
   gap: 16px;
@@ -997,55 +999,70 @@ table thead th {
 
 .summary-team-column {
   flex: 1 1 0;
-  min-width: 0; /* lets tables shrink nicely on small phones */
+  min-width: 0; /* allow shrinking */
 }
 
-/* Optional: small extra spacing on phones */
-@media (max-width: 600px) {
-  .summary-page .card {
-    margin-bottom: 12px;
-  }
+.summary-team-card {
+  padding: 10px;
 }
 
-/* Summary page layout */
-.summary-page {
-  padding-bottom: 24px;
+/* Logo inside team card */
+.summary-team-logo {
+  width: 100px;
+  height: 50px;
+  object-fit: contain;
 }
 
-.summary-lineups {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
+/* Lineup tables: fixed layout so they don't force the card to grow wider */
+.summary-lineup-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
 
-.summary-team-column {
-  flex: 1 1 0;
-  min-width: 0;
+/* Column widths: # | PLAYER | POS */
+.summary-lineup-table th:nth-child(1),
+.summary-lineup-table td:nth-child(1) {
+  width: 18%;
+}
+.summary-lineup-table th:nth-child(3),
+.summary-lineup-table td:nth-child(3) {
+  width: 18%;
+}
+.summary-lineup-table th:nth-child(2),
+.summary-lineup-table td:nth-child(2) {
+  width: 64%;
 }
 
-/* Make the two cards fit on small phones */
+/* Events card */
+.summary-events-card {
+  margin-top: 8px;
+}
+
+/* Mobile tweaks */
 @media (max-width: 600px) {
   .summary-lineups {
     gap: 8px;
   }
 
-  .summary-team-column {
-    flex: 1 1 calc(50% - 4px);
-    max-width: calc(50% - 4px);
-  }
-
-  .summary-page .card {
+  .summary-team-card {
     padding: 8px;
   }
 
-  .summary-page table th,
-  .summary-page table td {
-    padding: 6px 6px;
-    font-size: 12px;
+  .summary-team-logo {
+    width: 80px;
+    height: 40px;
   }
 
-  .summary-page .card img {
-    width: 90px;
-    height: 45px;
+  .summary-lineup-table th,
+  .summary-lineup-table td {
+    padding: 4px 4px;
+    font-size: 11px;
+  }
+
+  .summary-events-card h3 {
+    font-size: 15px;
   }
 }
+
+
