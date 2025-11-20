@@ -1,6 +1,6 @@
 // src/lib/pages/SummaryPage.jsx
 import React from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
 function useMaybeI18n() {
@@ -15,7 +15,6 @@ function useMaybeI18n() {
 export default function SummaryPage() {
   const { t } = useMaybeI18n();
   const { slug } = useParams();
-  const navigate = useNavigate();
 
   const [loading, setLoading] = React.useState(true);
   const [game, setGame] = React.useState(null);
@@ -174,20 +173,26 @@ export default function SummaryPage() {
     };
   }, [slug]);
 
-  if (loading) return <div style={{ padding: 16 }}>{t("Loading…")}</div>;
-  if (!game) return <div style={{ padding: 16 }}>{t("Game not found.")}</div>;
+  if (loading) return <div className="container" style={{ padding: 16 }}>{t("Loading…")}</div>;
+  if (!game) return <div className="container" style={{ padding: 16 }}>{t("Game not found.")}</div>;
 
   const dateStr = game.game_date ? new Date(game.game_date).toLocaleString() : "";
   const scoreline = `${awayTeam?.short_name || awayTeam?.name || "—"} ${
     game.away_score ?? "—"
-  }  —  ${game.home_score ?? "—"} ${homeTeam?.short_name || homeTeam?.name || "—"}`;
+  }  —  ${game.home_score ?? "—"} ${
+    homeTeam?.short_name || homeTeam?.name || "—"
+  }`;
 
   return (
-    <div style={{ padding: 16, maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ marginBottom: 12 }}>
-        <button onClick={() => navigate("/games")}>{t("Back to Games")}</button>
+    <div className="container summary-page" style={{ maxWidth: 1100 }}>
+      {/* Top actions */}
+      <div className="button-group" style={{ marginBottom: 12 }}>
+        <Link className="btn btn-grey" to="/games">
+          {t("Back to Games")}
+        </Link>
       </div>
 
+      {/* Game header */}
       <h2 style={{ textAlign: "center", margin: "6px 0" }}>
         {(awayTeam?.name || "—")} @ {(homeTeam?.name || "—")}
       </h2>
@@ -196,86 +201,121 @@ export default function SummaryPage() {
       </div>
       <div style={{ textAlign: "center", fontWeight: 700, marginBottom: 16 }}>{scoreline}</div>
 
-      {/* Lineups side by side: Away (left) – Home (right, logo on the outside edge) */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        <LineupCard team={awayTeam} record={awayRecord} lineup={lineupAway} goalieRec={awayGoalieRec} />
-        <LineupCard team={homeTeam} record={homeRecord} lineup={lineupHome} goalieRec={homeGoalieRec} alignRight />
+      {/* Lineups: responsive grid – two cards on desktop, stacked on narrow phones */}
+      <div
+        className="summary-lineups"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 16,
+          marginBottom: 16,
+        }}
+      >
+        <LineupCard
+          team={awayTeam}
+          record={awayRecord}
+          lineup={lineupAway}
+          goalieRec={awayGoalieRec}
+        />
+        <LineupCard
+          team={homeTeam}
+          record={homeRecord}
+          lineup={lineupHome}
+          goalieRec={homeGoalieRec}
+          alignRight
+        />
       </div>
 
-      {/* Goals / Events (from grouped rows) */}
-      <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
+      {/* Goals / Events */}
+      <div className="card" style={{ padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>{t("Goals / Events")}</h3>
         {rows.length === 0 ? (
           <div style={{ color: "#777" }}>{t("No events yet.")}</div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <Th>{t("PER")}</Th>
-                <Th>{t("TIME")}</Th>
-                <Th>{t("TEAM")}</Th>
-                <Th>{t("TYPE")}</Th>
-                <Th>{t("PLAYER / ASSISTS")}</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => {
-                if (r.goal) {
-                  const aTxt = r.assists
-                    .map((a) =>
-                      a.players?.id ? (
-                        <Link key={`a${a.id}`} to={`/players/${a.players.id}`}>
-                          #{a.players.number ?? "—"} {a.players.name ?? "—"}
-                        </Link>
-                      ) : (
-                        `#${a.players?.number ?? "—"} ${a.players?.name ?? "—"}`
+          <div className="table-responsive">
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
+              <thead>
+                <tr>
+                  <Th>{t("PER")}</Th>
+                  <Th>{t("TIME")}</Th>
+                  <Th>{t("TEAM")}</Th>
+                  <Th>{t("TYPE")}</Th>
+                  <Th>{t("PLAYER / ASSISTS")}</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => {
+                  if (r.goal) {
+                    const aTxt = r.assists
+                      .map((a) =>
+                        a.players?.id ? (
+                          <Link key={`a${a.id}`} to={`/players/${a.players.id}`}>
+                            #{a.players.number ?? "—"} {a.players.name ?? "—"}
+                          </Link>
+                        ) : (
+                          `#${a.players?.number ?? "—"} ${a.players?.name ?? "—"}`
+                        )
                       )
-                    )
-                    .reduce((acc, node, idx) => (idx ? [...acc, ", ", node] : [node]), []);
-                  const teamLabel = r.goal.teams?.short_name || r.goal.teams?.name || "";
-                  return (
-                    <tr key={`g${i}`}>
-                      <Td>{r.goal.period}</Td>
-                      <Td>{r.goal.time_mmss}</Td>
-                      <Td>{teamLabel}</Td>
-                      <Td>GOAL</Td>
-                      <Td>
-                        <b>
-                          {r.goal.players?.id ? (
-                            <Link to={`/players/${r.goal.players.id}`}>
-                              #{r.goal.players.number ?? "—"} {r.goal.players.name ?? "—"}
-                            </Link>
-                          ) : (
-                            <>#{r.goal.players?.number ?? "—"} {r.goal.players?.name ?? "—"}</>
+                      .reduce(
+                        (acc, node, idx) => (idx ? [...acc, ", ", node] : [node]),
+                        []
+                      );
+                    const teamLabel =
+                      r.goal.teams?.short_name || r.goal.teams?.name || "";
+                    return (
+                      <tr key={`g${i}`}>
+                        <Td>{r.goal.period}</Td>
+                        <Td>{r.goal.time_mmss}</Td>
+                        <Td>{teamLabel}</Td>
+                        <Td>GOAL</Td>
+                        <Td>
+                          <b>
+                            {r.goal.players?.id ? (
+                              <Link to={`/players/${r.goal.players.id}`}>
+                                #{r.goal.players.number ?? "—"}{" "}
+                                {r.goal.players.name ?? "—"}
+                              </Link>
+                            ) : (
+                              <>
+                                #{r.goal.players?.number ?? "—"}{" "}
+                                {r.goal.players?.name ?? "—"}
+                              </>
+                            )}
+                          </b>
+                          {aTxt && (
+                            <span style={{ color: "#666" }}> (A: {aTxt})</span>
                           )}
-                        </b>
-                        {aTxt && <span style={{ color: "#666" }}> (A: {aTxt})</span>}
+                        </Td>
+                      </tr>
+                    );
+                  }
+                  const e = r.single;
+                  const teamLabel =
+                    e.teams?.short_name || e.teams?.name || "";
+                  return (
+                    <tr key={`o${e.id}`}>
+                      <Td>{e.period}</Td>
+                      <Td>{e.time_mmss}</Td>
+                      <Td>{teamLabel}</Td>
+                      <Td>{String(e.event || "").toUpperCase()}</Td>
+                      <Td>
+                        {e.players?.id ? (
+                          <Link to={`/players/${e.players.id}`}>
+                            #{e.players.number ?? "—"} {e.players.name ?? "—"}
+                          </Link>
+                        ) : (
+                          <>
+                            #{e.players?.number ?? "—"}{" "}
+                            {e.players?.name ?? "—"}
+                          </>
+                        )}
                       </Td>
                     </tr>
                   );
-                }
-                const e = r.single;
-                const teamLabel = e.teams?.short_name || e.teams?.name || "";
-                return (
-                  <tr key={`o${e.id}`}>
-                    <Td>{e.period}</Td>
-                    <Td>{e.time_mmss}</Td>
-                    <Td>{teamLabel}</Td>
-                    <Td>{String(e.event || "").toUpperCase()}</Td>
-                    <Td>
-                      {e.players?.id ? (
-                        <Link to={`/players/${e.players.id}`}>
-                          #{e.players.number ?? "—"} {e.players.name ?? "—"}
-                        </Link>
-                      ) : (
-                        <>#{e.players?.number ?? "—"} {e.players?.name ?? "—"}</>
-                      )}
-                    </Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
@@ -285,16 +325,19 @@ export default function SummaryPage() {
 function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
   // Record as W-L-OTL (best-effort)
   const recText =
-    record && (record.w !== undefined || record.l !== undefined || record.otl !== undefined)
+    record &&
+    (record.w !== undefined ||
+      record.l !== undefined ||
+      record.otl !== undefined)
       ? `• ${record.w ?? 0} W • ${record.l ?? 0} L • ${record.otl ?? 0} OTL`
       : null;
 
-  // Put the logo on the **outside** edge:
+  // Put the logo on the outside edge:
   // away card => logo left; home card (alignRight) => logo right
   const direction = alignRight ? "row-reverse" : "row";
 
   return (
-    <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12, minHeight: 160 }}>
+    <div className="card" style={{ padding: 12, minHeight: 160 }}>
       <div
         style={{
           display: "flex",
@@ -314,49 +357,67 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
         ) : null}
         <div style={{ textAlign: alignRight ? "right" : "left" }}>
           <h3 style={{ margin: 0 }}>{team?.name || "—"}</h3>
-          {recText && <div style={{ fontSize: 12, color: "#666" }}>{recText}</div>}
+          {recText && (
+            <div style={{ fontSize: 12, color: "#666" }}>{recText}</div>
+          )}
         </div>
       </div>
 
       {/* Roster table */}
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <Th style={{ width: 60 }}>#</Th>
-            <Th>{`PLAYER`}</Th>
-            <Th style={{ width: 80 }}>{`POS`}</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {lineup.skaters.length === 0 && lineup.goalies.length === 0 ? (
+      <div className="table-responsive">
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            minWidth: 260,
+          }}
+        >
+          <thead>
             <tr>
-              <Td colSpan={3} style={{ color: "#777" }}>
-                No lineup recorded.
-              </Td>
+              <Th style={{ width: 40 }}>#</Th>
+              <Th>{`PLAYER`}</Th>
+              <Th style={{ width: 55 }}>{`POS`}</Th>
             </tr>
-          ) : (
-            <>
-              {lineup.skaters.map((p) => (
-                <RosterRow key={`s-${p.id}`} p={p} />
-              ))}
+          </thead>
+          <tbody>
+            {lineup.skaters.length === 0 && lineup.goalies.length === 0 ? (
+              <tr>
+                <Td colSpan={3} style={{ color: "#777" }}>
+                  No lineup recorded.
+                </Td>
+              </tr>
+            ) : (
+              <>
+                {lineup.skaters.map((p) => (
+                  <RosterRow key={`s-${p.id}`} p={p} />
+                ))}
 
-              {lineup.goalies.length > 0 && (
-                <tr>
-                  <Td colSpan={3} style={{ padding: 6, borderBottom: "1px solid #f2f2f2" }} />
-                </tr>
-              )}
+                {lineup.goalies.length > 0 && (
+                  <tr>
+                    <Td
+                      colSpan={3}
+                      style={{
+                        padding: 6,
+                        borderBottom: "1px solid #f2f2f2",
+                      }}
+                    />
+                  </tr>
+                )}
 
-              {lineup.goalies.map((p, idx) => (
-                <RosterRow
-                  key={`g-${p.id}`}
-                  p={p}
-                  goalieRec={idx === 0 ? goalieRec : null /* show record on first goalie only */}
-                />
-              ))}
-            </>
-          )}
-        </tbody>
-      </table>
+                {lineup.goalies.map((p, idx) => (
+                  <RosterRow
+                    key={`g-${p.id}`}
+                    p={p}
+                    goalieRec={
+                      idx === 0 ? goalieRec : null // show record on first goalie only
+                    }
+                  />
+                ))}
+              </>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
