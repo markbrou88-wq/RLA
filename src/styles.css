@@ -1006,3 +1006,46 @@ table thead th {
     margin-bottom: 12px;
   }
 }
+
+/* Summary page layout */
+.summary-page {
+  padding-bottom: 24px;
+}
+
+.summary-lineups {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.summary-team-column {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Make the two cards fit on small phones */
+@media (max-width: 600px) {
+  .summary-lineups {
+    gap: 8px;
+  }
+
+  .summary-team-column {
+    flex: 1 1 calc(50% - 4px);
+    max-width: calc(50% - 4px);
+  }
+
+  .summary-page .card {
+    padding: 8px;
+  }
+
+  .summary-page table th,
+  .summary-page table td {
+    padding: 6px 6px;
+    font-size: 12px;
+  }
+
+  .summary-page .card img {
+    width: 90px;
+    height: 45px;
+  }
+}
