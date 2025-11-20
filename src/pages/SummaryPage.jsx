@@ -62,8 +62,16 @@ export default function SummaryPage() {
 
       // Records (best-effort) from standings_current
       const [{ data: recHome }, { data: recAway }] = await Promise.all([
-        supabase.from("standings_current").select("*").eq("team_id", g.home_team_id).maybeSingle(),
-        supabase.from("standings_current").select("*").eq("team_id", g.away_team_id).maybeSingle(),
+        supabase
+          .from("standings_current")
+          .select("*")
+          .eq("team_id", g.home_team_id)
+          .maybeSingle(),
+        supabase
+          .from("standings_current")
+          .select("*")
+          .eq("team_id", g.away_team_id)
+          .maybeSingle(),
       ]);
 
       // Lineups (from game_rosters)
@@ -173,8 +181,18 @@ export default function SummaryPage() {
     };
   }, [slug]);
 
-  if (loading) return <div className="container" style={{ padding: 16 }}>{t("Loading…")}</div>;
-  if (!game) return <div className="container" style={{ padding: 16 }}>{t("Game not found.")}</div>;
+  if (loading)
+    return (
+      <div className="container" style={{ padding: 16 }}>
+        {t("Loading…")}
+      </div>
+    );
+  if (!game)
+    return (
+      <div className="container" style={{ padding: 16 }}>
+        {t("Game not found.")}
+      </div>
+    );
 
   const dateStr = game.game_date ? new Date(game.game_date).toLocaleString() : "";
   const scoreline = `${awayTeam?.short_name || awayTeam?.name || "—"} ${
@@ -199,41 +217,45 @@ export default function SummaryPage() {
       <div style={{ textAlign: "center", color: "#666", margin: "4px 0" }}>
         {String(game.status || "").toUpperCase()} • {dateStr}
       </div>
-      <div style={{ textAlign: "center", fontWeight: 700, marginBottom: 16 }}>{scoreline}</div>
-
-      {/* Lineups: responsive grid – two cards on desktop, stacked on narrow phones */}
-      <div
-        className="summary-lineups"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-          gap: 16,
-          marginBottom: 16,
-        }}
-      >
-        <LineupCard
-          team={awayTeam}
-          record={awayRecord}
-          lineup={lineupAway}
-          goalieRec={awayGoalieRec}
-        />
-        <LineupCard
-          team={homeTeam}
-          record={homeRecord}
-          lineup={lineupHome}
-          goalieRec={homeGoalieRec}
-          alignRight
-        />
+      <div style={{ textAlign: "center", fontWeight: 700, marginBottom: 16 }}>
+        {scoreline}
       </div>
 
-      {/* Goals / Events */}
+      {/* Lineups: ALWAYS two boxes side-by-side (desktop + phone) */}
+      <div className="summary-lineups">
+        <div className="summary-team-column">
+          <LineupCard
+            team={awayTeam}
+            record={awayRecord}
+            lineup={lineupAway}
+            goalieRec={awayGoalieRec}
+          />
+        </div>
+        <div className="summary-team-column">
+          <LineupCard
+            team={homeTeam}
+            record={homeRecord}
+            lineup={lineupHome}
+            goalieRec={homeGoalieRec}
+            alignRight
+          />
+        </div>
+      </div>
+
+      {/* Goals / Events (single big box at bottom) */}
       <div className="card" style={{ padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>{t("Goals / Events")}</h3>
         {rows.length === 0 ? (
           <div style={{ color: "#777" }}>{t("No events yet.")}</div>
         ) : (
           <div className="table-responsive">
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                minWidth: 480,
+              }}
+            >
               <thead>
                 <tr>
                   <Th>{t("PER")}</Th>
@@ -260,8 +282,7 @@ export default function SummaryPage() {
                         (acc, node, idx) => (idx ? [...acc, ", ", node] : [node]),
                         []
                       );
-                    const teamLabel =
-                      r.goal.teams?.short_name || r.goal.teams?.name || "";
+                    const teamLabel = r.goal.teams?.short_name || r.goal.teams?.name || "";
                     return (
                       <tr key={`g${i}`}>
                         <Td>{r.goal.period}</Td>
@@ -290,8 +311,7 @@ export default function SummaryPage() {
                     );
                   }
                   const e = r.single;
-                  const teamLabel =
-                    e.teams?.short_name || e.teams?.name || "";
+                  const teamLabel = e.teams?.short_name || e.teams?.name || "";
                   return (
                     <tr key={`o${e.id}`}>
                       <Td>{e.period}</Td>
@@ -305,8 +325,7 @@ export default function SummaryPage() {
                           </Link>
                         ) : (
                           <>
-                            #{e.players?.number ?? "—"}{" "}
-                            {e.players?.name ?? "—"}
+                            #{e.players?.number ?? "—"} {e.players?.name ?? "—"}
                           </>
                         )}
                       </Td>
@@ -375,8 +394,8 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
           <thead>
             <tr>
               <Th style={{ width: 40 }}>#</Th>
-              <Th>{`PLAYER`}</Th>
-              <Th style={{ width: 55 }}>{`POS`}</Th>
+              <Th>PLAYER</Th>
+              <Th style={{ width: 55 }}>POS</Th>
             </tr>
           </thead>
           <tbody>
