@@ -1126,9 +1126,4 @@ table thead th {
   }
 }
 
-/* Hide Live link on phones */
-@media (max-width: 900px) {
-  .nav-live-link {
-    display: none !important;
-  }
-}
+
