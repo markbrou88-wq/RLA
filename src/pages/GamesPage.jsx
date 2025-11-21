@@ -34,6 +34,9 @@ export default function GamesPage() {
   // track if we're on a small/mobile screen
   const [isMobile, setIsMobile] = React.useState(false);
 
+  // is user logged in?
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+
   // detect mobile viewport
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -46,6 +49,29 @@ export default function GamesPage() {
 
     return () => {
       mq.removeEventListener("change", handleChange);
+    };
+  }, []);
+
+  // check auth state once on mount
+  React.useEffect(() => {
+    let mounted = true;
+    async function checkAuth() {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) {
+          console.error(error);
+        }
+        if (!mounted) return;
+        setIsLoggedIn(!!data?.user);
+      } catch (e) {
+        console.error(e);
+        if (!mounted) return;
+        setIsLoggedIn(false);
+      }
+    }
+    checkAuth();
+    return () => {
+      mounted = false;
     };
   }, []);
 
@@ -204,45 +230,47 @@ export default function GamesPage() {
         </button>
       </div>
 
-      {/* Create game */}
-      <div className="gp-grid gp-create card">
-        <input
-          type="datetime-local"
-          value={newDate}
-          onChange={(e) => setNewDate(e.target.value)}
-          className="gp-input"
-        />
+      {/* Create game – only when logged in */}
+      {isLoggedIn && (
+        <div className="gp-grid gp-create card">
+          <input
+            type="datetime-local"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+            className="gp-input"
+          />
 
-        <select
-          value={newHome}
-          onChange={(e) => setNewHome(e.target.value)}
-          className="gp-input"
-        >
-          <option value="">{t("Home team…")}</option>
-          {teams.map((t_) => (
-            <option key={t_.id} value={t_.id}>
-              {t_.name}
-            </option>
-          ))}
-        </select>
+          <select
+            value={newHome}
+            onChange={(e) => setNewHome(e.target.value)}
+            className="gp-input"
+          >
+            <option value="">{t("Home team…")}</option>
+            {teams.map((t_) => (
+              <option key={t_.id} value={t_.id}>
+                {t_.name}
+              </option>
+            ))}
+          </select>
 
-        <select
-          value={newAway}
-          onChange={(e) => setNewAway(e.target.value)}
-          className="gp-input"
-        >
-          <option value="">{t("Away team…")}</option>
-          {teams.map((t_) => (
-            <option key={t_.id} value={t_.id}>
-              {t_.name}
-            </option>
-          ))}
-        </select>
+          <select
+            value={newAway}
+            onChange={(e) => setNewAway(e.target.value)}
+            className="gp-input"
+          >
+            <option value="">{t("Away team…")}</option>
+            {teams.map((t_) => (
+              <option key={t_.id} value={t_.id}>
+                {t_.name}
+              </option>
+            ))}
+          </select>
 
-        <button className="btn" onClick={handleCreate} disabled={saving}>
-          {saving ? t("Creating…") : t("Create")}
-        </button>
-      </div>
+          <button className="btn" onClick={handleCreate} disabled={saving}>
+            {saving ? t("Creating…") : t("Create")}
+          </button>
+        </div>
+      )}
 
       {/* Games list */}
       {loading ? (
@@ -306,28 +334,37 @@ export default function GamesPage() {
                   >
                     {t("Boxscore")}
                   </button>
-                  {g.status === "final" ? (
-                    <button
-                      className="btn"
-                      onClick={() => updateStatus(g.id, "scheduled")}
-                    >
-                      {t("Open")}
-                    </button>
-                  ) : (
-                    <button
-                      className="btn"
-                      onClick={() => updateStatus(g.id, "final")}
-                    >
-                      {t("Mark as Final")}
-                    </button>
+
+                  {/* Admin-only actions (only when logged in):
+                      - Open / Mark as Final
+                      - Delete
+                  */}
+                  {isLoggedIn && (
+                    <>
+                      {g.status === "final" ? (
+                        <button
+                          className="btn"
+                          onClick={() => updateStatus(g.id, "scheduled")}
+                        >
+                          {t("Open")}
+                        </button>
+                      ) : (
+                        <button
+                          className="btn"
+                          onClick={() => updateStatus(g.id, "final")}
+                        >
+                          {t("Mark as Final")}
+                        </button>
+                      )}
+                      <button
+                        className="btn"
+                        onClick={() => handleDelete(g.id)}
+                        style={{ background: "crimson" }}
+                      >
+                        {t("Delete")}
+                      </button>
+                    </>
                   )}
-                  <button
-                    className="btn"
-                    onClick={() => handleDelete(g.id)}
-                    style={{ background: "crimson" }}
-                  >
-                    {t("Delete")}
-                  </button>
                 </div>
               </div>
             );
