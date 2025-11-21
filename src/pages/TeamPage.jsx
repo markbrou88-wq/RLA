@@ -66,7 +66,9 @@ function useTeamSummary(teamId) {
     (async () => {
       const { data: games, error } = await supabase
         .from("games")
-        .select("id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot")
+        .select(
+          "id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot"
+        )
         .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
         .order("game_date", { ascending: false })
         .limit(20);
@@ -216,6 +218,32 @@ export default function TeamPage() {
     pts: 80,
     actions: 200,
   });
+
+  // ---- Auth: find out if a user is logged in ----
+  const [user, setUser] = React.useState(null);
+  React.useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) console.error(error);
+      if (mounted) setUser(data?.user ?? null);
+    })();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!mounted) return;
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      authListener?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  const isLoggedIn = !!user;
 
   // Add / Edit / Delete
   const [adding, setAdding] = React.useState(false);
@@ -395,52 +423,56 @@ export default function TeamPage() {
         style={{ marginTop: 16, marginBottom: 8 }}
       >
         <div className="card-title">Roster &amp; Player Stats</div>
-        {!adding ? (
-          <button className="btn" onClick={() => setAdding(true)}>
-            Add Player
-          </button>
-        ) : (
-          <div className="row gap">
-            <input
-              className="in"
-              placeholder="#"
-              style={{ width: 70, textAlign: "center" }}
-              value={newPlayer.number}
-              onChange={(e) =>
-                setNewPlayer((s) => ({
-                  ...s,
-                  number: e.target.value.replace(/\D/g, ""),
-                }))
-              }
-            />
-            <input
-              className="in"
-              placeholder="Player name"
-              style={{ width: 260 }}
-              value={newPlayer.name}
-              onChange={(e) =>
-                setNewPlayer((s) => ({ ...s, name: e.target.value }))
-              }
-            />
-            <select
-              className="in"
-              style={{ width: 80 }}
-              value={newPlayer.position}
-              onChange={(e) =>
-                setNewPlayer((s) => ({ ...s, position: e.target.value }))
-              }
-            >
-              <option value="F">F</option>
-              <option value="D">D</option>
-              <option value="G">G</option>
-            </select>
-            <button className="btn" onClick={addPlayer}>
-              Save
-            </button>
-            <button className="btn ghost" onClick={() => setAdding(false)}>
-              Cancel
-            </button>
-          </div>
+        {isLoggedIn && (
+          <>
+            {!adding ? (
+              <button className="btn" onClick={() => setAdding(true)}>
+                Add Player
+              </button>
+            ) : (
+              <div className="row gap">
+                <input
+                  className="in"
+                  placeholder="#"
+                  style={{ width: 70, textAlign: "center" }}
+                  value={newPlayer.number}
+                  onChange={(e) =>
+                    setNewPlayer((s) => ({
+                      ...s,
+                      number: e.target.value.replace(/\D/g, ""),
+                    }))
+                  }
+                />
+                <input
+                  className="in"
+                  placeholder="Player name"
+                  style={{ width: 260 }}
+                  value={newPlayer.name}
+                  onChange={(e) =>
+                    setNewPlayer((s) => ({ ...s, name: e.target.value }))
+                  }
+                />
+                <select
+                  className="in"
+                  style={{ width: 80 }}
+                  value={newPlayer.position}
+                  onChange={(e) =>
+                    setNewPlayer((s) => ({ ...s, position: e.target.value }))
+                  }
+                >
+                  <option value="F">F</option>
+                  <option value="D">D</option>
+                  <option value="G">G</option>
+                </select>
+                <button className="btn" onClick={addPlayer}>
+                  Save
+                </button>
+                <button className="btn ghost" onClick={() => setAdding(false)}>
+                  Cancel
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -454,7 +486,7 @@ export default function TeamPage() {
           <Th col="g" label="G" />
           <Th col="a" label="A" />
           <Th col="pts" label="PTS" />
-          <Th col="actions" label="Actions" />
+          {isLoggedIn && <Th col="actions" label="Actions" />}
         </div>
 
         {sortedRows.map((r) =>
@@ -583,25 +615,27 @@ export default function TeamPage() {
               >
                 {r.pts}
               </div>
-              <div
-                className="td right"
-                style={{
-                  width: widths.actions,
-                  minWidth: widths.actions,
-                  maxWidth: widths.actions,
-                }}
-              >
-                <button className="btn" onClick={() => saveEdit(r.id)}>
-                  Save
-                </button>
-                <button
-                  className="btn ghost"
-                  style={{ marginLeft: 8 }}
-                  onClick={() => cancelEdit(r.id)}
+              {isLoggedIn && (
+                <div
+                  className="td right"
+                  style={{
+                    width: widths.actions,
+                    minWidth: widths.actions,
+                    maxWidth: widths.actions,
+                  }}
                 >
-                  Cancel
-                </button>
-              </div>
+                  <button className="btn" onClick={() => saveEdit(r.id)}>
+                    Save
+                  </button>
+                  <button
+                    className="btn ghost"
+                    style={{ marginLeft: 8 }}
+                    onClick={() => cancelEdit(r.id)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="tr" key={r.id}>
@@ -678,25 +712,27 @@ export default function TeamPage() {
               >
                 {r.pts}
               </div>
-              <div
-                className="td right"
-                style={{
-                  width: widths.actions,
-                  minWidth: widths.actions,
-                  maxWidth: widths.actions,
-                }}
-              >
-                <button className="btn" onClick={() => beginEdit(r.id)}>
-                  Edit
-                </button>
-                <button
-                  className="btn danger"
-                  style={{ marginLeft: 8 }}
-                  onClick={() => deletePlayer(r.id)}
+              {isLoggedIn && (
+                <div
+                  className="td right"
+                  style={{
+                    width: widths.actions,
+                    minWidth: widths.actions,
+                    maxWidth: widths.actions,
+                  }}
                 >
-                  Delete
-                </button>
-              </div>
+                  <button className="btn" onClick={() => beginEdit(r.id)}>
+                    Edit
+                  </button>
+                  <button
+                    className="btn danger"
+                    style={{ marginLeft: 8 }}
+                    onClick={() => deletePlayer(r.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
             </div>
           )
         )}
