@@ -1126,4 +1126,12 @@ table thead th {
   }
 }
 
+/* ===== Hide LIVE button on phones only ===== */
+@media (max-width: 800px) {
+  /* Any link that points to a /live route (e.g. /games/slug/live) */
+  a[href$="/live"],
+  a[href*="/live?"] {
+    display: none !important;
+  }
+}
 
