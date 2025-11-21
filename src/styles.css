@@ -1104,28 +1104,26 @@ table thead th {
   }
 }
 
-/* Live page: benches + rink layout */
-.live-rink-layout {
+/* Live page responsive layout */
+.live-layout {
   display: grid;
-  /* Three responsive columns: left bench, rink, right bench */
-  grid-template-columns: minmax(80px, 120px) minmax(0, 1fr) minmax(80px, 120px);
+  grid-template-columns: minmax(0, 190px) minmax(0, 1fr) minmax(0, 190px);
   gap: 12px;
   margin-top: 10px;
-  align-items: stretch;
 }
 
-/* On tablets / smaller screens: shrink benches a bit more,
-   keep 3 columns so the rink is always visible */
-@media (max-width: 960px) {
-  .live-rink-layout {
-    grid-template-columns: minmax(68px, 96px) minmax(0, 1fr) minmax(68px, 96px);
+/* On phones: rink full width, benches below it, no horizontal scroll */
+@media (max-width: 900px) {
+  .live-layout {
+    grid-template-columns: minmax(0, 1fr);
   }
-}
 
-/* On very small phones: even narrower benches but still 3 columns */
-@media (max-width: 600px) {
-  .live-rink-layout {
-    grid-template-columns: minmax(60px, 80px) minmax(0, 1fr) minmax(60px, 80px);
+  .live-layout .live-rink-column {
+    order: 1;
+  }
+
+  .live-layout .live-team-column {
+    order: 2;
   }
 }
 
