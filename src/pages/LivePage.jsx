@@ -677,14 +677,7 @@ export default function LivePage() {
       </div>
 
       {/* benches + rink */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "190px 1fr 190px",
-          gap: 12,
-          marginTop: 10,
-        }}
-      >
+      <div className="live-rink-layout">
         <Bench
           title={away.short_name || away.name}
           players={awayDressed}
