@@ -31,6 +31,24 @@ export default function GamesPage() {
   const [newAway, setNewAway] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
+  // track if we're on a small/mobile screen
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  // detect mobile viewport
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handleChange = () => setIsMobile(mq.matches);
+
+    handleChange(); // set initial value
+    mq.addEventListener("change", handleChange);
+
+    return () => {
+      mq.removeEventListener("change", handleChange);
+    };
+  }, []);
+
   React.useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -267,12 +285,15 @@ export default function GamesPage() {
 
                 {/* Actions */}
                 <div className="gp-card-actions">
-                  <button
-                    className="btn"
-                    onClick={() => navigate(`/games/${slug}/live`)}
-                  >
-                    {t("Live")}
-                  </button>
+                  {/* Hide Live on mobile so you only edit live from desktop */}
+                  {!isMobile && (
+                    <button
+                      className="btn"
+                      onClick={() => navigate(`/games/${slug}/live`)}
+                    >
+                      {t("Live")}
+                    </button>
+                  )}
                   <button
                     className="btn"
                     onClick={() => navigate(`/games/${slug}/roster`)}
