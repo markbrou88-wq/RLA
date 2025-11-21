@@ -243,14 +243,7 @@ export default function SummaryPage() {
           <div style={{ color: "#777" }}>{t("No events yet.")}</div>
         ) : (
           <div className="table-responsive">
-            <table
-              className="summary-events-table"
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                minWidth: 480,
-              }}
-            >
+            <table className="summary-events-table">
               <thead>
                 <tr>
                   <Th>{t("PER")}</Th>
