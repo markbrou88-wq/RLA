@@ -369,7 +369,7 @@ export default function TeamPage() {
     <div className="team-page">
       {/* Back + header */}
       <div className="row gap">
-        <Link to="/standings" className="btn ghost small">
+        <Link to="/" className="btn ghost small">
           ← Back to Standings
         </Link>
       </div>
