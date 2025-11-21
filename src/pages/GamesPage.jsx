@@ -313,8 +313,8 @@ export default function GamesPage() {
 
                 {/* Actions */}
                 <div className="gp-card-actions">
-                  {/* Hide Live on mobile so you only edit live from desktop */}
-                  {!isMobile && (
+                  {/* Live: only when logged in, and only on desktop */}
+                  {isLoggedIn && !isMobile && (
                     <button
                       className="btn"
                       onClick={() => navigate(`/games/${slug}/live`)}
@@ -322,12 +322,18 @@ export default function GamesPage() {
                       {t("Live")}
                     </button>
                   )}
-                  <button
-                    className="btn"
-                    onClick={() => navigate(`/games/${slug}/roster`)}
-                  >
-                    {t("Roster")}
-                  </button>
+
+                  {/* Roster: only when logged in */}
+                  {isLoggedIn && (
+                    <button
+                      className="btn"
+                      onClick={() => navigate(`/games/${slug}/roster`)}
+                    >
+                      {t("Roster")}
+                    </button>
+                  )}
+
+                  {/* Boxscore: always visible */}
                   <button
                     className="btn"
                     onClick={() => navigate(`/games/${slug}/boxscore`)}
