@@ -1107,21 +1107,26 @@ table thead th {
 /* Live page: benches + rink layout */
 .live-rink-layout {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr) 190px;
+  /* Three responsive columns: left bench, rink, right bench */
+  grid-template-columns: minmax(80px, 120px) minmax(0, 1fr) minmax(80px, 120px);
   gap: 12px;
   margin-top: 10px;
   align-items: stretch;
 }
 
-/* On phone: stack vertically so the rink is always visible */
+/* On tablets / smaller screens: shrink benches a bit more,
+   keep 3 columns so the rink is always visible */
 @media (max-width: 960px) {
   .live-rink-layout {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .live-rink-layout > * {
-    width: 100%;
+    grid-template-columns: minmax(68px, 96px) minmax(0, 1fr) minmax(68px, 96px);
   }
 }
+
+/* On very small phones: even narrower benches but still 3 columns */
+@media (max-width: 600px) {
+  .live-rink-layout {
+    grid-template-columns: minmax(60px, 80px) minmax(0, 1fr) minmax(60px, 80px);
+  }
+}
+
+
