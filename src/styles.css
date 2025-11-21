@@ -1104,3 +1104,24 @@ table thead th {
   }
 }
 
+/* Live page: benches + rink layout */
+.live-rink-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) 190px;
+  gap: 12px;
+  margin-top: 10px;
+  align-items: stretch;
+}
+
+/* On phone: stack vertically so the rink is always visible */
+@media (max-width: 960px) {
+  .live-rink-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .live-rink-layout > * {
+    width: 100%;
+  }
+}
