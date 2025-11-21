@@ -993,13 +993,13 @@ table thead th {
 /* Two team cards */
 .summary-lineups {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 16px;
 }
 
 .summary-team-column {
   flex: 1 1 0;
-  min-width: 0; /* allow shrinking */
+  min-width: 0; /* allow shrinking inside flex */
 }
 
 .summary-team-card {
@@ -1013,7 +1013,7 @@ table thead th {
   object-fit: contain;
 }
 
-/* Lineup tables: fixed layout so they don't force the card to grow wider */
+/* Lineup tables: fixed layout so they don't force the card wider */
 .summary-lineup-table {
   width: 100%;
   border-collapse: collapse;
@@ -1034,13 +1034,46 @@ table thead th {
   width: 64%;
 }
 
-/* Events card */
+/* Events card & table */
 .summary-events-card {
   margin-top: 8px;
 }
 
+.summary-events-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* PER | TIME | TEAM | TYPE | PLAYER/ASSISTS */
+.summary-events-table th:nth-child(1),
+.summary-events-table td:nth-child(1) {
+  width: 10%;
+}
+.summary-events-table th:nth-child(2),
+.summary-events-table td:nth-child(2) {
+  width: 15%;
+}
+.summary-events-table th:nth-child(3),
+.summary-events-table td:nth-child(3) {
+  width: 18%;
+}
+.summary-events-table th:nth-child(4),
+.summary-events-table td:nth-child(4) {
+  width: 15%;
+}
+.summary-events-table th:nth-child(5),
+.summary-events-table td:nth-child(5) {
+  width: 42%;
+}
+
 /* Mobile tweaks */
 @media (max-width: 600px) {
+  .summary-page {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
   .summary-lineups {
     gap: 8px;
   }
@@ -1060,9 +1093,14 @@ table thead th {
     font-size: 11px;
   }
 
+  .summary-events-table th,
+  .summary-events-table td {
+    padding: 4px 4px;
+    font-size: 11px;
+  }
+
   .summary-events-card h3 {
     font-size: 15px;
   }
 }
-
 
