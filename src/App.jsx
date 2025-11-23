@@ -88,7 +88,7 @@ function AppInner() {
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "16px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h1 style={{ margin: 0 }}>{t("Ligue RED LITE 3x3")}</h1>
+          <h1 style={{ margin: 0 }}>{t("RLA Hockey league")}</h1>
           <p style={{ margin: "4px 0 8px", color: "var(--muted)" }}>
             {t("Saison Automne 2025")}
           </p>
