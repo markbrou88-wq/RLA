@@ -24,8 +24,10 @@ import LanguageToggle from "./components/LanguageToggle";
 import { I18nProvider, useI18n } from "./i18n.jsx";
 
 import "./styles.css?v=999999";
+import redliteLogo from "../redlite-logo.png";
 
-/* ----------------------------- Auth bar ----------------------------- */
+/* ------------------------- Auth bar (top right) ------------------------- */
+
 function AuthBar() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -34,204 +36,157 @@ function AuthBar() {
 
   React.useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user || null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  async function signIn(e) {
+  const handleSignIn = async (e) => {
     e.preventDefault();
+    setStatus("");
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    setStatus(error ? error.message : "Signed in!");
-  }
+    if (error) {
+      console.error(error);
+      setStatus(error.message);
+    } else {
+      setStatus("");
+      setEmail("");
+      setPassword("");
+    }
+  };
 
-  async function sendReset() {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
-    });
-    setStatus(error ? error.message : "Password reset email sent.");
-  }
-
-  async function signOut() {
+  const handleSignOut = async () => {
     await supabase.auth.signOut();
-  }
+    setStatus("");
+  };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 8,
-        alignItems: "center",
-        padding: "8px 0",
-      }}
-    >
+    <div className="auth-bar">
       {user ? (
         <>
-          <span style={{ color: "#0a7e07" }}>
-            Signed in{user?.email ? ` as ${user.email}` : ""}
+          <span className="auth-signed-in">
+            Signed in as <strong>{user.email}</strong>
           </span>
-          <button onClick={signOut}>Sign out</button>
+          <button className="btn ghost" onClick={handleSignOut}>
+            Sign out
+          </button>
         </>
       ) : (
-        <form
-          style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-          onSubmit={signIn}
-        >
+        <form className="auth-form" onSubmit={handleSignIn}>
           <input
             type="email"
-            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            required
+            placeholder="Email"
           />
           <input
             type="password"
-            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required
+            placeholder="Password"
           />
-          <button type="submit">Sign in</button>
-          {/* hidden reset trigger – you can expose this later if you want */}
-          <button
-            type="button"
-            style={{ display: "none" }}
-            onClick={sendReset}
-          >
-            Forgot password?
+          <button className="btn" type="submit">
+            Sign in
           </button>
         </form>
       )}
-      <span style={{ color: "#666" }}>{status}</span>
+      {status && <div className="auth-status">{status}</div>}
     </div>
   );
 }
 
-/* ------------------------------ Shell ------------------------------ */
-function AppInner() {
+/* ---------------------------- Layout & Nav ---------------------------- */
+
+function AppShell({ children }) {
   const { t } = useI18n();
 
   return (
-    <div
-      style={{
-        maxWidth: 1100,
-        margin: "0 auto",
-        padding: "0 16px 16px",
-      }}
-    >
-      {/* FULL-WIDTH BLACK HEADER BAR */}
-      <header
-        style={{
-          backgroundColor: "#000",
-          color: "#fff",
-          margin: "0 -16px 16px", // stretch over the side padding
-          padding: "12px 20px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
-        }}
-      >
-        {/* Left side: big logo + league text */}
-        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-          <img
-            src="/mnt/data/e8de9f08-3006-4aba-9c74-8824fcf3354f.png"
-            alt="Red Lite Logo"
-            style={{
-              height: "90px",
-              width: "auto",
-              objectFit: "contain",
-            }}
-          />
-
-          <div
-            style={{
-              lineHeight: 1.1,
-              fontFamily:
-                '"Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            }}
-          >
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "1.8rem",
-                textTransform: "uppercase",
-                letterSpacing: "0.12em",
-                fontWeight: 800,
-                color: "#ffffff",
-              }}
-            >
-              {t("LIGUE RED LITE 3X3")}
-            </h1>
-            <p
-              style={{
-                margin: "6px 0 0",
-                fontSize: "0.95rem",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                color: "#ffffff",
-              }}
-            >
-              {t("Ligue de développement 3x3")}
-            </p>
-            {/* removed: Saison Automne 2025 line */}
+    <div className="app-shell">
+      {/* HEADER */}
+      <header className="app-header">
+        <div className="app-header-inner">
+          <div className="app-header-left">
+            <img
+              src={redliteLogo}
+              alt="Red Lite logo"
+              className="header-logo"
+            />
+            <div className="app-header-text">
+              <h1 className="league-title">LIGUE RED LITE 3x3</h1>
+              <p className="league-subtitle">Ligue de développement 3 x 3</p>
+            </div>
           </div>
-        </div>
 
-        {/* Right side: language + theme toggles */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <LanguageToggle />
-          <ThemeToggle />
+          <div className="app-header-right">
+            <LanguageToggle />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
-      {/* Auth bar under header (unchanged behaviour) */}
-      <AuthBar />
+      {/* NAV + AUTH */}
+      <div className="app-nav-row">
+        <nav className="main-nav">
+          <NavLink
+            to="/standings"
+            className={({ isActive }) =>
+              isActive ? "nav-link active" : "nav-link"
+            }
+          >
+            {t("Standings")}
+          </NavLink>
+          <NavLink
+            to="/games"
+            className={({ isActive }) =>
+              isActive ? "nav-link active" : "nav-link"
+            }
+          >
+            {t("Games")}
+          </NavLink>
+          <NavLink
+            to="/stats"
+            className={({ isActive }) =>
+              isActive ? "nav-link active" : "nav-link"
+            }
+          >
+            {t("Stats")}
+          </NavLink>
+        </nav>
 
-      {/* Main nav */}
-      <nav className="nav">
-        <NavLink to="/" end>
-          {t("Standings")}
-        </NavLink>
-        <NavLink to="/games">{t("Games")}</NavLink>
-        <NavLink to="/stats">{t("Stats")}</NavLink>
-      </nav>
+        <AuthBar />
+      </div>
 
-      <main style={{ padding: "16px 0" }}>
-        <Routes>
-          <Route path="/" element={<StandingsPage />} />
-          <Route path="/games" element={<GamesPage />} />
+      {/* CONTENT */}
+      <main className="app-main">{children}</main>
 
-          {/* READ-ONLY summary (this is the one you want when clicking Boxscore) */}
-          <Route path="/games/:slug/boxscore" element={<SummaryPage />} />
-
-          {/* Editing pages */}
-          <Route path="/games/:slug/live" element={<LivePage />} />
-          <Route path="/games/:slug/roster" element={<RosterPage />} />
-
-          {/* Other sections */}
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/teams/:id" element={<TeamPage />} />
-          <Route path="/players/:id" element={<PlayerPage />} />
-        </Routes>
-      </main>
-
-      <footer
-        style={{
-          padding: "16px 0",
-          color: "var(--muted)",
-          fontSize: 12,
-        }}
-      >
+      <footer className="app-footer">
         Built with React + Supabase • Realtime edits for boxscores
       </footer>
     </div>
+  );
+}
+
+/* ------------------------------- Routing ------------------------------- */
+
+function AppInner() {
+  return (
+    <AppShell>
+      <Routes>
+        <Route path="/" element={<StandingsPage />} />
+        <Route path="/standings" element={<StandingsPage />} />
+        <Route path="/games" element={<GamesPage />} />
+        <Route path="/games/:slug/summary" element={<SummaryPage />} />
+        <Route path="/games/:slug/live" element={<LivePage />} />
+        <Route path="/games/:slug/roster" element={<RosterPage />} />
+        <Route path="/teams/:teamId" element={<TeamPage />} />
+        <Route path="/players/:playerId" element={<PlayerPage />} />
+        <Route path="/stats" element={<StatsPage />} />
+      </Routes>
+    </AppShell>
   );
 }
 
@@ -242,4 +197,3 @@ export default function App() {
     </I18nProvider>
   );
 }
-:contentReference[oaicite:0]{index=0}
