@@ -1,9 +1,10 @@
+// src/App.jsx
 import React from "react";
 import { Routes, Route, NavLink } from "react-router-dom";
 import { supabase } from "./supabaseClient.js";
 
-// IMPORT LOGO PROPERLY
-import redliteLogo from "./redlite-logo.png";
+// IMPORT LOGO FROM PROJECT ROOT (one level up from src/)
+import redliteLogo from "../redlite-logo.png";
 
 // PAGES
 import StandingsPage from "./pages/StandingsPage.jsx";
@@ -105,7 +106,6 @@ function AppInner() {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 16px 16px" }}>
-      
       {/* ---------------------- FULL-WIDTH BLACK HEADER ---------------------- */}
       <header
         style={{
@@ -117,7 +117,8 @@ function AppInner() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          flexWrap: "wrap",
+          flexWrap: "wrap", // lets it stack on mobile
+          rowGap: 12,
         }}
       >
         {/* LEFT – LOGO + TEXT */}
@@ -135,11 +136,12 @@ function AppInner() {
             style={{
               height: "90px",
               width: "auto",
+              maxWidth: "100%",
               objectFit: "contain",
             }}
           />
 
-          <div style={{ lineHeight: 1.2 }}>
+          <div style={{ lineHeight: 1.2, color: "white" }}>
             <h1
               style={{
                 margin: 0,
@@ -147,7 +149,6 @@ function AppInner() {
                 textTransform: "uppercase",
                 fontWeight: 800,
                 letterSpacing: "0.1em",
-                color: "white",
               }}
             >
               {t("LIGUE RED LITE 3X3")}
@@ -159,7 +160,6 @@ function AppInner() {
                 fontSize: "1rem",
                 textTransform: "uppercase",
                 fontWeight: 600,
-                color: "white",
                 letterSpacing: "0.06em",
               }}
             >
@@ -175,7 +175,7 @@ function AppInner() {
         </div>
       </header>
 
-      {/* Auth */}
+      {/* Auth bar */}
       <AuthBar />
 
       {/* NAV MENU */}
