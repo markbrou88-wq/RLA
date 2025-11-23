@@ -23,7 +23,7 @@ import ThemeToggle from "./components/ThemeToggle";
 import LanguageToggle from "./components/LanguageToggle";
 import { I18nProvider, useI18n } from "./i18n.jsx";
 
-import './styles.css?v=999999';
+import "./styles.css?v=999999";
 
 /* ----------------------------- Auth bar ----------------------------- */
 function AuthBar() {
@@ -40,39 +40,71 @@ function AuthBar() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  async function signUp(e) {
-    e.preventDefault();
-    const { error } = await supabase.auth.signUp({ email, password });
-    setStatus(error ? error.message : "Account created! You can now sign in.");
-  }
   async function signIn(e) {
     e.preventDefault();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     setStatus(error ? error.message : "Signed in!");
   }
+
   async function sendReset() {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin,
     });
     setStatus(error ? error.message : "Password reset email sent.");
   }
+
   async function signOut() {
     await supabase.auth.signOut();
   }
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "8px 0" }}>
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 8,
+        alignItems: "center",
+        padding: "8px 0",
+      }}
+    >
       {user ? (
         <>
-          <span style={{ color: "#0a7e07" }}>Signed in{user?.email ? ` as ${user.email}` : ""}</span>
+          <span style={{ color: "#0a7e07" }}>
+            Signed in{user?.email ? ` as ${user.email}` : ""}
+          </span>
           <button onClick={signOut}>Sign out</button>
         </>
       ) : (
-        <form style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
-          <input type="password" placeholder="Password" value={password} onChange={(e)=>setPassword(e.target.value)} required />
-          <button onClick={signIn}>Sign in</button>
-       
+        <form
+          style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+          onSubmit={signIn}
+        >
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <button type="submit">Sign in</button>
+          {/* hidden reset trigger – you can expose this later if you want */}
+          <button
+            type="button"
+            style={{ display: "none" }}
+            onClick={sendReset}
+          >
+            Forgot password?
+          </button>
         </form>
       )}
       <span style={{ color: "#666" }}>{status}</span>
@@ -85,80 +117,85 @@ function AppInner() {
   const { t } = useI18n();
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "16px" }}>
-{/* -------------------- NEW HEADER -------------------- */}
-<div
-  style={{
-    width: "100%",
-    backgroundColor: "#000",          // Black header
-    borderBottom: "6px solid #d00000", // Red stripe (match poster)
-    borderTop: "6px solid #d00000",    // Top red stripe
-    padding: "12px 20px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    color: "white",
-  }}
->
-  {/* LEFT SECTION – Logo + Title */}
-  <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-    <img
-      src="https://tmodvqenwgxojmjiyknr.supabase.co/storage/v1/object/public/team-logos/RLR.png"
-      alt="Red Lite Logo"
+    <div
       style={{
-        height: "85px",   // Larger logo
-        width: "auto",
-        objectFit: "contain",
+        maxWidth: 1100,
+        margin: "0 auto",
+        padding: "0 16px 16px",
       }}
-    />
+    >
+      {/* FULL-WIDTH BLACK HEADER BAR */}
+      <header
+        style={{
+          backgroundColor: "#000",
+          color: "#fff",
+          margin: "0 -16px 16px", // stretch over the side padding
+          padding: "10px 18px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+        }}
+      >
+        {/* Left side: big logo + league text */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <img
+            src="https://tmodvqenwgxojmjiyknr.supabase.co/storage/v1/object/public/team-logos/RLR.png"
+            alt="Red Lite Logo"
+            style={{
+              height: "90px",
+              width: "auto",
+              objectFit: "contain",
+            }}
+          />
 
-    <div>
-      <h1 style={{ margin: 0, fontSize: "26px", color: "white" }}>
-        {t("Ligue RED LITE 3x3")}
-      </h1>
-      <p style={{ margin: "4px 0 0", color: "#ccc" }}>
-        {t("Saison Automne 2025")}
-      </p>
-    </div>
-  </div>
+          <div style={{ lineHeight: 1.1 }}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "1.6rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              {t("Ligue RED LITE 3x3")}
+            </h1>
+            <p
+              style={{
+                margin: "4px 0 2px",
+                fontSize: "0.95rem",
+                fontWeight: 500,
+              }}
+            >
+              {t("Ligue de développement 3x3")}
+            </p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.85rem",
+                opacity: 0.85,
+              }}
+            >
+              {t("Saison Automne 2025")}
+            </p>
+          </div>
+        </div>
 
-  {/* RIGHT SECTION – Language + Theme */}
-  <div style={{ display: "flex", gap: 10 }}>
-    <LanguageToggle />
-    <ThemeToggle />
-  </div>
-</div>
-{/* ------------------------------------------------------ */}
-
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-  <img 
-    src="https://tmodvqenwgxojmjiyknr.supabase.co/storage/v1/object/public/team-logos/RLR.png"
-    alt="Red Lite Logo"
-    style={{
-      height: "60px",
-      width: "auto",
-      objectFit: "contain",
-    }}
-  />
-
-  <div>
-    <h1 style={{ margin: 0 }}>{t("Ligue RED LITE 3x3")}</h1>
-    <p style={{ margin: "4px 0 8px", color: "var(--muted)" }}>
-      {t("Saison Automne 2025")}
-    </p>
-  </div>
-</div>
-
+        {/* Right side: language + theme toggles */}
         <div style={{ display: "flex", gap: 8 }}>
           <LanguageToggle />
           <ThemeToggle />
         </div>
-      </div>
+      </header>
 
+      {/* Auth bar under header (unchanged behaviour) */}
       <AuthBar />
 
+      {/* Main nav */}
       <nav className="nav">
-        <NavLink to="/" end>{t("Standings")}</NavLink>
+        <NavLink to="/" end>
+          {t("Standings")}
+        </NavLink>
         <NavLink to="/games">{t("Games")}</NavLink>
         <NavLink to="/stats">{t("Stats")}</NavLink>
       </nav>
@@ -182,7 +219,13 @@ function AppInner() {
         </Routes>
       </main>
 
-      <footer style={{ padding: "16px 0", color: "var(--muted)", fontSize: 12 }}>
+      <footer
+        style={{
+          padding: "16px 0",
+          color: "var(--muted)",
+          fontSize: 12,
+        }}
+      >
         Built with React + Supabase • Realtime edits for boxscores
       </footer>
     </div>
