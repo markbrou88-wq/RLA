@@ -72,8 +72,7 @@ function AuthBar() {
           <input type="email" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} required />
           <input type="password" placeholder="Password" value={password} onChange={(e)=>setPassword(e.target.value)} required />
           <button onClick={signIn}>Sign in</button>
-          <button type="button" onClick={signUp}>Sign up</button>
-          <button type="button" onClick={sendReset}>Forgot password?</button>
+       
         </form>
       )}
       <span style={{ color: "#666" }}>{status}</span>
