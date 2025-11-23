@@ -86,7 +86,50 @@ function AppInner() {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "16px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+{/* -------------------- NEW HEADER -------------------- */}
+<div
+  style={{
+    width: "100%",
+    backgroundColor: "#000",          // Black header
+    borderBottom: "6px solid #d00000", // Red stripe (match poster)
+    borderTop: "6px solid #d00000",    // Top red stripe
+    padding: "12px 20px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    color: "white",
+  }}
+>
+  {/* LEFT SECTION – Logo + Title */}
+  <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+    <img
+      src="https://tmodvqenwgxojmjiyknr.supabase.co/storage/v1/object/public/team-logos/RLR.png"
+      alt="Red Lite Logo"
+      style={{
+        height: "85px",   // Larger logo
+        width: "auto",
+        objectFit: "contain",
+      }}
+    />
+
+    <div>
+      <h1 style={{ margin: 0, fontSize: "26px", color: "white" }}>
+        {t("Ligue RED LITE 3x3")}
+      </h1>
+      <p style={{ margin: "4px 0 0", color: "#ccc" }}>
+        {t("Saison Automne 2025")}
+      </p>
+    </div>
+  </div>
+
+  {/* RIGHT SECTION – Language + Theme */}
+  <div style={{ display: "flex", gap: 10 }}>
+    <LanguageToggle />
+    <ThemeToggle />
+  </div>
+</div>
+{/* ------------------------------------------------------ */}
+
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
   <img 
     src="https://tmodvqenwgxojmjiyknr.supabase.co/storage/v1/object/public/team-logos/RLR.png"
