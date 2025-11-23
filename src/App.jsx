@@ -1,20 +1,22 @@
-// src/App.jsx
 import React from "react";
 import { Routes, Route, NavLink } from "react-router-dom";
 import { supabase } from "./supabaseClient.js";
+
+// IMPORT LOGO PROPERLY
+import redliteLogo from "./redlite-logo.png";
 
 // PAGES
 import StandingsPage from "./pages/StandingsPage.jsx";
 import GamesPage from "./pages/GamesPage.jsx";
 
-// READ-ONLY BOX SCORE (summary you wanted)
+// READ-ONLY BOX SCORE
 import SummaryPage from "./pages/SummaryPage.jsx";
 
 // INTERACTIVE EDITING
-import LivePage from "./pages/LivePage.jsx"; // interactive rink
-import RosterPage from "./pages/RosterPage.jsx"; // who played
+import LivePage from "./pages/LivePage.jsx";
+import RosterPage from "./pages/RosterPage.jsx";
 
-// Other sections
+// Other pages
 import StatsPage from "./pages/StatsPage.jsx";
 import TeamPage from "./pages/TeamPage.jsx";
 import PlayerPage from "./pages/PlayerPage.jsx";
@@ -24,10 +26,8 @@ import LanguageToggle from "./components/LanguageToggle";
 import { I18nProvider, useI18n } from "./i18n.jsx";
 
 import "./styles.css?v=999999";
-import redliteLogo from "../redlite-logo.png";
 
-/* ------------------------- Auth bar (top right) ------------------------- */
-
+/* -------------------------------- AUTH BAR ------------------------------- */
 function AuthBar() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -36,157 +36,181 @@ function AuthBar() {
 
   React.useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user || null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const handleSignIn = async (e) => {
+  async function signIn(e) {
     e.preventDefault();
-    setStatus("");
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    if (error) {
-      console.error(error);
-      setStatus(error.message);
-    } else {
-      setStatus("");
-      setEmail("");
-      setPassword("");
-    }
-  };
+    setStatus(error ? error.message : "Signed in!");
+  }
 
-  const handleSignOut = async () => {
+  async function signOut() {
     await supabase.auth.signOut();
-    setStatus("");
-  };
+  }
 
   return (
-    <div className="auth-bar">
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 8,
+        alignItems: "center",
+        padding: "8px 0",
+      }}
+    >
       {user ? (
         <>
-          <span className="auth-signed-in">
-            Signed in as <strong>{user.email}</strong>
+          <span style={{ color: "#0a7e07" }}>
+            Signed in{user?.email ? ` as ${user.email}` : ""}
           </span>
-          <button className="btn ghost" onClick={handleSignOut}>
-            Sign out
-          </button>
+          <button onClick={signOut}>Sign out</button>
         </>
       ) : (
-        <form className="auth-form" onSubmit={handleSignIn}>
+        <form
+          style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+          onSubmit={signIn}
+        >
           <input
             type="email"
+            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
+            required
           />
           <input
             type="password"
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
+            required
           />
-          <button className="btn" type="submit">
-            Sign in
-          </button>
+          <button type="submit">Sign in</button>
         </form>
       )}
-      {status && <div className="auth-status">{status}</div>}
+      <span style={{ color: "#666" }}>{status}</span>
     </div>
   );
 }
 
-/* ---------------------------- Layout & Nav ---------------------------- */
-
-function AppShell({ children }) {
+/* -------------------------------- APP SHELL ------------------------------- */
+function AppInner() {
   const { t } = useI18n();
 
   return (
-    <div className="app-shell">
-      {/* HEADER */}
-      <header className="app-header">
-        <div className="app-header-inner">
-          <div className="app-header-left">
-            <img
-              src={redliteLogo}
-              alt="Red Lite logo"
-              className="header-logo"
-            />
-            <div className="app-header-text">
-              <h1 className="league-title">LIGUE RED LITE 3x3</h1>
-              <p className="league-subtitle">Ligue de développement 3 x 3</p>
-            </div>
-          </div>
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 16px 16px" }}>
+      
+      {/* ---------------------- FULL-WIDTH BLACK HEADER ---------------------- */}
+      <header
+        style={{
+          width: "100%",
+          background: "#000",
+          color: "#fff",
+          padding: "14px 20px",
+          margin: "0 -16px 16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+        }}
+      >
+        {/* LEFT – LOGO + TEXT */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <img
+            src={redliteLogo}
+            alt="Red Lite Logo"
+            style={{
+              height: "90px",
+              width: "auto",
+              objectFit: "contain",
+            }}
+          />
 
-          <div className="app-header-right">
-            <LanguageToggle />
-            <ThemeToggle />
+          <div style={{ lineHeight: 1.2 }}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "1.8rem",
+                textTransform: "uppercase",
+                fontWeight: 800,
+                letterSpacing: "0.1em",
+                color: "white",
+              }}
+            >
+              {t("LIGUE RED LITE 3X3")}
+            </h1>
+
+            <p
+              style={{
+                margin: "4px 0 0",
+                fontSize: "1rem",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                color: "white",
+                letterSpacing: "0.06em",
+              }}
+            >
+              {t("Ligue de développement 3x3")}
+            </p>
           </div>
+        </div>
+
+        {/* RIGHT – Language + Theme */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <LanguageToggle />
+          <ThemeToggle />
         </div>
       </header>
 
-      {/* NAV + AUTH */}
-      <div className="app-nav-row">
-        <nav className="main-nav">
-          <NavLink
-            to="/standings"
-            className={({ isActive }) =>
-              isActive ? "nav-link active" : "nav-link"
-            }
-          >
-            {t("Standings")}
-          </NavLink>
-          <NavLink
-            to="/games"
-            className={({ isActive }) =>
-              isActive ? "nav-link active" : "nav-link"
-            }
-          >
-            {t("Games")}
-          </NavLink>
-          <NavLink
-            to="/stats"
-            className={({ isActive }) =>
-              isActive ? "nav-link active" : "nav-link"
-            }
-          >
-            {t("Stats")}
-          </NavLink>
-        </nav>
+      {/* Auth */}
+      <AuthBar />
 
-        <AuthBar />
-      </div>
+      {/* NAV MENU */}
+      <nav className="nav">
+        <NavLink to="/" end>
+          {t("Standings")}
+        </NavLink>
+        <NavLink to="/games">{t("Games")}</NavLink>
+        <NavLink to="/stats">{t("Stats")}</NavLink>
+      </nav>
 
-      {/* CONTENT */}
-      <main className="app-main">{children}</main>
+      {/* ROUTES */}
+      <main style={{ padding: "16px 0" }}>
+        <Routes>
+          <Route path="/" element={<StandingsPage />} />
+          <Route path="/games" element={<GamesPage />} />
+          <Route path="/games/:slug/boxscore" element={<SummaryPage />} />
+          <Route path="/games/:slug/live" element={<LivePage />} />
+          <Route path="/games/:slug/roster" element={<RosterPage />} />
+          <Route path="/stats" element={<StatsPage />} />
+          <Route path="/teams/:id" element={<TeamPage />} />
+          <Route path="/players/:id" element={<PlayerPage />} />
+        </Routes>
+      </main>
 
-      <footer className="app-footer">
+      <footer
+        style={{
+          padding: "16px 0",
+          color: "var(--muted)",
+          fontSize: 12,
+        }}
+      >
         Built with React + Supabase • Realtime edits for boxscores
       </footer>
     </div>
-  );
-}
-
-/* ------------------------------- Routing ------------------------------- */
-
-function AppInner() {
-  return (
-    <AppShell>
-      <Routes>
-        <Route path="/" element={<StandingsPage />} />
-        <Route path="/standings" element={<StandingsPage />} />
-        <Route path="/games" element={<GamesPage />} />
-        <Route path="/games/:slug/summary" element={<SummaryPage />} />
-        <Route path="/games/:slug/live" element={<LivePage />} />
-        <Route path="/games/:slug/roster" element={<RosterPage />} />
-        <Route path="/teams/:teamId" element={<TeamPage />} />
-        <Route path="/players/:playerId" element={<PlayerPage />} />
-        <Route path="/stats" element={<StatsPage />} />
-      </Routes>
-    </AppShell>
   );
 }
 
