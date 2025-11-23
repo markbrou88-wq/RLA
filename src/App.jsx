@@ -11,8 +11,8 @@ import GamesPage from "./pages/GamesPage.jsx";
 import SummaryPage from "./pages/SummaryPage.jsx";
 
 // INTERACTIVE EDITING
-import LivePage from "./pages/LivePage.jsx";       // interactive rink
-import RosterPage from "./pages/RosterPage.jsx";   // who played
+import LivePage from "./pages/LivePage.jsx"; // interactive rink
+import RosterPage from "./pages/RosterPage.jsx"; // who played
 
 // Other sections
 import StatsPage from "./pages/StatsPage.jsx";
@@ -130,7 +130,7 @@ function AppInner() {
           backgroundColor: "#000",
           color: "#fff",
           margin: "0 -16px 16px", // stretch over the side padding
-          padding: "10px 18px",
+          padding: "12px 20px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -138,9 +138,9 @@ function AppInner() {
         }}
       >
         {/* Left side: big logo + league text */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
           <img
-            src="https://tmodvqenwgxojmjiyknr.supabase.co/storage/v1/object/public/team-logos/RLR.png"
+            src="/mnt/data/e8de9f08-3006-4aba-9c74-8824fcf3354f.png"
             alt="Red Lite Logo"
             style={{
               height: "90px",
@@ -149,35 +149,38 @@ function AppInner() {
             }}
           />
 
-          <div style={{ lineHeight: 1.1 }}>
+          <div
+            style={{
+              lineHeight: 1.1,
+              fontFamily:
+                '"Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            }}
+          >
             <h1
               style={{
                 margin: 0,
-                fontSize: "1.6rem",
+                fontSize: "1.8rem",
                 textTransform: "uppercase",
-                letterSpacing: "0.06em",
+                letterSpacing: "0.12em",
+                fontWeight: 800,
+                color: "#ffffff",
               }}
             >
-              {t("Ligue RED LITE 3x3")}
+              {t("LIGUE RED LITE 3X3")}
             </h1>
             <p
               style={{
-                margin: "4px 0 2px",
+                margin: "6px 0 0",
                 fontSize: "0.95rem",
-                fontWeight: 500,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color: "#ffffff",
               }}
             >
               {t("Ligue de développement 3x3")}
             </p>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.85rem",
-                opacity: 0.85,
-              }}
-            >
-              {t("Saison Automne 2025")}
-            </p>
+            {/* removed: Saison Automne 2025 line */}
           </div>
         </div>
 
@@ -239,3 +242,4 @@ export default function App() {
     </I18nProvider>
   );
 }
+:contentReference[oaicite:0]{index=0}
