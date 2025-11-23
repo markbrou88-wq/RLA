@@ -117,7 +117,7 @@ function AppInner() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          flexWrap: "wrap", // lets it stack on mobile
+          flexWrap: "wrap", // stack nicely on mobile
           rowGap: 12,
         }}
       >
@@ -134,7 +134,7 @@ function AppInner() {
             src={redliteLogo}
             alt="Red Lite Logo"
             style={{
-              height: "90px",
+              height: "clamp(60px, 10vw, 90px)", // auto-shrink on small screens
               width: "auto",
               maxWidth: "100%",
               objectFit: "contain",
@@ -145,7 +145,7 @@ function AppInner() {
             <h1
               style={{
                 margin: 0,
-                fontSize: "1.8rem",
+                fontSize: "clamp(1.2rem, 3.2vw, 1.8rem)", // responsive title
                 textTransform: "uppercase",
                 fontWeight: 800,
                 letterSpacing: "0.1em",
@@ -157,7 +157,7 @@ function AppInner() {
             <p
               style={{
                 margin: "4px 0 0",
-                fontSize: "1rem",
+                fontSize: "clamp(0.8rem, 2.3vw, 1rem)", // responsive subtitle
                 textTransform: "uppercase",
                 fontWeight: 600,
                 letterSpacing: "0.06em",
@@ -169,7 +169,13 @@ function AppInner() {
         </div>
 
         {/* RIGHT – Language + Theme */}
-        <div style={{ display: "flex", gap: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginLeft: "auto",
+          }}
+        >
           <LanguageToggle />
           <ThemeToggle />
         </div>
