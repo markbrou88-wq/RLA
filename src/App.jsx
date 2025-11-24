@@ -105,117 +105,74 @@ function AppInner() {
   const { t } = useI18n();
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 16px 16px" }}>
-      {/* ---------------------- FULL-WIDTH BLACK HEADER ---------------------- */}
-      <header
-        style={{
-          width: "100%",
-          background: "#000",
-          color: "#fff",
-          padding: "14px 20px",
-          margin: "0 -16px 16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap", // stack nicely on mobile
-          rowGap: 12,
-        }}
-      >
-        {/* LEFT – LOGO + TEXT */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            flexWrap: "wrap",
-          }}
-        >
-          <img
-            src={redliteLogo}
-            alt="Red Lite Logo"
-            style={{
-              height: "clamp(60px, 10vw, 90px)", // auto-shrink on small screens
-              width: "auto",
-              maxWidth: "100%",
-              objectFit: "contain",
-            }}
-          />
+    <div className="app-shell">
+      {/* --------- FULL-WIDTH BLACK HEADER WITH LOGO & TOGGLES --------- */}
+      <header className="site-header">
+        <div className="site-header-inner">
+          {/* LEFT – LOGO + TEXT */}
+          <div className="site-header-left">
+            <img
+              src={redliteLogo}
+              alt="Red Lite Logo"
+              className="site-header-logo"
+            />
 
-          <div style={{ lineHeight: 1.2, color: "white" }}>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "clamp(1.2rem, 3.2vw, 1.8rem)", // responsive title
-                textTransform: "uppercase",
-                fontWeight: 800,
-                letterSpacing: "0.1em",
-              }}
-            >
-              {t("Ligue de développement 3x3")}
-            </h1>
-
-            <p
-              style={{
-                margin: "4px 0 0",
-                fontSize: "clamp(0.8rem, 2.3vw, 1rem)", // responsive subtitle
-                textTransform: "uppercase",
-                fontWeight: 600,
-                letterSpacing: "0.06em",
-              }}
-            >
-              {t("Saison Automne 2025")}
-            </p>
+            <div className="site-header-text">
+              <h1 className="site-header-title">
+                {t("LIGUE RED LITE 3X3")}
+              </h1>
+              <p className="site-header-subtitle">
+                {t("Ligue de développement 3x3")}
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* RIGHT – Language + Theme */}
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            marginLeft: "auto",
-          }}
-        >
-          <LanguageToggle />
-          <ThemeToggle />
+          {/* RIGHT – language + theme (styled red via .auth-bar-right in CSS) */}
+          <div className="auth-bar-right">
+            <LanguageToggle />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
-      {/* Auth bar */}
-      <AuthBar />
+      {/* MAIN CONTENT (same max-width as before) */}
+      <div className="app-content">
+        {/* Auth bar */}
+        <AuthBar />
 
-      {/* NAV MENU */}
-      <nav className="nav">
-        <NavLink to="/" end>
-          {t("Standings")}
-        </NavLink>
-        <NavLink to="/games">{t("Games")}</NavLink>
-        <NavLink to="/stats">{t("Stats")}</NavLink>
-      </nav>
+        {/* NAV MENU */}
+        <nav className="nav">
+          <NavLink to="/" end>
+            {t("Standings")}
+          </NavLink>
+          <NavLink to="/games">{t("Games")}</NavLink>
+          <NavLink to="/stats">{t("Stats")}</NavLink>
+        </nav>
 
-      {/* ROUTES */}
-      <main style={{ padding: "16px 0" }}>
-        <Routes>
-          <Route path="/" element={<StandingsPage />} />
-          <Route path="/games" element={<GamesPage />} />
-          <Route path="/games/:slug/boxscore" element={<SummaryPage />} />
-          <Route path="/games/:slug/live" element={<LivePage />} />
-          <Route path="/games/:slug/roster" element={<RosterPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/teams/:id" element={<TeamPage />} />
-          <Route path="/players/:id" element={<PlayerPage />} />
-        </Routes>
-      </main>
+        {/* ROUTES */}
+        <main style={{ padding: "16px 0" }}>
+          <Routes>
+            <Route path="/" element={<StandingsPage />} />
+            <Route path="/games" element={<GamesPage />} />
+            <Route path="/games/:slug/boxscore" element={<SummaryPage />} />
+            <Route path="/games/:slug/live" element={<LivePage />} />
+            <Route path="/games/:slug/roster" element={<RosterPage />} />
+            <Route path="/stats" element={<StatsPage />} />
+            <Route path="/teams/:id" element={<TeamPage />} />
+            <Route path="/players/:id" element={<PlayerPage />} />
+          </Routes>
+        </main>
 
-      <footer
-        style={{
-          padding: "16px 0",
-          color: "var(--muted)",
-          fontSize: 12,
-        }}
-      >
-        Built with React + Supabase • Realtime edits for boxscores
-      </footer>
+        <footer
+          style={{
+            padding: "16px 0",
+            color: "var(--muted)",
+            fontSize: 12,
+          }}
+        >
+          Built with React + Supabase • Realtime edits for boxscores
+        </footer>
+      </div>
     </div>
   );
 }
