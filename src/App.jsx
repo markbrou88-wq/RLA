@@ -151,7 +151,7 @@ function AppInner() {
                 letterSpacing: "0.1em",
               }}
             >
-              {t("LIGUE RED LITE 3X3")}
+              {t("Ligue de développement 3x3")}
             </h1>
 
             <p
@@ -163,7 +163,7 @@ function AppInner() {
                 letterSpacing: "0.06em",
               }}
             >
-              {t("Ligue de développement 3x3")}
+              {t("Saison Automne 2025")}
             </p>
           </div>
         </div>
