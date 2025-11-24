@@ -1167,3 +1167,109 @@ table thead th {
   outline-offset: 2px;
 }
 
+/* ========= NEW: app shell + responsive Red Lite header ========= */
+
+.app-shell {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.site-header {
+  width: 100%;
+  background: #000;
+  color: #fff;
+}
+
+.site-header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.site-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.site-header-logo {
+  height: 72px;
+  width: auto;
+  max-width: 40vw;
+  object-fit: contain;
+}
+
+.site-header-text {
+  line-height: 1.2;
+  color: #fff;
+}
+
+.site-header-title {
+  margin: 0;
+  font-size: clamp(1.2rem, 2.6vw, 1.8rem);
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.site-header-subtitle {
+  margin: 4px 0 0;
+  font-size: clamp(0.78rem, 1.9vw, 0.95rem);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.auth-bar-right {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Re-apply red style to any .btn inside header too */
+.auth-bar-right .btn {
+  background: #e53935;
+  border-color: #e53935;
+  color: #ffffff;
+  border-radius: 999px;
+}
+
+/* Main content wrapper (same max-width as before) */
+.app-content {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 16px 16px;
+}
+
+/* Mobile tweaks for header: shrink height & remove side white gap */
+@media (max-width: 600px) {
+  .site-header-inner {
+    padding: 8px 12px;
+    align-items: flex-start;
+  }
+
+  .site-header-logo {
+    height: 56px;
+    max-width: 60vw;
+  }
+
+  .site-header-title {
+    letter-spacing: 0.06em;
+  }
+
+  .site-header-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .auth-bar-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
