@@ -122,7 +122,7 @@ function AppInner() {
                 {t("LIGUE RED LITE 3X3")}
               </h1>
               <p className="site-header-subtitle">
-                {t("Ligue de développement 3x3")}
+                {t("Ligue de développement")}
               </p>
             </div>
           </div>
