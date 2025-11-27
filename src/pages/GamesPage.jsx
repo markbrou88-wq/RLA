@@ -116,7 +116,7 @@ export default function GamesPage() {
   }, []);
 
   const filtered = games.filter((g) => {
-    const d = (g.game_date || "").slice(0, 10);
+    const d = (g.game_date || "").slice(0, 10); // date part of ISO timestamp
     if (filterDate && d !== filterDate) return false;
     if (filterTeam) {
       const matchEither =
@@ -143,23 +143,20 @@ export default function GamesPage() {
     return `${d}-${homeId}-${awayId}-${rand}`;
   }
 
-  // ✅ NEW: safer date formatter that avoids timezone shift on date-only values
-  function formatGameDate(s) {
-    if (!s) return "";
+  // Date/time formatter for timestamptz column
+  function formatGameDate(value) {
+    if (!value) return "";
+    const d = new Date(value); // ISO timestamptz -> local time
+    if (Number.isNaN(d.getTime())) return String(value);
 
-    // If it's just a date (e.g. "2025-11-23"), avoid UTC conversion,
-    // otherwise JS will show it as the previous day in local time.
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-      const [y, m, d] = s.split("-").map(Number);
-      const localDate = new Date(y, m - 1, d);
-      return localDate.toLocaleDateString(); // just show the date, no time
-    }
-
-    // Normal Postgres timestamps: "2025-11-23T21:00:00+00:00"
-    const normalized = s.replace(" ", "T");
-    const d = new Date(normalized);
-    if (Number.isNaN(d.getTime())) return s.replace("T", " ");
-    return d.toLocaleString();
+    // You can tweak these options if you want a different format
+    return d.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   }
 
   async function handleCreate() {
@@ -174,7 +171,8 @@ export default function GamesPage() {
 
     setSaving(true);
 
-    // Convert local "datetime-local" value to UTC before storing
+    // newDate is a local "datetime-local" string (e.g. 2025-11-23T16:00)
+    // Convert to UTC ISO string so timestamptz stores it correctly
     const gameDateUtc = new Date(newDate).toISOString();
 
     const slug = makeSlug(gameDateUtc, newHome, newAway);
