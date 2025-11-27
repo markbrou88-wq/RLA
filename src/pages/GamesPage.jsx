@@ -143,9 +143,21 @@ export default function GamesPage() {
     return `${d}-${homeId}-${awayId}-${rand}`;
   }
 
+  // ✅ NEW: safer date formatter that avoids timezone shift on date-only values
   function formatGameDate(s) {
     if (!s) return "";
-    const d = new Date(s);
+
+    // If it's just a date (e.g. "2025-11-23"), avoid UTC conversion,
+    // otherwise JS will show it as the previous day in local time.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [y, m, d] = s.split("-").map(Number);
+      const localDate = new Date(y, m - 1, d);
+      return localDate.toLocaleDateString(); // just show the date, no time
+    }
+
+    // Normal Postgres timestamps: "2025-11-23T21:00:00+00:00"
+    const normalized = s.replace(" ", "T");
+    const d = new Date(normalized);
     if (Number.isNaN(d.getTime())) return s.replace("T", " ");
     return d.toLocaleString();
   }
@@ -162,12 +174,12 @@ export default function GamesPage() {
 
     setSaving(true);
 
-    // Convert local "datetime-local" value to UTC before storing to avoid drift later
+    // Convert local "datetime-local" value to UTC before storing
     const gameDateUtc = new Date(newDate).toISOString();
 
     const slug = makeSlug(gameDateUtc, newHome, newAway);
     const payload = {
-      game_date: gameDateUtc, // store UTC to keep what user picked
+      game_date: gameDateUtc,
       home_team_id: Number(newHome),
       away_team_id: Number(newAway),
       home_score: 0,
