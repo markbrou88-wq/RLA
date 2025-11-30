@@ -1,4 +1,4 @@
-// LivePage.jsx — sticky shots & clock, Boxscore button removed
+// LivePage.jsx — shots now create 'shot' events with shooter + goalie
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
@@ -59,6 +59,12 @@ export default function LivePage() {
   const [assist2, setAssist2] = useState("");
   const [goalTime, setGoalTime] = useState("");
   const [goalPeriod, setGoalPeriod] = useState(1);
+
+  // shot modal
+  const [shotPick, setShotPick] = useState(null); // { team_id }
+  const [shotShooter, setShotShooter] = useState("");
+  const [shotTime, setShotTime] = useState("");
+  const [shotPeriod, setShotPeriod] = useState(1);
 
   // ---------- localStorage helpers ----------
   const lsKey = (id) => `live:${id}`;
@@ -131,7 +137,7 @@ export default function LivePage() {
       remainingMs.current = startMs;
       setClock(ls.clock ?? msToMMSS(startMs));
       setPeriod(ls.period ?? 1);
-      setRunning(false); // per request: not running on return
+      setRunning(false); // not running on return
 
       const map = {};
       (gg || []).forEach((row) => (map[row.team_id] = row.player_id));
@@ -344,7 +350,9 @@ export default function LivePage() {
     if (gg?.id) return gg;
     const { data: created } = await supabase
       .from("game_goalies")
-      .insert([{ game_id: game.id, team_id: teamId, player_id: playerId, shots_against: 0, goals_against: 0 }])
+      .insert([
+        { game_id: game.id, team_id: teamId, player_id: playerId, shots_against: 0, goals_against: 0 },
+      ])
       .select("id, shots_against, goals_against")
       .single();
     return created;
@@ -364,7 +372,7 @@ export default function LivePage() {
   async function bumpGoalieSA(goalieTeamId, delta) {
     if (!delta) return;
     const goalieId = goalieOnIce[goalieTeamId];
-    if (!goalieId) return; // guard: only if a goalie is selected
+    if (!goalieId) return; // only if a goalie is selected
 
     // game_stats.goalie_shots_against
     const gsId = await upsertGoalieGameStats(goalieTeamId, goalieId);
@@ -390,14 +398,12 @@ export default function LivePage() {
     const cur = homeShots || 0;
     const delta = v - cur;
 
-    // guard on increases
     if (delta > 0 && !goalieOnIce[away?.id]) {
       alert("Select the AWAY goalie before recording shots.");
-      return; // do not change local state
+      return;
     }
 
     setHomeShots(v);
-    // DB mirror (if columns exist)
     try {
       await supabase.from("games").update({ home_shots: v }).eq("id", game.id);
     } catch {}
@@ -418,6 +424,36 @@ export default function LivePage() {
       await supabase.from("games").update({ away_shots: v }).eq("id", game.id);
     } catch {}
     await bumpGoalieSA(home.id, delta);
+  }
+
+  // wrappers for "-" buttons: decrement shot + remove latest shot event
+  async function handleShotMinus(teamId) {
+    if (!game) return;
+    const isHome = teamId === home?.id;
+    const cur = isHome ? homeShots : awayShots;
+    if (cur <= 0) return;
+
+    if (isHome) {
+      await changeHomeShots(cur - 1);
+    } else {
+      await changeAwayShots(cur - 1);
+    }
+
+    // delete the latest 'shot' event for that team (if any)
+    const { data: lastShot } = await supabase
+      .from("events")
+      .select("id")
+      .eq("game_id", game.id)
+      .eq("team_id", teamId)
+      .eq("event", "shot")
+      .order("period", { ascending: false })
+      .order("time_mmss", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastShot?.id) {
+      await supabase.from("events").delete().eq("id", lastShot.id);
+    }
   }
 
   /* ---------- GA: bump goals_against on opposing goalie (game_goalies) ---------- */
@@ -598,6 +634,69 @@ export default function LivePage() {
     setGoalPick(null);
   }
 
+  /* ---------- SHOT modal helpers ---------- */
+
+  function openShotForTeam(teamId) {
+    if (!game || !home || !away) return;
+
+    setShotPick({ team_id: teamId });
+    setShotPeriod(period);
+    setShotTime(clock);
+
+    const roster = teamId === home.id ? homeDressed : awayDressed;
+    const idsOnIce = new Set(onIce.filter((t) => t.team_id === teamId).map((t) => t.id));
+    const pref =
+      roster.find((p) => idsOnIce.has(p.id))?.id || (roster.length ? roster[0].id : "") || "";
+    setShotShooter(pref);
+  }
+
+  const shotChoices = useMemo(() => {
+    if (!shotPick) return [];
+    const teamId = shotPick.team_id;
+    const roster = teamId === home?.id ? homeDressed : awayDressed;
+    const idsOnIce = new Set(onIce.filter((t) => t.team_id === teamId).map((t) => t.id));
+    const onIceOnly = roster.filter((p) => idsOnIce.has(p.id));
+    return onIceOnly.length ? onIceOnly : roster;
+  }, [shotPick, home?.id, homeDressed, awayDressed, onIce]);
+
+  async function confirmShot() {
+    if (!shotPick || !shotShooter) return;
+    const tid = shotPick.team_id;
+    const per = Number(shotPeriod) || 1;
+    const tm = (shotTime || clock).trim();
+    const shooterId = Number(shotShooter);
+
+    const opposingTeamId = tid === home.id ? away.id : home.id;
+    const goalieId = goalieOnIce[opposingTeamId];
+
+    if (!goalieId) {
+      alert("Select the opposing goalie before recording a shot.");
+      return;
+    }
+
+    // 1) bump shot counters + goalie SA (existing logic)
+    if (tid === home.id) {
+      await changeHomeShots((homeShots || 0) + 1);
+    } else {
+      await changeAwayShots((awayShots || 0) + 1);
+    }
+
+    // 2) create shot event
+    await supabase.from("events").insert([
+      {
+        game_id: game.id,
+        team_id: tid,
+        player_id: shooterId,
+        period: per,
+        time_mmss: tm,
+        event: "shot",
+        goalie_id: goalieId,
+      },
+    ]);
+
+    setShotPick(null);
+  }
+
   async function deleteRow(r) {
     if (r.goal) {
       const ids = [r.goal.id, ...r.assists.map((a) => a.id)];
@@ -631,7 +730,6 @@ export default function LivePage() {
         <Link className="btn btn-grey" to={`/games/${slug}/roster`}>
           Roster
         </Link>
-        {/* Boxscore button removed per request */}
         <Link className="btn btn-grey" to="/games">
           Back to Games
         </Link>
@@ -651,8 +749,8 @@ export default function LivePage() {
           <ShotCounter
             label="Shots"
             value={awayShots}
-            onMinus={() => changeAwayShots((awayShots || 0) - 1)}
-            onPlus={() => changeAwayShots((awayShots || 0) + 1)}
+            onMinus={() => handleShotMinus(away.id)}
+            onPlus={() => openShotForTeam(away.id)}
             onManual={(v) => changeAwayShots(v)}
             align="left"
           />
@@ -679,8 +777,8 @@ export default function LivePage() {
           <ShotCounter
             label="Shots"
             value={homeShots}
-            onMinus={() => changeHomeShots((homeShots || 0) - 1)}
-            onPlus={() => changeHomeShots((homeShots || 0) + 1)}
+            onMinus={() => handleShotMinus(home.id)}
+            onPlus={() => openShotForTeam(home.id)}
             onManual={(v) => changeHomeShots(v)}
             align="right"
           />
@@ -915,6 +1013,75 @@ export default function LivePage() {
           </div>
         </Modal>
       )}
+
+      {/* shot modal */}
+      {shotPick && (
+        <Modal>
+          <div className="card" style={{ width: 480, maxWidth: "calc(100vw - 24px)" }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>Record Shot</div>
+            <div className="muted" style={{ marginBottom: 8 }}>
+              {shotPick.team_id === home.id
+                ? home.short_name || home.name
+                : shotPick.team_id === away.id
+                ? away.short_name || away.name
+                : ""}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "100px 120px 1fr",
+                gap: 10,
+                marginBottom: 10,
+              }}
+            >
+              <div>
+                <div className="muted">Period</div>
+                <input
+                  className="input"
+                  type="number"
+                  min={1}
+                  value={shotPeriod}
+                  onChange={(e) => setShotPeriod(parseInt(e.target.value || "1", 10))}
+                />
+              </div>
+              <div>
+                <div className="muted">Time</div>
+                <input
+                  className="input"
+                  value={shotTime}
+                  onChange={(e) => setShotTime(e.target.value.replace(/[^\d:]/g, ""))}
+                />
+              </div>
+              <div>
+                <div className="muted">Shooter</div>
+                <select
+                  className="input"
+                  value={shotShooter}
+                  onChange={(e) => setShotShooter(e.target.value)}
+                >
+                  <option value="">—</option>
+                  {shotChoices.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.number ? `#${p.number} ` : ""}
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+              <button className="btn btn-grey" onClick={() => setShotPick(null)}>
+                Cancel
+              </button>
+              <button className="btn btn-blue" onClick={confirmShot}>
+                Confirm Shot
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -1030,7 +1197,15 @@ function ClockBlock({
         onChange={(e) => onClockChange(e.target.value)}
         style={{ fontWeight: 900, fontSize: 34, textAlign: "center" }}
       />
-      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          justifyContent: "center",
+          marginTop: 8,
+          flexWrap: "wrap",
+        }}
+      >
         <button className="btn btn-grey" onClick={onStart}>
           {running ? "Stop" : "Start"}
         </button>
@@ -1155,7 +1330,16 @@ function Rink({
     >
       {/* yellow bands */}
       <div style={{ position: "absolute", left: 0, right: 0, height: 10, background: "#ffd400", top: 0 }} />
-      <div style={{ position: "absolute", left: 0, right: 0, height: 10, background: "#ffd400", bottom: 0 }} />
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          height: 10,
+          background: "#ffd400",
+          bottom: 0,
+        }}
+      />
       <div
         style={{
           position: "absolute",
@@ -1209,7 +1393,15 @@ function Rink({
       />
 
       {/* goalie selects */}
-      <div style={{ position: "absolute", top: 10, left: 10, color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>
+      <div
+        style={{
+          position: "absolute",
+          top: 10,
+          left: 10,
+          color: "#fff",
+          textShadow: "0 1px 2px rgba(0,0,0,0.35)",
+        }}
+      >
         <div style={{ fontSize: 12, marginBottom: 4 }}>{away.short_name || away.name} Goalie</div>
         <select
           className="input"
@@ -1228,7 +1420,13 @@ function Rink({
         </select>
       </div>
       <div
-        style={{ position: "absolute", bottom: 10, right: 10, color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}
+        style={{
+          position: "absolute",
+          bottom: 10,
+          right: 10,
+          color: "#fff",
+          textShadow: "0 1px 2px rgba(0,0,0,0.35)",
+        }}
       >
         <div style={{ fontSize: 12, marginBottom: 4 }}>{home.short_name || home.name} Goalie</div>
         <select
