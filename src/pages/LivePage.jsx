@@ -470,17 +470,27 @@ export default function LivePage() {
     const scorerId = Number(goalPick.scorer);
     const aList = [assist1, assist2].filter(Boolean).map(Number).slice(0, 2);
 
+    // determine which goalie was scored on (based on current goalieOnIce)
+    const opposingTeamId = tid === home.id ? away.id : home.id;
+    const goalieScoredOnId = goalieOnIce[opposingTeamId] || null;
+
     if (goalPick.editKey) {
       // --- EDIT EXISTING ---
       const prevTeamId = goalPick.editKey.goal.team_id;
 
-      // 1) update goal row
+      // 1) update goal row (include goalie_id so it stays in sync)
       await supabase
         .from("events")
-        .update({ team_id: tid, player_id: scorerId, period: per, time_mmss: tm })
+        .update({
+          team_id: tid,
+          player_id: scorerId,
+          period: per,
+          time_mmss: tm,
+          goalie_id: goalieScoredOnId,
+        })
         .eq("id", goalPick.editKey.goal.id);
 
-      // 2) sync assists
+      // 2) sync assists (no goalie_id for assists)
       const existing = goalPick.editKey.assists || [];
       const toUpdate = Math.min(existing.length, aList.length);
       for (let i = 0; i < toUpdate; i++) {
@@ -544,6 +554,7 @@ export default function LivePage() {
           period: per,
           time_mmss: tm,
           event: "goal",
+          goalie_id: goalieScoredOnId, // only goals store goalie_id
         },
       ]);
 
@@ -557,7 +568,7 @@ export default function LivePage() {
             player_id: aid,
             period: per,
             time_mmss: tm,
-            event: "assist",
+            event: "assist", // assists: goalie_id left NULL
           },
         ]);
     }
