@@ -203,6 +203,122 @@ export default function GamesPage() {
     setNewAway("");
   }
 
+  /**
+   * Helper: reset all goalies in a game back to ND (no decision).
+   */
+  async function resetGoalieDecisions(gameId) {
+    const { error } = await supabase
+      .from("game_goalies")
+      .update({ decision: "ND" })
+      .eq("game_id", gameId);
+
+    if (error) {
+      console.error("Error resetting goalie decisions:", error);
+    }
+  }
+
+  /**
+   * Helper: apply W / L / OTL to goalies for a finished game.
+   * - Winner: decision = 'W'
+   * - Loser:  decision = 'L' (or 'OTL' if went_ot = true)
+   * If the score is tied, decisions are reset to 'ND'.
+   */
+  async function applyGoalieDecisionsForFinalGame(gameRow) {
+    const {
+      id,
+      home_team_id,
+      away_team_id,
+      home_score,
+      away_score,
+      went_ot,
+    } = gameRow || {};
+
+    if (
+      id == null ||
+      home_team_id == null ||
+      away_team_id == null ||
+      home_score == null ||
+      away_score == null
+    ) {
+      console.warn("Game row incomplete, skipping goalie decisions", gameRow);
+      return;
+    }
+
+    // If tied, just clear decisions.
+    if (home_score === away_score) {
+      await resetGoalieDecisions(id);
+      return;
+    }
+
+    const homeWon = home_score > away_score;
+    const winningTeamId = homeWon ? home_team_id : away_team_id;
+    const losingTeamId = homeWon ? away_team_id : home_team_id;
+
+    const loserDecision = went_ot ? "OTL" : "L";
+
+    // First clear any previous decision so stats are consistent
+    await resetGoalieDecisions(id);
+
+    // Mark winners
+    const { error: winErr } = await supabase
+      .from("game_goalies")
+      .update({ decision: "W" })
+      .eq("game_id", id)
+      .eq("team_id", winningTeamId);
+
+    if (winErr) {
+      console.error("Error setting winning goalie decision:", winErr);
+    }
+
+    // Mark losers
+    const { error: loseErr } = await supabase
+      .from("game_goalies")
+      .update({ decision: loserDecision })
+      .eq("game_id", id)
+      .eq("team_id", losingTeamId);
+
+    if (loseErr) {
+      console.error("Error setting losing goalie decision:", loseErr);
+    }
+  }
+
+  /**
+   * Called when clicking "Mark as Final" or "Open".
+   * - Updates the games.status field.
+   * - If status becomes "final", automatically sets W/L/OTL for goalies.
+   * - If status is changed away from "final", resets goalie decisions to ND.
+   */
+  async function updateStatus(id, status) {
+    // Update the game status and get the full row back so we have scores.
+    const { data, error } = await supabase
+      .from("games")
+      .update({ status })
+      .eq("id", id)
+      .select(
+        "id, home_team_id, away_team_id, home_score, away_score, went_ot, status, game_date, slug"
+      )
+      .single();
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    // Update UI state
+    setGames((cur) => cur.map((g) => (g.id === id ? data : g)));
+
+    // Apply / reset goalie decisions based on new status
+    try {
+      if (status === "final") {
+        await applyGoalieDecisionsForFinalGame(data);
+      } else {
+        await resetGoalieDecisions(id);
+      }
+    } catch (e) {
+      console.error("Error updating goalie decisions:", e);
+    }
+  }
+
   return (
     <div className="games-page gp-container">
       <h2 className="gp-h2">{t("Games")}</h2>
@@ -389,20 +505,6 @@ export default function GamesPage() {
       )}
     </div>
   );
-
-  async function updateStatus(id, status) {
-    const { data, error } = await supabase
-      .from("games")
-      .update({ status })
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    setGames((cur) => cur.map((g) => (g.id === id ? data : g)));
-  }
 }
 
 function TeamChip({ team }) {
