@@ -155,6 +155,7 @@ export default function StatsPage() {
                     <PlayerLink id={g.player_id}>{g.goalie}</PlayerLink>
                   </td>
                   <td style={td}>{g.team}</td>
+                  <td style={tdRight}>{g.gp ?? 0}</td>
                   <td style={tdRight}>{g.sa ?? 0}</td>
                   <td style={tdRight}>{g.ga ?? 0}</td>
                   <td style={tdRight}>
