@@ -39,7 +39,7 @@ export default function StatsPage() {
         supabase
           .from("goalie_stats_current")
           .select(
-            "player_id, goalie, team, sa, ga, sv_pct, gaa, toi_seconds, wins, losses, otl, so"
+            "gp, player_id, goalie, team, sa, ga, sv_pct, gaa, toi_seconds, wins, losses, otl, so"
           )
           .order("sv_pct", { ascending: false, nullsFirst: false }),
       ]);
