@@ -786,6 +786,16 @@ export default function LivePage() {
       // undo GA on opposing goalie
       await bumpGoalieGA(isHome ? away.id : home.id, -1);
     } else if (r.single) {
+      // If it's a shot, adjust counters and goalie SA as well
+      if (r.single.event === "shot") {
+        const isHome = r.single.team_id === game.home_team_id;
+        if (isHome) {
+          await changeHomeShots(Math.max(0, (homeShots || 0) - 1));
+        } else {
+          await changeAwayShots(Math.max(0, (awayShots || 0) - 1));
+        }
+      }
+
       await supabase.from("events").delete().eq("id", r.single.id);
     }
   }
