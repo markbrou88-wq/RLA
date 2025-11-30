@@ -139,6 +139,7 @@ export default function StatsPage() {
               <tr>
                 <th style={th}>{t("Goalie")}</th>
                 <th style={th}>{t("Team")}</th>
+                <th style={th}>GP</th>
                 <th style={th}>SA</th>
                 <th style={th}>GA</th>
                 <th style={th}>{t("SV%")}</th>
