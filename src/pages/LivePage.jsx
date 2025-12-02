@@ -381,33 +381,73 @@ export default function LivePage() {
     saveLS(game.id, { awayShots });
   }, [game?.id, awayShots]);
 
+  // UPDATED: always keep team SA (game_goalies.shots_against) in sync with the shot totals.
   async function bumpGoalieSA(goalieTeamId, delta) {
-    if (!delta) return;
-    const goalieId = goalieOnIce[goalieTeamId];
-    if (!goalieId) return; // only if a goalie is selected
+    if (!delta || !game?.id) return;
 
-    // game_stats.goalie_shots_against
-    const gsId = await upsertGoalieGameStats(goalieTeamId, goalieId);
-    if (gsId) {
-      const { data: cur } = await supabase
-        .from("game_stats")
-        .select("goalie_shots_against")
-        .eq("id", gsId)
-        .single();
-      const next = Math.max(0, (cur?.goalie_shots_against || 0) + delta);
-      await supabase
-        .from("game_stats")
-        .update({ goalie_shots_against: next })
-        .eq("id", gsId);
+    const goalieId = goalieOnIce[goalieTeamId];
+
+    // --- 1) Per-goalie row in game_stats (only if we know the goalie) ---
+    if (goalieId) {
+      const gsId = await upsertGoalieGameStats(goalieTeamId, goalieId);
+      if (gsId) {
+        const { data: cur } = await supabase
+          .from("game_stats")
+          .select("goalie_shots_against")
+          .eq("id", gsId)
+          .single();
+
+        const next = Math.max(0, (cur?.goalie_shots_against || 0) + delta);
+
+        await supabase
+          .from("game_stats")
+          .update({ goalie_shots_against: next })
+          .eq("id", gsId);
+      }
     }
 
-    // game_goalies.shots_against
-    const gg = await upsertGameGoalieRow(goalieTeamId, goalieId);
-    const nextSA = Math.max(0, (gg?.shots_against || 0) + delta);
+    // --- 2) Team-level SA in game_goalies (always sync with shots) ---
+    const { data: existing } = await supabase
+      .from("game_goalies")
+      .select("id, shots_against, player_id")
+      .eq("game_id", game.id)
+      .eq("team_id", goalieTeamId)
+      .maybeSingle();
+
+    let row = existing;
+
+    // If there's no row yet, create one (attach goalie if we know him).
+    if (!row) {
+      const { data: created } = await supabase
+        .from("game_goalies")
+        .insert([
+          {
+            game_id: game.id,
+            team_id: goalieTeamId,
+            player_id: goalieId || null,
+            shots_against: 0,
+            goals_against: 0,
+          },
+        ])
+        .select("id, shots_against, player_id")
+        .single();
+      row = created;
+    } else if (!row.player_id && goalieId) {
+      // Back-fill goalie on existing row if it was missing.
+      await supabase
+        .from("game_goalies")
+        .update({ player_id: goalieId })
+        .eq("id", row.id);
+    }
+
+    if (!row?.id) return;
+
+    const nextSA = Math.max(0, (row.shots_against || 0) + delta);
+
     await supabase
       .from("game_goalies")
       .update({ shots_against: nextSA })
-      .eq("id", gg.id);
+      .eq("id", row.id);
   }
 
   // NOTE: increases are blocked if no opposing goalie is selected; decreases are allowed
