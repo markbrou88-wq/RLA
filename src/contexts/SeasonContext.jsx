@@ -18,6 +18,7 @@ export function SeasonProvider({ children }) {
         .order("start_date");
 
       if (!alive) return;
+
       if (error) {
         console.error("Failed to load seasons", error);
         setLoading(false);
@@ -26,7 +27,7 @@ export function SeasonProvider({ children }) {
 
       setSeasons(data || []);
 
-      // default = active season, fallback first
+      // Prefer active season, fallback to first
       const active =
         data.find((s) => s.is_active) ||
         data[0] ||
