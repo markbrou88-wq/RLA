@@ -88,7 +88,7 @@ function AppInner() {
   const { t } = useI18n();
 
   // 🔁 UI-only for now (ready to hook to Supabase later)
-  const [season, setSeason] = React.useState("2024-2025");
+  const [season, setSeason] = React.useState("Automne 2025 - Saison 1");
 
   return (
     <div className="app-shell">
@@ -138,8 +138,8 @@ function AppInner() {
               value={season}
               onChange={(e) => setSeason(e.target.value)}
             >
-              <option value="2024-2025">2024–2025</option>
-              <option value="2023-2024">2023–2024</option>
+              <option value="Automne 2025 - Saison 1">Automne 2025 - Saison 1</option>
+              <option value="Hiver 2026 - Saison 2">Hiver 2026 - Saison 2</option>
               <option value="2022-2023">2022–2023</option>
             </select>
           </div>
