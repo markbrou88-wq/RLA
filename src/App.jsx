@@ -140,7 +140,6 @@ function AppInner() {
             >
               <option value="Automne 2025 - Saison 1">Automne 2025 - Saison 1</option>
               <option value="Hiver 2026 - Saison 2">Hiver 2026 - Saison 2</option>
-              <option value="2022-2023">2022–2023</option>
             </select>
           </div>
         </div>
