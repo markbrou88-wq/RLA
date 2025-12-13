@@ -20,7 +20,7 @@ import ThemeToggle from "./components/ThemeToggle";
 import LanguageToggle from "./components/LanguageToggle";
 import { I18nProvider, useI18n } from "./i18n.jsx";
 
-import "./styles.css?v=1000000";
+import "./styles.css?v=1000001";
 
 /* -------------------------------- AUTH BAR ------------------------------- */
 function AuthBar() {
@@ -87,6 +87,9 @@ function AuthBar() {
 function AppInner() {
   const { t } = useI18n();
 
+  // 🔁 UI-only for now (ready to hook to Supabase later)
+  const [season, setSeason] = React.useState("2024-2025");
+
   return (
     <div className="app-shell">
       {/* ================= BLACK HEADER ================= */}
@@ -117,13 +120,30 @@ function AppInner() {
 
       {/* ================= RED NAV BAR ================= */}
       <div className="red-nav-bar">
-        <nav className="red-nav">
-          <NavLink to="/" end>
-            {t("Standings")}
-          </NavLink>
-          <NavLink to="/games">{t("Games")}</NavLink>
-          <NavLink to="/stats">{t("Stats")}</NavLink>
-        </nav>
+        <div className="red-nav-inner">
+          {/* NHL-style tabs */}
+          <nav className="red-nav nhl-tabs">
+            <NavLink to="/" end>
+              {t("Standings")}
+            </NavLink>
+            <NavLink to="/games">{t("Games")}</NavLink>
+            <NavLink to="/stats">{t("Stats")}</NavLink>
+          </nav>
+
+          {/* Season selector */}
+          <div className="season-selector">
+            <label htmlFor="season">Season</label>
+            <select
+              id="season"
+              value={season}
+              onChange={(e) => setSeason(e.target.value)}
+            >
+              <option value="2024-2025">2024–2025</option>
+              <option value="2023-2024">2023–2024</option>
+              <option value="2022-2023">2022–2023</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* ================= MAIN CONTENT ================= */}
