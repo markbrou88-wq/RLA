@@ -1273,3 +1273,78 @@ table thead th {
     justify-content: flex-start;
   }
 }
+
+/* ================= RED NAV BAR ================= */
+
+.red-nav-bar {
+  width: 100%;
+  background: #e53935; /* Red Lite red */
+}
+
+.red-nav {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 6px 16px; /* ~half black header height */
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.red-nav a {
+  color: #ffffff;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.9rem;
+  padding-bottom: 4px;
+  border-bottom: 3px solid transparent;
+}
+
+.red-nav a:hover {
+  opacity: 0.9;
+}
+
+.red-nav a.active {
+  border-bottom-color: #ffffff;
+}
+
+/* Mobile tweaks */
+@media (max-width: 600px) {
+  .red-nav {
+    justify-content: space-around;
+    gap: 12px;
+    padding: 6px 8px;
+  }
+
+  .red-nav a {
+    font-size: 0.8rem;
+  }
+}
+
+/* ================= AUTH BAR CLEANUP ================= */
+
+.auth-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.auth-ok {
+  color: #0a7e07;
+}
+
+.auth-status {
+  color: #666;
+  font-size: 12px;
+}
+
+/* ================= FOOTER ================= */
+
+.site-footer {
+  padding: 16px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
