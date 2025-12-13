@@ -1,10 +1,12 @@
-// src/App.jsx
 import React from "react";
 import { Routes, Route, NavLink } from "react-router-dom";
 import { supabase } from "./supabaseClient.js";
 
 // LOGO
 import redliteLogo from "../redlite-logo.png";
+
+// CONTEXT
+import { SeasonProvider, useSeason } from "./contexts/SeasonContext";
 
 // PAGES
 import StandingsPage from "./pages/StandingsPage.jsx";
@@ -83,12 +85,43 @@ function AuthBar() {
   );
 }
 
+/* ----------------------------- RED NAV BAR ------------------------------ */
+function RedNav() {
+  const { t } = useI18n();
+  const { seasons, seasonId, setSeasonId, loading } = useSeason();
+
+  return (
+    <div className="red-nav-bar">
+      <div className="red-nav-inner">
+        <nav className="red-nav nhl-tabs">
+          <NavLink to="/" end>{t("Standings")}</NavLink>
+          <NavLink to="/games">{t("Games")}</NavLink>
+          <NavLink to="/stats">{t("Stats")}</NavLink>
+        </nav>
+
+        {!loading && (
+          <div className="season-selector">
+            <label>Season</label>
+            <select
+              value={seasonId ?? ""}
+              onChange={(e) => setSeasonId(Number(e.target.value))}
+            >
+              {seasons.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* -------------------------------- APP SHELL ------------------------------- */
 function AppInner() {
   const { t } = useI18n();
-
-  // 🔁 UI-only for now (ready to hook to Supabase later)
-  const [season, setSeason] = React.useState("Automne 2025 - Saison 1");
 
   return (
     <div className="app-shell">
@@ -118,34 +151,8 @@ function AppInner() {
         </div>
       </header>
 
-      {/* ================= RED NAV BAR ================= */}
-      <div className="red-nav-bar">
-        <div className="red-nav-inner">
-          {/* NHL-style tabs */}
-          <nav className="red-nav nhl-tabs">
-            <NavLink to="/" end>
-              {t("Standings")}
-            </NavLink>
-            <NavLink to="/games">{t("Games")}</NavLink>
-            <NavLink to="/stats">{t("Stats")}</NavLink>
-          </nav>
+      <RedNav />
 
-          {/* Season selector */}
-          <div className="season-selector">
-            <label htmlFor="season">Season</label>
-            <select
-              id="season"
-              value={season}
-              onChange={(e) => setSeason(e.target.value)}
-            >
-              <option value="Automne 2025 - Saison 1">Automne 2025 - Saison 1</option>
-              <option value="Hiver 2026 - Saison 2">Hiver 2026 - Saison 2</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* ================= MAIN CONTENT ================= */}
       <div className="app-content">
         <AuthBar />
 
@@ -153,7 +160,7 @@ function AppInner() {
           <Routes>
             <Route path="/" element={<StandingsPage />} />
             <Route path="/games" element={<GamesPage />} />
-            <Route path="/games/:slug/boxscore" element={<SummaryPage />} />
+            <Route path="/games/:slug" element={<SummaryPage />} />
             <Route path="/games/:slug/live" element={<LivePage />} />
             <Route path="/games/:slug/roster" element={<RosterPage />} />
             <Route path="/stats" element={<StatsPage />} />
@@ -173,7 +180,9 @@ function AppInner() {
 export default function App() {
   return (
     <I18nProvider>
-      <AppInner />
+      <SeasonProvider>
+        <AppInner />
+      </SeasonProvider>
     </I18nProvider>
   );
 }
