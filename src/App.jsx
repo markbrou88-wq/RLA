@@ -3,21 +3,15 @@ import React from "react";
 import { Routes, Route, NavLink } from "react-router-dom";
 import { supabase } from "./supabaseClient.js";
 
-// IMPORT LOGO FROM PROJECT ROOT (one level up from src/)
+// LOGO
 import redliteLogo from "../redlite-logo.png";
 
 // PAGES
 import StandingsPage from "./pages/StandingsPage.jsx";
 import GamesPage from "./pages/GamesPage.jsx";
-
-// READ-ONLY BOX SCORE
 import SummaryPage from "./pages/SummaryPage.jsx";
-
-// INTERACTIVE EDITING
 import LivePage from "./pages/LivePage.jsx";
 import RosterPage from "./pages/RosterPage.jsx";
-
-// Other pages
 import StatsPage from "./pages/StatsPage.jsx";
 import TeamPage from "./pages/TeamPage.jsx";
 import PlayerPage from "./pages/PlayerPage.jsx";
@@ -26,7 +20,7 @@ import ThemeToggle from "./components/ThemeToggle";
 import LanguageToggle from "./components/LanguageToggle";
 import { I18nProvider, useI18n } from "./i18n.jsx";
 
-import "./styles.css?v=999999";
+import "./styles.css?v=1000000";
 
 /* -------------------------------- AUTH BAR ------------------------------- */
 function AuthBar() {
@@ -57,27 +51,16 @@ function AuthBar() {
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 8,
-        alignItems: "center",
-        padding: "8px 0",
-      }}
-    >
+    <div className="auth-bar">
       {user ? (
         <>
-          <span style={{ color: "#0a7e07" }}>
+          <span className="auth-ok">
             Signed in{user?.email ? ` as ${user.email}` : ""}
           </span>
           <button onClick={signOut}>Sign out</button>
         </>
       ) : (
-        <form
-          style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-          onSubmit={signIn}
-        >
+        <form onSubmit={signIn}>
           <input
             type="email"
             placeholder="Email"
@@ -95,7 +78,7 @@ function AuthBar() {
           <button type="submit">Sign in</button>
         </form>
       )}
-      <span style={{ color: "#666" }}>{status}</span>
+      <span className="auth-status">{status}</span>
     </div>
   );
 }
@@ -106,17 +89,15 @@ function AppInner() {
 
   return (
     <div className="app-shell">
-      {/* --------- FULL-WIDTH BLACK HEADER WITH LOGO & TOGGLES --------- */}
+      {/* ================= BLACK HEADER ================= */}
       <header className="site-header">
         <div className="site-header-inner">
-          {/* LEFT – LOGO + TEXT */}
           <div className="site-header-left">
             <img
               src={redliteLogo}
               alt="Red Lite Logo"
               className="site-header-logo"
             />
-
             <div className="site-header-text">
               <h1 className="site-header-title">
                 {t("LIGUE RED LITE 3X3")}
@@ -127,7 +108,6 @@ function AppInner() {
             </div>
           </div>
 
-          {/* RIGHT – language + theme (styled red via .auth-bar-right in CSS) */}
           <div className="auth-bar-right">
             <LanguageToggle />
             <ThemeToggle />
@@ -135,22 +115,22 @@ function AppInner() {
         </div>
       </header>
 
-      {/* MAIN CONTENT (same max-width as before) */}
-      <div className="app-content">
-        {/* Auth bar */}
-        <AuthBar />
-
-        {/* NAV MENU */}
-        <nav className="nav">
+      {/* ================= RED NAV BAR ================= */}
+      <div className="red-nav-bar">
+        <nav className="red-nav">
           <NavLink to="/" end>
             {t("Standings")}
           </NavLink>
           <NavLink to="/games">{t("Games")}</NavLink>
           <NavLink to="/stats">{t("Stats")}</NavLink>
         </nav>
+      </div>
 
-        {/* ROUTES */}
-        <main style={{ padding: "16px 0" }}>
+      {/* ================= MAIN CONTENT ================= */}
+      <div className="app-content">
+        <AuthBar />
+
+        <main>
           <Routes>
             <Route path="/" element={<StandingsPage />} />
             <Route path="/games" element={<GamesPage />} />
@@ -163,13 +143,7 @@ function AppInner() {
           </Routes>
         </main>
 
-        <footer
-          style={{
-            padding: "16px 0",
-            color: "var(--muted)",
-            fontSize: 12,
-          }}
-        >
+        <footer className="site-footer">
           Built with React + Supabase • Realtime edits for boxscores
         </footer>
       </div>
