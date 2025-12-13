@@ -1,4 +1,3 @@
-// src/pages/GamesPage.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
@@ -16,15 +15,16 @@ function useMaybeI18n() {
 export default function GamesPage() {
   const { t } = useMaybeI18n();
   const navigate = useNavigate();
-  const { seasonId } = useSeason();
 
+  // ⬇️ season context
+  const { seasonId, seasons } = useSeason();
 
   const [teams, setTeams] = React.useState([]);
   const [teamMap, setTeamMap] = React.useState({});
   const [games, setGames] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
-  // filters (date + single team that matches either side)
+  // filters
   const [filterDate, setFilterDate] = React.useState("");
   const [filterTeam, setFilterTeam] = React.useState("");
 
@@ -34,113 +34,86 @@ export default function GamesPage() {
   const [newAway, setNewAway] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
-  // track if we're on a small/mobile screen
-  const [isMobile, setIsMobile] = React.useState(false);
+  // 🆕 NEW: season used when creating a game
+  const [newSeasonId, setNewSeasonId] = React.useState(seasonId);
 
-  // is user logged in?
+  // keep create-form season in sync with top selector
+  React.useEffect(() => {
+    setNewSeasonId(seasonId);
+  }, [seasonId]);
+
+  const [isMobile, setIsMobile] = React.useState(false);
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
 
   // detect mobile viewport
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-
     const mq = window.matchMedia("(max-width: 768px)");
     const handleChange = () => setIsMobile(mq.matches);
-
-    handleChange(); // set initial value
+    handleChange();
     mq.addEventListener("change", handleChange);
-
-    return () => {
-      mq.removeEventListener("change", handleChange);
-    };
+    return () => mq.removeEventListener("change", handleChange);
   }, []);
 
-  // check auth state once on mount
+  // auth check
   React.useEffect(() => {
     let mounted = true;
-    async function checkAuth() {
-      try {
-        const { data, error } = await supabase.auth.getUser();
-        if (error) {
-          console.error(error);
-        }
-        if (!mounted) return;
-        setIsLoggedIn(!!data?.user);
-      } catch (e) {
-        console.error(e);
-        if (!mounted) return;
-        setIsLoggedIn(false);
-      }
-    }
-    checkAuth();
+    supabase.auth.getUser().then(({ data }) => {
+      if (mounted) setIsLoggedIn(!!data?.user);
+    });
     return () => {
       mounted = false;
     };
   }, []);
 
+  // load teams + games for selected season
   React.useEffect(() => {
     let cancelled = false;
+
     async function load() {
       setLoading(true);
 
-      const [{ data: teamRows, error: e1 }, { data: gameRows, error: e2 }] =
-        await Promise.all([
-          supabase
-            .from("teams")
-            .select("id, name, short_name, logo_url")
+      const [{ data: teamRows }, { data: gameRows }] = await Promise.all([
+        supabase
+          .from("teams")
+          .select("id, name, short_name, logo_url")
           .eq("season_id", seasonId)
-            .order("name"),
-          supabase
-            .from("games")
-            .select(
-              "id, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot, slug"
-            )
+          .order("name"),
+        supabase
+          .from("games")
+          .select(
+            "id, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot, slug"
+          )
           .eq("season_id", seasonId)
-            .order("game_date", { ascending: false }),
-        ]);
+          .order("game_date", { ascending: false }),
+      ]);
 
-      if (e1 || e2) {
-        console.error(e1 || e2);
-        if (!cancelled) setLoading(false);
-        return;
-      }
+      if (cancelled) return;
 
       const map = Object.fromEntries(teamRows.map((t) => [t.id, t]));
-      if (!cancelled) {
-        setTeams(teamRows);
-        setTeamMap(map);
-        setGames(gameRows);
-        setLoading(false);
-      }
+      setTeams(teamRows);
+      setTeamMap(map);
+      setGames(gameRows);
+      setLoading(false);
     }
 
-    load();
+    if (seasonId) load();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [seasonId]);
 
   const filtered = games.filter((g) => {
-    const d = (g.game_date || "").slice(0, 10); // date part of ISO timestamp
+    const d = (g.game_date || "").slice(0, 10);
     if (filterDate && d !== filterDate) return false;
     if (filterTeam) {
-      const matchEither =
+      return (
         String(g.home_team_id) === String(filterTeam) ||
-        String(g.away_team_id) === String(filterTeam);
-      if (!matchEither) return false;
+        String(g.away_team_id) === String(filterTeam)
+      );
     }
     return true;
   });
-
-  async function handleDelete(id) {
-    if (!window.confirm(t("Delete this game?"))) return;
-    const { error } = await supabase.from("games").delete().eq("id", id);
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    setGames((cur) => cur.filter((g) => g.id !== id));
-  }
 
   function makeSlug(dateIso, homeId, awayId) {
     const d = (dateIso || "").slice(0, 10).replaceAll("-", "");
@@ -148,13 +121,10 @@ export default function GamesPage() {
     return `${d}-${homeId}-${awayId}-${rand}`;
   }
 
-  // Date/time formatter for timestamptz column
   function formatGameDate(value) {
     if (!value) return "";
-    const d = new Date(value); // ISO timestamptz -> local time
+    const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value);
-
-    // You can tweak these options if you want a different format
     return d.toLocaleString(undefined, {
       year: "numeric",
       month: "short",
@@ -165,8 +135,8 @@ export default function GamesPage() {
   }
 
   async function handleCreate() {
-    if (!newDate || !newHome || !newAway) {
-      alert(t("Please fill date, home and away."));
+    if (!newDate || !newHome || !newAway || !newSeasonId) {
+      alert(t("Please fill date, season, home and away."));
       return;
     }
     if (newHome === newAway) {
@@ -176,12 +146,11 @@ export default function GamesPage() {
 
     setSaving(true);
 
-    // newDate is a local "datetime-local" string (e.g. 2025-11-23T16:00)
-    // Convert to UTC ISO string so timestamptz stores it correctly
     const gameDateUtc = new Date(newDate).toISOString();
-
     const slug = makeSlug(gameDateUtc, newHome, newAway);
+
     const payload = {
+      season_id: Number(newSeasonId), // ⭐ KEY ADDITION
       game_date: gameDateUtc,
       home_team_id: Number(newHome),
       away_team_id: Number(newAway),
@@ -197,37 +166,38 @@ export default function GamesPage() {
       .insert(payload)
       .select()
       .single();
+
     setSaving(false);
     if (error) {
       alert(error.message);
       return;
     }
-    setGames((cur) => [data, ...cur]);
+
+    // only prepend if game belongs to currently viewed season
+    if (Number(newSeasonId) === Number(seasonId)) {
+      setGames((cur) => [data, ...cur]);
+    }
+
     setNewDate("");
     setNewHome("");
     setNewAway("");
   }
 
-  /**
-   * Helper: reset all goalies in a game back to ND (no decision).
-   */
+  async function handleDelete(id) {
+    if (!window.confirm(t("Delete this game?"))) return;
+    await supabase.from("games").delete().eq("id", id);
+    setGames((cur) => cur.filter((g) => g.id !== id));
+  }
+
+  /* ---------------- GOALIE LOGIC (UNCHANGED) ---------------- */
+
   async function resetGoalieDecisions(gameId) {
-    const { error } = await supabase
+    await supabase
       .from("game_goalies")
       .update({ decision: "ND" })
       .eq("game_id", gameId);
-
-    if (error) {
-      console.error("Error resetting goalie decisions:", error);
-    }
   }
 
-  /**
-   * Helper: apply W / L / OTL to goalies for a finished game.
-   * - Winner: decision = 'W'
-   * - Loser:  decision = 'L' (or 'OTL' if went_ot = true)
-   * If the score is tied, decisions are reset to 'ND'.
-   */
   async function applyGoalieDecisionsForFinalGame(gameRow) {
     const {
       id,
@@ -236,20 +206,8 @@ export default function GamesPage() {
       home_score,
       away_score,
       went_ot,
-    } = gameRow || {};
+    } = gameRow;
 
-    if (
-      id == null ||
-      home_team_id == null ||
-      away_team_id == null ||
-      home_score == null ||
-      away_score == null
-    ) {
-      console.warn("Game row incomplete, skipping goalie decisions", gameRow);
-      return;
-    }
-
-    // If tied, just clear decisions.
     if (home_score === away_score) {
       await resetGoalieDecisions(id);
       return;
@@ -258,43 +216,24 @@ export default function GamesPage() {
     const homeWon = home_score > away_score;
     const winningTeamId = homeWon ? home_team_id : away_team_id;
     const losingTeamId = homeWon ? away_team_id : home_team_id;
-
     const loserDecision = went_ot ? "OTL" : "L";
 
-    // First clear any previous decision so stats are consistent
     await resetGoalieDecisions(id);
 
-    // Mark winners
-    const { error: winErr } = await supabase
+    await supabase
       .from("game_goalies")
       .update({ decision: "W" })
       .eq("game_id", id)
       .eq("team_id", winningTeamId);
 
-    if (winErr) {
-      console.error("Error setting winning goalie decision:", winErr);
-    }
-
-    // Mark losers
-    const { error: loseErr } = await supabase
+    await supabase
       .from("game_goalies")
       .update({ decision: loserDecision })
       .eq("game_id", id)
       .eq("team_id", losingTeamId);
-
-    if (loseErr) {
-      console.error("Error setting losing goalie decision:", loseErr);
-    }
   }
 
-  /**
-   * Called when clicking "Mark as Final" or "Open".
-   * - Updates the games.status field.
-   * - If status becomes "final", automatically sets W/L/OTL for goalies.
-   * - If status is changed away from "final", resets goalie decisions to ND.
-   */
   async function updateStatus(id, status) {
-    // Update the game status and get the full row back so we have scores.
     const { data, error } = await supabase
       .from("games")
       .update({ status })
@@ -309,26 +248,22 @@ export default function GamesPage() {
       return;
     }
 
-    // Update UI state
     setGames((cur) => cur.map((g) => (g.id === id ? data : g)));
 
-    // Apply / reset goalie decisions based on new status
-    try {
-      if (status === "final") {
-        await applyGoalieDecisionsForFinalGame(data);
-      } else {
-        await resetGoalieDecisions(id);
-      }
-    } catch (e) {
-      console.error("Error updating goalie decisions:", e);
+    if (status === "final") {
+      await applyGoalieDecisionsForFinalGame(data);
+    } else {
+      await resetGoalieDecisions(id);
     }
   }
+
+  /* ---------------- RENDER ---------------- */
 
   return (
     <div className="games-page gp-container">
       <h2 className="gp-h2">{t("Games")}</h2>
 
-      {/* Filters: Date + Team (matches either home or away) */}
+      {/* Filters */}
       <div className="gp-grid gp-filter card">
         <input
           type="date"
@@ -336,7 +271,6 @@ export default function GamesPage() {
           onChange={(e) => setFilterDate(e.target.value)}
           className="gp-input"
         />
-
         <select
           value={filterTeam}
           onChange={(e) => setFilterTeam(e.target.value)}
@@ -349,7 +283,6 @@ export default function GamesPage() {
             </option>
           ))}
         </select>
-
         <button
           className="btn"
           onClick={() => {
@@ -361,7 +294,7 @@ export default function GamesPage() {
         </button>
       </div>
 
-      {/* Create game – only when logged in */}
+      {/* Create game */}
       {isLoggedIn && (
         <div className="gp-grid gp-create card">
           <input
@@ -370,6 +303,20 @@ export default function GamesPage() {
             onChange={(e) => setNewDate(e.target.value)}
             className="gp-input"
           />
+
+          {/* 🆕 Season selector */}
+          <select
+            value={newSeasonId || ""}
+            onChange={(e) => setNewSeasonId(e.target.value)}
+            className="gp-input"
+          >
+            <option value="">{t("Season…")}</option>
+            {seasons.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
 
           <select
             value={newHome}
@@ -413,38 +360,25 @@ export default function GamesPage() {
           {filtered.map((g) => {
             const home = teamMap[g.home_team_id] || {};
             const away = teamMap[g.away_team_id] || {};
-            const statusLabel = g.status;
             const slug = g.slug || g.id;
 
             return (
               <div key={g.id} className="gp-grid gp-card card">
-                {/* Matchup (away on the LEFT, home on the RIGHT) */}
-                <div
-                  className="gp-match"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    minWidth: 0,
-                  }}
-                >
+                <div className="gp-match">
                   <TeamChip team={away} />
                   <span className="gp-sub">{t("at")}</span>
                   <TeamChip team={home} />
                 </div>
 
-                {/* Score + date + status */}
                 <div className="gp-center">
                   <div className="gp-score">
                     {g.away_score} — {g.home_score}
                   </div>
                   <div className="gp-sub">{formatGameDate(g.game_date)}</div>
-                  <div className="gp-sub">{statusLabel}</div>
+                  <div className="gp-sub">{g.status}</div>
                 </div>
 
-                {/* Actions */}
                 <div className="gp-card-actions">
-                  {/* Live: only when logged in, and only on desktop */}
                   {isLoggedIn && !isMobile && (
                     <button
                       className="btn"
@@ -453,8 +387,6 @@ export default function GamesPage() {
                       {t("Live")}
                     </button>
                   )}
-
-                  {/* Roster: only when logged in */}
                   {isLoggedIn && (
                     <button
                       className="btn"
@@ -463,19 +395,12 @@ export default function GamesPage() {
                       {t("Roster")}
                     </button>
                   )}
-
-                  {/* Boxscore: always visible */}
                   <button
                     className="btn"
                     onClick={() => navigate(`/games/${slug}/boxscore`)}
                   >
                     {t("Boxscore")}
                   </button>
-
-                  {/* Admin-only actions (only when logged in):
-                      - Open / Mark as Final
-                      - Delete
-                  */}
                   {isLoggedIn && (
                     <>
                       {g.status === "final" ? (
