@@ -1,19 +1,24 @@
-// src/pages/StandingsPage.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { useSeason } from "../contexts/SeasonContext";
 
 export default function StandingsPage() {
+  const { seasonId } = useSeason();
   const [rows, setRows] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
+    if (!seasonId) return;
+
     let cancelled = false;
+
     async function load() {
       setLoading(true);
       const { data, error } = await supabase
-        .from("standings_current") // view
+        .from("standings_current")
         .select("team_id, name, gp, w, l, otl, pts, gf, ga, diff")
+        .eq("season_id", seasonId)
         .order("pts", { ascending: false })
         .order("diff", { ascending: false });
 
@@ -23,16 +28,10 @@ export default function StandingsPage() {
         setLoading(false);
       }
     }
-    load();
 
-    // live-ish refresh when you navigate back
-    const vis = () => document.visibilityState === "visible" && load();
-    document.addEventListener("visibilitychange", vis);
-    return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", vis);
-    };
-  }, []);
+    load();
+    return () => (cancelled = true);
+  }, [seasonId]);
 
   return (
     <div className="standings-page">
@@ -57,7 +56,6 @@ export default function StandingsPage() {
             {rows.map((r) => (
               <div key={r.team_id} className="tr">
                 <div className="td left">
-                  {/* Clickable team name → Team page (same tab) */}
                   <Link className="link" to={`/teams/${r.team_id}`}>
                     {r.name}
                   </Link>
