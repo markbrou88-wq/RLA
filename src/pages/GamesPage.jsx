@@ -2,6 +2,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { useSeason } from "../contexts/SeasonContext";
 
 function useMaybeI18n() {
   try {
@@ -15,6 +16,8 @@ function useMaybeI18n() {
 export default function GamesPage() {
   const { t } = useMaybeI18n();
   const navigate = useNavigate();
+  const { seasonId } = useSeason();
+
 
   const [teams, setTeams] = React.useState([]);
   const [teamMap, setTeamMap] = React.useState({});
@@ -85,12 +88,14 @@ export default function GamesPage() {
           supabase
             .from("teams")
             .select("id, name, short_name, logo_url")
+          .eq("season_id", seasonId)
             .order("name"),
           supabase
             .from("games")
             .select(
               "id, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot, slug"
             )
+          .eq("season_id", seasonId)
             .order("game_date", { ascending: false }),
         ]);
 
