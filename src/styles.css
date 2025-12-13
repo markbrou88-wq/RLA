@@ -1348,3 +1348,91 @@ table thead th {
   color: var(--muted);
 }
 
+/* ================= NHL-STYLE RED NAV ================= */
+
+.red-nav-bar {
+  width: 100%;
+  background: #e53935;
+}
+
+.red-nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* NHL-style tabs */
+.nhl-tabs {
+  display: flex;
+  gap: 32px;               /* NHL spacing */
+  align-items: center;
+}
+
+.nhl-tabs a {
+  color: #ffffff;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  padding: 10px 4px 8px;
+  border-bottom: 4px solid transparent;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.nhl-tabs a:hover {
+  opacity: 0.9;
+}
+
+.nhl-tabs a.active {
+  border-bottom-color: #ffffff;
+}
+
+/* ================= SEASON SELECTOR ================= */
+
+.season-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.season-selector label {
+  opacity: 0.85;
+}
+
+.season-selector select {
+  background: #ffffff;
+  color: #111;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ================= MOBILE ================= */
+
+@media (max-width: 700px) {
+  .red-nav-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .nhl-tabs {
+    justify-content: space-around;
+    gap: 16px;
+  }
+
+  .season-selector {
+    justify-content: center;
+  }
+}
+
