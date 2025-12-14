@@ -451,3 +451,31 @@ h1, h2, h3{ margin: 0 0 12px 0; }
   border-bottom: 3px solid #fff;
 }
 
+/* ===== TABLE RESET (DESKTOP) ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+thead th {
+  text-align: left;
+  font-weight: 700;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+/* prevent vertical stacking */
+table, thead, tbody, tr, td, th {
+  display: table-cell;
+}
+
