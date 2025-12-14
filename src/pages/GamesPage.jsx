@@ -20,7 +20,7 @@ export default function GamesPage() {
   const { seasonId } = useSeason();
   const { categoryId } = useCategory();
 
-const [teams, setTeams] = React.useState([]);
+  const [teams, setTeams] = React.useState([]);
   const [teamMap, setTeamMap] = React.useState({});
   const [games, setGames] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -48,12 +48,9 @@ const [teams, setTeams] = React.useState([]);
     const mq = window.matchMedia("(max-width: 768px)");
     const handleChange = () => setIsMobile(mq.matches);
 
-    handleChange(); // set initial value
+    handleChange();
     mq.addEventListener("change", handleChange);
-
-    return () => {
-      mq.removeEventListener("change", handleChange);
-    };
+    return () => mq.removeEventListener("change", handleChange);
   }, []);
 
   // check auth state once on mount
@@ -62,9 +59,7 @@ const [teams, setTeams] = React.useState([]);
     async function checkAuth() {
       try {
         const { data, error } = await supabase.auth.getUser();
-        if (error) {
-          console.error(error);
-        }
+        if (error) console.error(error);
         if (!mounted) return;
         setIsLoggedIn(!!data?.user);
       } catch (e) {
@@ -79,10 +74,12 @@ const [teams, setTeams] = React.useState([]);
     };
   }, []);
 
+  // ✅ IMPORTANT: reload when season/category changes
   React.useEffect(() => {
     if (!seasonId || !categoryId) return;
 
     let cancelled = false;
+
     async function load() {
       setLoading(true);
 
@@ -99,7 +96,7 @@ const [teams, setTeams] = React.useState([]);
             .select(
               "id, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot, slug"
             )
-          .eq("season_id", seasonId)
+            .eq("season_id", seasonId)
             .eq("category_id", categoryId)
             .order("game_date", { ascending: false }),
         ]);
@@ -110,11 +107,11 @@ const [teams, setTeams] = React.useState([]);
         return;
       }
 
-      const map = Object.fromEntries(teamRows.map((t) => [t.id, t]));
+      const map = Object.fromEntries((teamRows || []).map((tt) => [tt.id, tt]));
       if (!cancelled) {
-        setTeams(teamRows);
+        setTeams(teamRows || []);
         setTeamMap(map);
-        setGames(gameRows);
+        setGames(gameRows || []);
         setLoading(false);
       }
     }
@@ -123,10 +120,10 @@ const [teams, setTeams] = React.useState([]);
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [seasonId, categoryId]);
 
   const filtered = games.filter((g) => {
-    const d = (g.game_date || "").slice(0, 10); // date part of ISO timestamp
+    const d = (g.game_date || "").slice(0, 10);
     if (filterDate && d !== filterDate) return false;
     if (filterTeam) {
       const matchEither =
@@ -153,13 +150,10 @@ const [teams, setTeams] = React.useState([]);
     return `${d}-${homeId}-${awayId}-${rand}`;
   }
 
-  // Date/time formatter for timestamptz column
   function formatGameDate(value) {
     if (!value) return "";
-    const d = new Date(value); // ISO timestamptz -> local time
+    const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value);
-
-    // You can tweak these options if you want a different format
     return d.toLocaleString(undefined, {
       year: "numeric",
       month: "short",
@@ -181,11 +175,9 @@ const [teams, setTeams] = React.useState([]);
 
     setSaving(true);
 
-    // newDate is a local "datetime-local" string (e.g. 2025-11-23T16:00)
-    // Convert to UTC ISO string so timestamptz stores it correctly
     const gameDateUtc = new Date(newDate).toISOString();
-
     const slug = makeSlug(gameDateUtc, newHome, newAway);
+
     const payload = {
       season_id: seasonId,
       category_id: categoryId,
@@ -204,37 +196,29 @@ const [teams, setTeams] = React.useState([]);
       .insert(payload)
       .select()
       .single();
+
     setSaving(false);
+
     if (error) {
       alert(error.message);
       return;
     }
+
     setGames((cur) => [data, ...cur]);
     setNewDate("");
     setNewHome("");
     setNewAway("");
   }
 
-  /**
-   * Helper: reset all goalies in a game back to ND (no decision).
-   */
   async function resetGoalieDecisions(gameId) {
     const { error } = await supabase
       .from("game_goalies")
       .update({ decision: "ND" })
       .eq("game_id", gameId);
 
-    if (error) {
-      console.error("Error resetting goalie decisions:", error);
-    }
+    if (error) console.error("Error resetting goalie decisions:", error);
   }
 
-  /**
-   * Helper: apply W / L / OTL to goalies for a finished game.
-   * - Winner: decision = 'W'
-   * - Loser:  decision = 'L' (or 'OTL' if went_ot = true)
-   * If the score is tied, decisions are reset to 'ND'.
-   */
   async function applyGoalieDecisionsForFinalGame(gameRow) {
     const {
       id,
@@ -256,7 +240,6 @@ const [teams, setTeams] = React.useState([]);
       return;
     }
 
-    // If tied, just clear decisions.
     if (home_score === away_score) {
       await resetGoalieDecisions(id);
       return;
@@ -265,43 +248,26 @@ const [teams, setTeams] = React.useState([]);
     const homeWon = home_score > away_score;
     const winningTeamId = homeWon ? home_team_id : away_team_id;
     const losingTeamId = homeWon ? away_team_id : home_team_id;
-
     const loserDecision = went_ot ? "OTL" : "L";
 
-    // First clear any previous decision so stats are consistent
     await resetGoalieDecisions(id);
 
-    // Mark winners
     const { error: winErr } = await supabase
       .from("game_goalies")
       .update({ decision: "W" })
       .eq("game_id", id)
       .eq("team_id", winningTeamId);
+    if (winErr) console.error("Error setting winning goalie decision:", winErr);
 
-    if (winErr) {
-      console.error("Error setting winning goalie decision:", winErr);
-    }
-
-    // Mark losers
     const { error: loseErr } = await supabase
       .from("game_goalies")
       .update({ decision: loserDecision })
       .eq("game_id", id)
       .eq("team_id", losingTeamId);
-
-    if (loseErr) {
-      console.error("Error setting losing goalie decision:", loseErr);
-    }
+    if (loseErr) console.error("Error setting losing goalie decision:", loseErr);
   }
 
-  /**
-   * Called when clicking "Mark as Final" or "Open".
-   * - Updates the games.status field.
-   * - If status becomes "final", automatically sets W/L/OTL for goalies.
-   * - If status is changed away from "final", resets goalie decisions to ND.
-   */
   async function updateStatus(id, status) {
-    // Update the game status and get the full row back so we have scores.
     const { data, error } = await supabase
       .from("games")
       .update({ status })
@@ -316,10 +282,8 @@ const [teams, setTeams] = React.useState([]);
       return;
     }
 
-    // Update UI state
     setGames((cur) => cur.map((g) => (g.id === id ? data : g)));
 
-    // Apply / reset goalie decisions based on new status
     try {
       if (status === "final") {
         await applyGoalieDecisionsForFinalGame(data);
@@ -335,7 +299,7 @@ const [teams, setTeams] = React.useState([]);
     <div className="games-page gp-container">
       <h2 className="gp-h2">{t("Games")}</h2>
 
-      {/* Filters: Date + Team (matches either home or away) */}
+      {/* Filters */}
       <div className="gp-grid gp-filter card">
         <input
           type="date"
@@ -350,9 +314,9 @@ const [teams, setTeams] = React.useState([]);
           className="gp-input"
         >
           <option value="">{t("Team…")}</option>
-          {teams.map((t_) => (
-            <option key={t_.id} value={t_.id}>
-              {t_.name}
+          {teams.map((tt) => (
+            <option key={tt.id} value={tt.id}>
+              {tt.name}
             </option>
           ))}
         </select>
@@ -384,9 +348,9 @@ const [teams, setTeams] = React.useState([]);
             className="gp-input"
           >
             <option value="">{t("Home team…")}</option>
-            {teams.map((t_) => (
-              <option key={t_.id} value={t_.id}>
-                {t_.name}
+            {teams.map((tt) => (
+              <option key={tt.id} value={tt.id}>
+                {tt.name}
               </option>
             ))}
           </select>
@@ -397,9 +361,9 @@ const [teams, setTeams] = React.useState([]);
             className="gp-input"
           >
             <option value="">{t("Away team…")}</option>
-            {teams.map((t_) => (
-              <option key={t_.id} value={t_.id}>
-                {t_.name}
+            {teams.map((tt) => (
+              <option key={tt.id} value={tt.id}>
+                {tt.name}
               </option>
             ))}
           </select>
@@ -425,7 +389,7 @@ const [teams, setTeams] = React.useState([]);
 
             return (
               <div key={g.id} className="gp-grid gp-card card">
-                {/* Matchup (away on the LEFT, home on the RIGHT) */}
+                {/* Matchup */}
                 <div
                   className="gp-match"
                   style={{
@@ -451,55 +415,35 @@ const [teams, setTeams] = React.useState([]);
 
                 {/* Actions */}
                 <div className="gp-card-actions">
-                  {/* Live: only when logged in, and only on desktop */}
+                  {/* ✅ FIX: routes must match App.jsx */}
                   {isLoggedIn && !isMobile && (
-                    <button
-                      className="btn"
-                      onClick={() => navigate(`/games/${slug}/live`)}
-                    >
+                    <button className="btn" onClick={() => navigate(`/live/${slug}`)}>
                       {t("Live")}
                     </button>
                   )}
 
-                  {/* Roster: only when logged in */}
                   {isLoggedIn && (
-                    <button
-                      className="btn"
-                      onClick={() => navigate(`/games/${slug}/roster`)}
-                    >
+                    <button className="btn" onClick={() => navigate(`/roster/${slug}`)}>
                       {t("Roster")}
                     </button>
                   )}
 
-                  {/* Boxscore: always visible */}
-                  <button
-                    className="btn"
-                    onClick={() => navigate(`/games/${slug}/boxscore`)}
-                  >
+                  <button className="btn" onClick={() => navigate(`/summary/${slug}`)}>
                     {t("Boxscore")}
                   </button>
 
-                  {/* Admin-only actions (only when logged in):
-                      - Open / Mark as Final
-                      - Delete
-                  */}
                   {isLoggedIn && (
                     <>
                       {g.status === "final" ? (
-                        <button
-                          className="btn"
-                          onClick={() => updateStatus(g.id, "scheduled")}
-                        >
+                        <button className="btn" onClick={() => updateStatus(g.id, "scheduled")}>
                           {t("Open")}
                         </button>
                       ) : (
-                        <button
-                          className="btn"
-                          onClick={() => updateStatus(g.id, "final")}
-                        >
+                        <button className="btn" onClick={() => updateStatus(g.id, "final")}>
                           {t("Mark as Final")}
                         </button>
                       )}
+
                       <button
                         className="btn"
                         onClick={() => handleDelete(g.id)}
