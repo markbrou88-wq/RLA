@@ -31,11 +31,21 @@ function AuthBar() {
   const [user, setUser] = React.useState(null);
 
   React.useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    let mounted = true;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (!mounted) return;
+      setUser(data?.user ?? null);
+    });
+
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
     });
-    return () => sub.subscription.unsubscribe();
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
   }, []);
 
   async function signIn(e) {
@@ -61,12 +71,14 @@ function AuthBar() {
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
           />
           <input
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
           />
           <button type="submit">Sign in</button>
         </form>
@@ -85,7 +97,9 @@ function RedNav() {
     <div className="red-nav-bar">
       <div className="red-nav-inner">
         <nav className="red-nav nhl-tabs">
-          <NavLink to="/" end>{t("Standings")}</NavLink>
+          <NavLink to="/" end>
+            {t("Standings")}
+          </NavLink>
           <NavLink to="/games">{t("Games")}</NavLink>
           <NavLink to="/stats">{t("Stats")}</NavLink>
         </nav>
@@ -97,7 +111,9 @@ function RedNav() {
             onChange={(e) => setSeasonId(Number(e.target.value))}
           >
             {seasons.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
             ))}
           </select>
 
@@ -107,7 +123,9 @@ function RedNav() {
             onChange={(e) => setCategoryId(Number(e.target.value))}
           >
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
           </select>
         </div>
@@ -126,18 +144,10 @@ function AppInner() {
       <header className="site-header">
         <div className="site-header-inner">
           <div className="site-header-left">
-            <img
-              src={redliteLogo}
-              alt="Red Lite"
-              className="site-header-logo"
-            />
+            <img src={redliteLogo} alt="Red Lite" className="site-header-logo" />
             <div className="site-header-text">
-              <h1 className="site-header-title">
-                {t("LIGUE RED LITE 3X3")}
-              </h1>
-              <p className="site-header-subtitle">
-                {t("Ligue de développement")}
-              </p>
+              <h1 className="site-header-title">{t("LIGUE RED LITE 3X3")}</h1>
+              <p className="site-header-subtitle">{t("Ligue de développement")}</p>
             </div>
           </div>
 
@@ -151,7 +161,7 @@ function AppInner() {
       {/* RED NAV */}
       <RedNav />
 
-      {/* CONTENT — THIS IS WHAT YOUR CSS EXPECTS */}
+      {/* CONTENT */}
       <div className="app-content">
         <AuthBar />
 
