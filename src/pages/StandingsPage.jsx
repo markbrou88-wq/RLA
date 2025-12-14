@@ -1,80 +1,62 @@
-// src/pages/StandingsPage.jsx
-import React from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import { Link } from "react-router-dom";
 
-export default function StandingsPage() {
-  const [rows, setRows] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
+export default function StandingsPage({ seasonId, category }) {
+  const [rows, setRows] = useState([]);
 
-  React.useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("standings_current") // view
-        .select("team_id, name, gp, w, l, otl, pts, gf, ga, diff")
-        .order("pts", { ascending: false })
-        .order("diff", { ascending: false });
+  useEffect(() => {
+    if (!seasonId || !category) return;
 
-      if (!cancelled) {
-        if (error) console.error(error);
-        setRows(data || []);
-        setLoading(false);
-      }
-    }
-    load();
-
-    // live-ish refresh when you navigate back
-    const vis = () => document.visibilityState === "visible" && load();
-    document.addEventListener("visibilitychange", vis);
-    return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", vis);
-    };
-  }, []);
+    supabase
+      .from("standings_current")
+      .select("*")
+      .eq("season_id", seasonId)
+      .order("pts", { ascending: false })
+      .then(({ data }) => setRows(data || []));
+  }, [seasonId, category]);
 
   return (
-    <div className="standings-page">
-      <h2 className="h-title">Standings</h2>
+    <div className="page">
+      <h2>Standings</h2>
 
-      {loading ? (
-        <div className="card pad">Loading…</div>
-      ) : (
-        <div className="card">
-          <div className="tbl">
-            <div className="tr thead">
-              <div className="td left">Team</div>
-              <div className="td c">GP</div>
-              <div className="td c">W</div>
-              <div className="td c">L</div>
-              <div className="td c">OTL</div>
-              <div className="td c">GF</div>
-              <div className="td c">GA</div>
-              <div className="td c">DIFF</div>
-              <div className="td c">PTS</div>
-            </div>
+      <div className="card">
+        <table className="table">
+          <thead>
+            <tr>
+              <th style={{ textAlign: "left" }}>Team</th>
+              <th>GP</th>
+              <th>W</th>
+              <th>L</th>
+              <th>OTL</th>
+              <th>GF</th>
+              <th>GA</th>
+              <th>DIFF</th>
+              <th>PTS</th>
+            </tr>
+          </thead>
+
+          <tbody>
             {rows.map((r) => (
-              <div key={r.team_id} className="tr">
-                <div className="td left">
-                  {/* Clickable team name → Team page (same tab) */}
-                  <Link className="link" to={`/teams/${r.team_id}`}>
-                    {r.name}
-                  </Link>
-                </div>
-                <div className="td c">{r.gp}</div>
-                <div className="td c">{r.w}</div>
-                <div className="td c">{r.l}</div>
-                <div className="td c">{r.otl}</div>
-                <div className="td c">{r.gf}</div>
-                <div className="td c">{r.ga}</div>
-                <div className="td c">{r.diff}</div>
-                <div className="td c b">{r.pts}</div>
-              </div>
+              <tr key={r.team_id}>
+                <td style={{ textAlign: "left" }}>
+                  <Link to={`/teams/${r.team_id}`}>{r.name}</Link>
+                </td>
+                <td>{r.gp}</td>
+                <td>{r.w}</td>
+                <td>{r.l}</td>
+                <td>{r.otl}</td>
+                <td>{r.gf}</td>
+                <td>{r.ga}</td>
+                <td>{r.diff}</td>
+                <td>
+                  <strong>{r.pts}</strong>
+                </td>
+              </tr>
             ))}
-          </div>
-        </div>
-      )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
