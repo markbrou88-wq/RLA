@@ -1,29 +1,20 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { Link } from "react-router-dom";
+import { useSeason } from "../contexts/SeasonContext";
+import { useCategory } from "../contexts/CategoryContext";
 
-export default function StandingsPage({ seasonId, category }) {
+export default function StandingsPage() {
+  const { seasonId } = useSeason();
+  const { categoryId } = useCategory();
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!seasonId || !category) {
-      setRows([]);
-      return;
-    }
-
-    // Map category code → category_id
-    // Adjust if you add more categories later
-    const categoryMap = {
-      M11: 1,
-      M9: 2,
-    };
-
-    const categoryId = categoryMap[category];
-
-    if (!categoryId) {
-      console.warn("Unknown category:", category);
-      setRows([]);
+    // Guard: wait for selectors to be ready
+    if (!seasonId || !categoryId) {
+      setLoading(true);
       return;
     }
 
@@ -45,7 +36,7 @@ export default function StandingsPage({ seasonId, category }) {
         }
         setLoading(false);
       });
-  }, [seasonId, category]);
+  }, [seasonId, categoryId]);
 
   return (
     <div className="page">
@@ -84,23 +75,24 @@ export default function StandingsPage({ seasonId, category }) {
               </tr>
             )}
 
-            {rows.map((r) => (
-              <tr key={r.team_id}>
-                <td style={{ textAlign: "left" }}>
-                  <Link to={`/teams/${r.team_id}`}>{r.name}</Link>
-                </td>
-                <td>{r.gp}</td>
-                <td>{r.w}</td>
-                <td>{r.l}</td>
-                <td>{r.otl}</td>
-                <td>{r.gf}</td>
-                <td>{r.ga}</td>
-                <td>{r.diff}</td>
-                <td>
-                  <strong>{r.pts}</strong>
-                </td>
-              </tr>
-            ))}
+            {!loading &&
+              rows.map((r) => (
+                <tr key={r.team_id}>
+                  <td style={{ textAlign: "left" }}>
+                    <Link to={`/teams/${r.team_id}`}>{r.name}</Link>
+                  </td>
+                  <td>{r.gp}</td>
+                  <td>{r.w}</td>
+                  <td>{r.l}</td>
+                  <td>{r.otl}</td>
+                  <td>{r.gf}</td>
+                  <td>{r.ga}</td>
+                  <td>{r.diff}</td>
+                  <td>
+                    <strong>{r.pts}</strong>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
