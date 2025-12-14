@@ -25,7 +25,7 @@ import ThemeToggle from "./components/ThemeToggle";
 import LanguageToggle from "./components/LanguageToggle";
 import { I18nProvider, useI18n } from "./i18n.jsx";
 
-import "./styles.css?v=1000001";
+import "./v2-styles.css?v=1000001";
 
 /* -------------------------------- AUTH BAR ------------------------------- */
 function AuthBar() {
