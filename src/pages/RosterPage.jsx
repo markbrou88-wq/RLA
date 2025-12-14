@@ -76,6 +76,7 @@ export default function RosterPage() {
   if (!game) return null;
 
   return (
+    <div className="page">
     <div className="container roster-page">
       <div className="button-group" style={{ marginBottom: 12 }}>
         <Link className="btn btn-grey" to={`/games/${slug}/live`}>
@@ -120,6 +121,7 @@ export default function RosterPage() {
         />
       </div>
     </div>
+     </div>
   );
 }
 
