@@ -3,6 +3,7 @@ import React from "react";
 import { supabase } from "../supabaseClient";
 import PlayerLink from "../components/PlayerLink";
 import { useSeason } from "../contexts/SeasonContext";
+import { useCategory } from "../contexts/CategoryContext";
 
 function useMaybeI18n() {
   try {
@@ -16,6 +17,7 @@ function useMaybeI18n() {
 export default function StatsPage() {
   const { t } = useMaybeI18n();
   const { seasonId } = useSeason();
+  const { categoryId } = useCategory();
 
   const [tab, setTab] = React.useState("skaters"); // "skaters" | "goalies"
   const [skaters, setSkaters] = React.useState([]);
@@ -23,7 +25,7 @@ export default function StatsPage() {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!seasonId) return;
+    if (!seasonId || !categoryId) return;
 
     let cancelled = false;
 
@@ -38,6 +40,7 @@ export default function StatsPage() {
           .from("leaders_current")
           .select("player_id, player, team, gp, g, a, pts")
           .eq("season_id", seasonId)
+          .eq("category_id", categoryId)
           .order("pts", { ascending: false })
           .order("g", { ascending: false })
           .order("a", { ascending: false }),
@@ -47,6 +50,7 @@ export default function StatsPage() {
             "gp, player_id, goalie, team, sa, ga, sv_pct, gaa, toi_seconds, wins, losses, otl, so"
           )
           .eq("season_id", seasonId)
+          .eq("category_id", categoryId)
           .order("sv_pct", { ascending: false, nullsFirst: false }),
       ]);
 
@@ -74,7 +78,7 @@ export default function StatsPage() {
     return () => {
       cancelled = true;
     };
-  }, [seasonId]);
+  }, [seasonId, categoryId]);
 
   return (
     <div className="stats-page">
@@ -170,9 +174,7 @@ export default function StatsPage() {
                   </td>
                   <td style={tdRight}>{g.gaa != null ? g.gaa : "—"}</td>
                   <td style={tdRight}>{fmtTOI(g.toi_seconds)}</td>
-                  <td style={tdRight}>
-                    {`${g.wins ?? 0}-${g.losses ?? 0}-${g.otl ?? 0}`}
-                  </td>
+                  <td style={tdRight}>{`${g.wins ?? 0}-${g.losses ?? 0}-${g.otl ?? 0}`}</td>
                   <td style={tdRight}>{g.so ?? 0}</td>
                 </tr>
               ))}
