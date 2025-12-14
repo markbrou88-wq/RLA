@@ -156,7 +156,15 @@ function AppInner() {
         <AuthBar />
 
         <Routes>
-          <Route path="/" element={<StandingsPage />} />
+          <Route
+  path="/"
+  element={
+    <StandingsPage
+      seasonId={seasonId}
+      category={category}
+    />
+  }
+/>
           <Route path="/games" element={<GamesPage />} />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/summary/:slug" element={<SummaryPage />} />
