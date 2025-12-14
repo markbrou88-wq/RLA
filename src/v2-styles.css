@@ -419,3 +419,35 @@ h1, h2, h3{ margin: 0 0 12px 0; }
   .page{ padding-bottom: 28px; }
   .td.left.ellipsis{ max-width: 220px; }
 }
+
+/* ===== TOP NAV BAR ===== */
+.top-nav {
+  background: #e53935;
+  height: 56px;
+  display: flex;
+  align-items: center;
+}
+
+.top-nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.top-nav a {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding-bottom: 4px;
+}
+
+.top-nav a.active {
+  border-bottom: 3px solid #fff;
+}
+
