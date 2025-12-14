@@ -1533,3 +1533,50 @@ h1, h2 {
 .site-footer {
   padding-top: 8px !important;
 }
+
+/* =========================================================
+   DESKTOP FIX: FORCE SINGLE-LINE RED NAV (Season + Category)
+   ========================================================= */
+
+/* Desktop and laptop ONLY */
+@media (min-width: 769px) {
+
+  .red-nav-inner {
+    display: flex !important;
+    flex-direction: row !important;     /* ⬅️ critical */
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;        /* ⬅️ prevents stacking */
+    gap: 16px !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    min-height: 48px;
+  }
+
+  /* Keep tabs on one line */
+  .nhl-tabs {
+    display: flex;
+    flex-wrap: nowrap !important;
+    align-items: center;
+  }
+
+  /* Season + Category block */
+  .season-selector {
+    display: flex !important;
+    flex-direction: row !important;      /* ⬅️ critical */
+    align-items: center !important;
+    gap: 8px !important;
+    white-space: nowrap;
+  }
+
+  .season-selector label {
+    margin-bottom: 0 !important;
+    font-size: 0.75rem;
+  }
+
+  .season-selector select {
+    height: 30px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+  }
+}
