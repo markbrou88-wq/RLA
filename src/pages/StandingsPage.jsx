@@ -9,11 +9,10 @@ export default function StandingsPage({ seasonId, category }) {
     if (!seasonId || !category) return;
 
     supabase
-      .from("standings_current")
-      .select("*")
-      .eq("season_id", seasonId)
-      .order("pts", { ascending: false })
-      .then(({ data }) => setRows(data || []));
+  .from("standings_current")
+  .select("*")
+  .order("pts", { ascending: false })
+  .then(({ data }) => setRows(data || []));
   }, [seasonId, category]);
 
   return (
