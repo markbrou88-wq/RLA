@@ -1,3 +1,17 @@
+/* ===== GLOBAL LAYOUT FIX ===== */
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background: #ffffff;
+}
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+
 /* v2-styles.css
    Clean, self-contained styling for the Red Lite 3x3 site.
    Goal: restore the "tight" desktop layout (black header + red nav bar + centered content cards/tables),
