@@ -1580,3 +1580,80 @@ h1, h2 {
     font-size: 0.75rem;
   }
 }
+
+/* =========================================================
+   DESKTOP TIGHTNESS RESTORE (FINAL OVERRIDES)
+   Paste at VERY END of styles.css
+   ========================================================= */
+
+@media (min-width: 769px) {
+
+  /* ---- Unify content width (kill double containers) ---- */
+  .container,
+  .app-content {
+    max-width: 1000px !important; /* match original tight layout */
+    padding-top: 12px !important;
+  }
+
+  /* ---- Red nav bar: force single compact row ---- */
+  .red-nav-inner {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;
+    min-height: 44px !important;
+    padding: 4px 16px !important;
+  }
+
+  /* Tabs tighter (NHL look, not billboard) */
+  .nhl-tabs {
+    gap: 22px !important;
+  }
+
+  .nhl-tabs a {
+    padding: 6px 2px !important;
+    font-size: 0.82rem !important;
+    border-bottom-width: 3px;
+  }
+
+  /* ---- Season + Category: inline & compact ---- */
+  .season-selector {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    white-space: nowrap;
+  }
+
+  .season-selector select {
+    height: 28px !important;
+    padding: 2px 8px !important;
+    font-size: 0.74rem !important;
+  }
+
+  /* ---- Auth row tighter ---- */
+  .auth-bar {
+    padding: 4px 0 !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* ---- Standings card regain containment ---- */
+  .standings-page .card {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 14px !important;
+  }
+
+  /* Prevent table from visually stretching */
+  .standings-page table {
+    table-layout: fixed;
+  }
+
+  /* ---- Reduce headline vertical gap ---- */
+  h1, h2 {
+    margin-top: 8px !important;
+    margin-bottom: 8px !important;
+  }
+}
+
