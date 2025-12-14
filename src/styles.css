@@ -1657,3 +1657,91 @@ h1, h2 {
   }
 }
 
+/* =========================================================
+   🔒 DESKTOP STABILITY FIX (Standings / Tabs / Layout)
+   ========================================================= */
+
+/* ---------- 1. FORCE NHL RED NAV TO SINGLE LINE (DESKTOP) ---------- */
+@media (min-width: 900px) {
+
+  .red-nav-inner {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;   /* 🔒 CRITICAL */
+    gap: 20px !important;
+    padding: 6px 16px !important;
+    min-height: 48px !important;
+  }
+
+  .nhl-tabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 28px !important;
+  }
+
+  .season-selector {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* ---------- 2. RESTORE CLASSIC TABLE BEHAVIOR FOR STANDINGS ---------- */
+@media (min-width: 900px) {
+
+  /* Disable grid-table system ONLY for standings */
+  .standings-page .tbl,
+  .standings-page .tr,
+  .standings-page .td {
+    display: revert !important;
+  }
+
+  .standings-page table {
+    table-layout: auto !important;
+    width: 100% !important;
+  }
+
+  .standings-page th,
+  .standings-page td {
+    white-space: nowrap;
+  }
+}
+
+/* ---------- 3. ALIGN CONTENT LIKE ORIGINAL (NO FLOATING ISLAND) ---------- */
+@media (min-width: 900px) {
+
+  .standings-page .container,
+  .standings-page .app-content {
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .standings-page .card {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+
+/* ---------- 4. TIGHTEN VERTICAL RHYTHM (DESKTOP ONLY) ---------- */
+@media (min-width: 900px) {
+
+  h1, h2 {
+    margin-top: 8px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .auth-bar {
+    padding: 4px 0 !important;
+    margin-bottom: 6px !important;
+  }
+
+  .container {
+    padding-top: 12px !important;
+  }
+}
+
