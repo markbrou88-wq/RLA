@@ -181,6 +181,7 @@ function AppInner() {
       <main className="site-main">
         <AuthBar />
 
+        <div className="page-container">
         <Routes>
           <Route path="/" element={<StandingsPage />} />
           <Route path="/games" element={<GamesPage />} />
@@ -193,7 +194,8 @@ function AppInner() {
           <Route path="/teams/:id" element={<TeamPage />} />
           <Route path="/players/:id" element={<PlayerPage />} />
         </Routes>
-
+</div>
+          
         <footer className="site-footer">
           Built with React + Supabase • Realtime edits for boxscores
         </footer>
