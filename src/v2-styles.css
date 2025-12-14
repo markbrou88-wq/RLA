@@ -1,192 +1,255 @@
-/* ======================================================
-   v2-styles.css — CLEAN BASELINE (DESKTOP FIRST)
-   ====================================================== */
-
-/* ---------- RESET ---------- */
+/* =========================
+   RESET (SAFE)
+========================= */
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #ffffff;
-  color: #111827;
+  color: #0f172a;
 }
 
-/* ---------- LAYOUT ---------- */
-.page-container {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 12px 16px 24px;
-}
-
-/* ---------- HEADER ---------- */
-.site-header {
+/* =========================
+   HEADER
+========================= */
+.header {
   background: #000;
   color: #fff;
+  padding: 14px 24px;
 }
 
-.site-header-inner {
-  max-width: 1000px;
+.header-inner {
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 10px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.site-header-left {
+.header-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
-.site-header-logo {
-  height: 64px;
+.header-title h1 {
+  font-size: 22px;
+  margin: 0;
+  letter-spacing: 1px;
 }
 
-.site-header-title {
-  font-size: 1.4rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.site-header-subtitle {
-  font-size: 0.8rem;
+.header-title span {
+  font-size: 12px;
   opacity: 0.85;
-  text-transform: uppercase;
 }
 
-/* ---------- RED NAV ---------- */
-.red-nav-bar {
+/* =========================
+   RED NAV BAR
+========================= */
+.navbar {
   background: #e53935;
 }
 
-.red-nav-inner {
-  max-width: 1000px;
+.navbar-inner {
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 6px 16px;
-  display: flex;
+  height: 52px;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  white-space: nowrap;
 }
 
-.nhl-tabs {
+.nav-tabs {
   display: flex;
-  gap: 24px;
+  justify-content: center;
+  gap: 36px;
 }
 
-.nhl-tabs a {
+.nav-tabs a {
   color: #fff;
-  font-weight: 800;
-  font-size: 0.85rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding-bottom: 4px;
-  border-bottom: 3px solid transparent;
-}
-
-.nhl-tabs a.active {
-  border-bottom-color: #fff;
-}
-
-.season-selector {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  color: #fff;
-}
-
-.season-selector select {
-  height: 28px;
-  border-radius: 6px;
-  border: none;
-  padding: 2px 8px;
+  text-decoration: none;
   font-weight: 700;
+  letter-spacing: 0.8px;
+  padding-bottom: 6px;
 }
 
-/* ---------- AUTH BAR ---------- */
+.nav-tabs a.active {
+  border-bottom: 3px solid #fff;
+}
+
+.nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-controls label {
+  color: #fff;
+  font-size: 12px;
+}
+
+.nav-controls select {
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  padding: 0 10px;
+  font-weight: 600;
+}
+
+/* =========================
+   PAGE CONTAINER
+========================= */
+.page {
+  max-width: 1200px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+.page h2 {
+  margin: 12px 0 16px;
+}
+
+/* =========================
+   AUTH BAR
+========================= */
 .auth-bar {
   display: flex;
+  align-items: center;
   gap: 8px;
-  margin: 8px 0;
+  margin-bottom: 16px;
 }
 
-/* ---------- HEADINGS ---------- */
-h1 {
-  font-size: 1.25rem;
-  margin: 8px 0 12px;
+.auth-bar input {
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  padding: 0 10px;
 }
 
-/* ---------- CARD ---------- */
+.auth-bar button {
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: #1e293b;
+  color: #fff;
+  font-weight: 600;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+/* =========================
+   CARD
+========================= */
 .card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 14px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  padding: 12px;
 }
 
-/* ---------- STANDINGS TABLE (CLASSIC) ---------- */
-.standings-table {
+/* =========================
+   TABLES (SCOPED)
+========================= */
+.table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.standings-table th {
-  background: #f1f5f9;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 10px;
+.table thead th {
   text-align: left;
-}
-
-.standings-table td {
+  font-size: 13px;
+  font-weight: 700;
   padding: 10px;
-  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.standings-table tbody tr:nth-child(even) {
+.table tbody td {
+  padding: 10px;
+  font-size: 14px;
+}
+
+.table tbody tr:nth-child(even) {
   background: #f8fafc;
 }
 
-.standings-table td:last-child {
-  font-weight: 800;
-}
-
-/* ---------- LINKS ---------- */
-a {
+.table a {
   color: #2563eb;
   text-decoration: none;
+  font-weight: 600;
 }
 
-a:hover {
-  text-decoration: underline;
+/* =========================
+   BUTTONS
+========================= */
+.btn {
+  border-radius: 8px;
+  border: none;
+  padding: 6px 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-/* ---------- MOBILE ---------- */
-@media (max-width: 600px) {
+.btn-dark {
+  background: #1e293b;
+  color: #fff;
+}
 
-  .page-container {
-    padding: 8px;
-  }
+.btn-danger {
+  background: #dc2626;
+  color: #fff;
+}
 
-  .red-nav-inner {
-    flex-direction: column;
-    gap: 6px;
-  }
+/* =========================
+   STATS TABS
+========================= */
+.stats-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
 
-  .nhl-tabs {
-    justify-content: space-around;
-  }
+.stats-tabs button {
+  border-radius: 8px;
+  border: none;
+  padding: 6px 12px;
+  font-weight: 700;
+  background: #1e293b;
+  color: #fff;
+}
 
-  .standings-table th,
-  .standings-table td {
-    padding: 6px;
-    font-size: 0.75rem;
-  }
+.stats-tabs button.active {
+  background: #3b82f6;
+}
+
+/* =========================
+   TEAM PAGE LAYOUT
+========================= */
+.team-top {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.team-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chart-card {
+  height: 220px;
+}
+
+/* =========================
+   FOOTER
+========================= */
+.footer {
+  margin-top: 24px;
+  font-size: 12px;
+  color: #64748b;
 }
