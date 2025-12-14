@@ -24,9 +24,6 @@ import LanguageToggle from "./components/LanguageToggle";
 // ASSETS
 import redliteLogo from "../redlite-logo.png";
 
-// IMPORTANT: use ORIGINAL styles
-import "./styles.css";
-
 /* ===================== AUTH BAR ===================== */
 function AuthBar() {
   const [email, setEmail] = React.useState("");
@@ -86,42 +83,34 @@ function RedNav() {
 
   return (
     <div className="red-nav-bar">
-      <nav className="red-nav">
-        <NavLink to="/" end>
-          {t("Standings")}
-        </NavLink>
-        <NavLink to="/games">{t("Games")}</NavLink>
-        <NavLink to="/stats">{t("Stats")}</NavLink>
-      </nav>
+      <div className="red-nav-inner">
+        <nav className="red-nav nhl-tabs">
+          <NavLink to="/" end>{t("Standings")}</NavLink>
+          <NavLink to="/games">{t("Games")}</NavLink>
+          <NavLink to="/stats">{t("Stats")}</NavLink>
+        </nav>
 
-      <div className="red-nav-right">
-        <label>
-          {t("Season")}
+        <div className="season-selector">
+          <label>{t("Season")}</label>
           <select
             value={seasonId ?? ""}
             onChange={(e) => setSeasonId(Number(e.target.value))}
           >
             {seasons.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
+              <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-        </label>
 
-        <label>
-          {t("Category")}
+          <label>{t("Category")}</label>
           <select
             value={categoryId ?? ""}
             onChange={(e) => setCategoryId(Number(e.target.value))}
           >
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-        </label>
+        </div>
       </div>
     </div>
   );
@@ -132,32 +121,44 @@ function AppInner() {
   const { t } = useI18n();
 
   return (
-    <>
+    <div className="app-shell">
       {/* BLACK HEADER */}
       <header className="site-header">
-        <img src={redliteLogo} alt="Red Lite" />
-        <div className="site-header-text">
-          <h1>{t("LIGUE RED LITE 3X3")}</h1>
-          <p>{t("Ligue de développement")}</p>
-        </div>
-        <div className="site-header-actions">
-          <LanguageToggle />
-          <ThemeToggle />
+        <div className="site-header-inner">
+          <div className="site-header-left">
+            <img
+              src={redliteLogo}
+              alt="Red Lite"
+              className="site-header-logo"
+            />
+            <div className="site-header-text">
+              <h1 className="site-header-title">
+                {t("LIGUE RED LITE 3X3")}
+              </h1>
+              <p className="site-header-subtitle">
+                {t("Ligue de développement")}
+              </p>
+            </div>
+          </div>
+
+          <div className="auth-bar-right">
+            <LanguageToggle />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
       {/* RED NAV */}
       <RedNav />
 
-      {/* MAIN */}
-      <main>
+      {/* CONTENT — THIS IS WHAT YOUR CSS EXPECTS */}
+      <div className="app-content">
         <AuthBar />
 
         <Routes>
           <Route path="/" element={<StandingsPage />} />
           <Route path="/games" element={<GamesPage />} />
           <Route path="/stats" element={<StatsPage />} />
-
           <Route path="/summary/:slug" element={<SummaryPage />} />
           <Route path="/live/:slug" element={<LivePage />} />
           <Route path="/roster/:slug" element={<RosterPage />} />
@@ -168,8 +169,8 @@ function AppInner() {
         <footer className="site-footer">
           Built with React + Supabase • Realtime edits for boxscores
         </footer>
-      </main>
-    </>
+      </div>
+    </div>
   );
 }
 
