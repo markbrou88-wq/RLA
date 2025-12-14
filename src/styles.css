@@ -1436,3 +1436,100 @@ table thead th {
   }
 }
 
+/* =========================================================
+   TIGHTEN NHL RED NAV + GLOBAL VERTICAL RHYTHM
+   (SAFE OVERRIDES – place at VERY END of styles.css)
+   ========================================================= */
+
+/* ---------- Reduce overall vertical padding ---------- */
+
+.app-content {
+  padding-top: 8px !important;
+}
+
+.container {
+  padding-top: 12px !important;
+  padding-bottom: 16px !important;
+}
+
+/* Auth row (Signed in / email / sign out) */
+.auth-bar {
+  padding: 4px 0 !important;
+  margin-bottom: 4px !important;
+}
+
+/* ---------- RED NAV BAR: tighten height ---------- */
+
+.red-nav-bar {
+  line-height: 1;
+}
+
+.red-nav-inner {
+  padding: 4px 16px !important;   /* was too tall */
+  min-height: 44px;               /* NHL-like */
+}
+
+/* ---------- Tabs tighter ---------- */
+
+.nhl-tabs {
+  gap: 24px !important;           /* reduce spread */
+}
+
+.nhl-tabs a {
+  padding: 6px 2px 6px !important;
+  font-size: 0.82rem !important;
+  border-bottom-width: 3px;
+}
+
+/* ---------- Season + Category alignment ---------- */
+
+.season-selector {
+  gap: 6px !important;
+}
+
+.season-selector select {
+  height: 30px;
+  padding: 2px 10px !important;
+  font-size: 0.75rem;
+}
+
+/* Keep season + category INLINE on desktop */
+.red-nav-inner {
+  flex-wrap: nowrap;
+}
+
+/* ---------- MOBILE: only stack when truly needed ---------- */
+
+@media (max-width: 520px) {
+  .red-nav-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .nhl-tabs {
+    justify-content: space-around;
+  }
+
+  .season-selector {
+    justify-content: center;
+  }
+}
+
+/* ---------- Page titles tighter ---------- */
+
+h1, h2 {
+  margin-top: 8px !important;
+  margin-bottom: 8px !important;
+}
+
+/* ---------- Standings card tighten ---------- */
+
+.standings-page .card {
+  padding-top: 12px !important;
+}
+
+/* Footer spacing */
+.site-footer {
+  padding-top: 8px !important;
+}
