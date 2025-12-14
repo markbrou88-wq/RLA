@@ -1274,42 +1274,165 @@ table thead th {
   }
 }
 
+/* ================= RED NAV BAR ================= */
 
-
-/* ---------------- RED NAV SELECTORS (SEASON + CATEGORY) ---------------- */
-.red-nav-selectors{
-  display:flex;
-  align-items:center;
-  gap:16px;
-  justify-content:flex-end;
-}
-.red-nav-select{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-.red-nav-label{
-  font-size:12px;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-  opacity:.95;
-  color:#fff;
-}
-.red-nav-select select{
-  height:34px;
-  border-radius:8px;
-  border:0;
-  padding:0 12px;
-  font-weight:600;
+.red-nav-bar {
+  width: 100%;
+  background: #e53935; /* Red Lite red */
 }
 
-@media (max-width: 768px){
-  .red-nav-inner{
-    flex-wrap:wrap;
-    gap:12px;
+.red-nav {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 6px 16px; /* ~half black header height */
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.red-nav a {
+  color: #ffffff;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.9rem;
+  padding-bottom: 4px;
+  border-bottom: 3px solid transparent;
+}
+
+.red-nav a:hover {
+  opacity: 0.9;
+}
+
+.red-nav a.active {
+  border-bottom-color: #ffffff;
+}
+
+/* Mobile tweaks */
+@media (max-width: 600px) {
+  .red-nav {
+    justify-content: space-around;
+    gap: 12px;
+    padding: 6px 8px;
   }
-  .red-nav-selectors{
-    width:100%;
-    justify-content:space-between;
+
+  .red-nav a {
+    font-size: 0.8rem;
   }
 }
+
+/* ================= AUTH BAR CLEANUP ================= */
+
+.auth-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.auth-ok {
+  color: #0a7e07;
+}
+
+.auth-status {
+  color: #666;
+  font-size: 12px;
+}
+
+/* ================= FOOTER ================= */
+
+.site-footer {
+  padding: 16px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ================= NHL-STYLE RED NAV ================= */
+
+.red-nav-bar {
+  width: 100%;
+  background: #e53935;
+}
+
+.red-nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* NHL-style tabs */
+.nhl-tabs {
+  display: flex;
+  gap: 32px;               /* NHL spacing */
+  align-items: center;
+}
+
+.nhl-tabs a {
+  color: #ffffff;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  padding: 10px 4px 8px;
+  border-bottom: 4px solid transparent;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.nhl-tabs a:hover {
+  opacity: 0.9;
+}
+
+.nhl-tabs a.active {
+  border-bottom-color: #ffffff;
+}
+
+/* ================= SEASON SELECTOR ================= */
+
+.season-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.season-selector label {
+  opacity: 0.85;
+}
+
+.season-selector select {
+  background: #ffffff;
+  color: #111;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ================= MOBILE ================= */
+
+@media (max-width: 700px) {
+  .red-nav-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .nhl-tabs {
+    justify-content: space-around;
+    gap: 16px;
+  }
+
+  .season-selector {
+    justify-content: center;
+  }
+}
+
