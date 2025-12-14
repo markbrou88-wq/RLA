@@ -1,255 +1,407 @@
-/* =========================
-   RESET (SAFE)
-========================= */
-* {
-  box-sizing: border-box;
-}
+/* v2-styles.css
+   Clean, self-contained styling for the Red Lite 3x3 site.
+   Goal: restore the "tight" desktop layout (black header + red nav bar + centered content cards/tables),
+   while keeping mobile usable.
+*/
+
+/* ---------- Base / Reset ---------- */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  color: #0b1220;
   background: #ffffff;
-  color: #0f172a;
 }
 
-/* =========================
-   HEADER
-========================= */
-.header {
-  background: #000;
-  color: #fff;
-  padding: 14px 24px;
+a { color: #1d4ed8; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+img { max-width: 100%; display: block; }
+
+:root{
+  --maxw: 1120px;
+  --padx: 20px;
+
+  --black: #070707;
+  --red: #e53935;
+
+  --card-border: #dbe4f3;
+  --card-bg: #ffffff;
+
+  --muted: #6b7280;
+  --shadow: 0 6px 18px rgba(10, 20, 40, 0.08);
+  --radius: 12px;
 }
 
-.header-inner {
-  max-width: 1200px;
+/* ---------- App shell ---------- */
+.app-shell{
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-content{
+  flex: 1;
+}
+
+/* Generic centered container */
+.container{
+  width: 100%;
+  max-width: var(--maxw);
   margin: 0 auto;
+  padding: 0 var(--padx);
+}
+
+/* Some pages use page-level wrappers */
+.standings-page, .games-page, .stats-page, .team-page {
+  width: 100%;
+}
+
+/* ---------- Header (black) ---------- */
+.site-header{
+  background: var(--black);
+  color: #fff;
+}
+
+.header-inner{
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 18px;
+  padding: 16px var(--padx);
+  max-width: var(--maxw);
+  margin: 0 auto;
 }
 
-.header-left {
+.brand{
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
 }
 
-.header-title h1 {
-  font-size: 22px;
-  margin: 0;
-  letter-spacing: 1px;
+.brand img,
+.brand-logo{
+  height: 54px;
+  width: auto;
 }
 
-.header-title span {
-  font-size: 12px;
-  opacity: 0.85;
-}
-
-/* =========================
-   RED NAV BAR
-========================= */
-.navbar {
-  background: #e53935;
-}
-
-.navbar-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  height: 52px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-}
-
-.nav-tabs {
+.brand-text{
   display: flex;
-  justify-content: center;
-  gap: 36px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
-.nav-tabs a {
+.brand-title{
+  font-weight: 800;
+  letter-spacing: 1px;
+  font-size: 28px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.brand-subtitle{
+  font-size: 13px;
+  letter-spacing: 0.6px;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+.top-actions{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+/* language + dark buttons in the header */
+.toggle-btn{
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.06);
   color: #fff;
-  text-decoration: none;
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
   font-weight: 700;
+}
+.toggle-btn:hover{ background: rgba(255,255,255,0.10); }
+
+/* ---------- Red nav bar (tabs + selectors) ---------- */
+.nav-bar{
+  background: var(--red);
+  color: #fff;
+}
+
+.nav-inner{
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 12px var(--padx);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.nav-links{
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-weight: 800;
   letter-spacing: 0.8px;
-  padding-bottom: 6px;
 }
 
-.nav-tabs a.active {
-  border-bottom: 3px solid #fff;
+.nav-links a{
+  color: #fff;
+  padding: 8px 2px;
+  border-bottom: 3px solid transparent;
 }
 
-.nav-controls {
+.nav-links a.active,
+.nav-links a[aria-current="page"]{
+  border-bottom-color: rgba(255,255,255,0.95);
+}
+
+.filters-right{
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.nav-controls label {
-  color: #fff;
-  font-size: 12px;
-}
-
-.nav-controls select {
-  height: 32px;
-  border-radius: 8px;
-  border: none;
-  padding: 0 10px;
-  font-weight: 600;
-}
-
-/* =========================
-   PAGE CONTAINER
-========================= */
-.page {
-  max-width: 1200px;
-  margin: 24px auto;
-  padding: 0 16px;
-}
-
-.page h2 {
-  margin: 12px 0 16px;
-}
-
-/* =========================
-   AUTH BAR
-========================= */
-.auth-bar {
+.filter-group{
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
 }
 
-.auth-bar input {
+.filter-label{
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  opacity: 0.95;
+}
+
+select, input{
+  font: inherit;
+}
+
+.filter-select{
+  appearance: auto;
+  border: 0;
+  outline: none;
+  background: #fff;
+  color: #111827;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+/* ---------- Auth row (signed in / login) ---------- */
+.auth-row{
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 14px var(--padx) 0 var(--padx);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.auth-left{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.auth-bar-right{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+input[type="email"], input[type="password"], input[type="text"], input[type="number"], input[type="datetime-local"], input[type="date"]{
   height: 32px;
   border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d6deed;
   padding: 0 10px;
 }
 
-.auth-bar button {
-  height: 32px;
-  border-radius: 8px;
-  border: none;
-  background: #1e293b;
+/* ---------- Page headings / spacing ---------- */
+.page{
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 10px var(--padx) 40px var(--padx);
+}
+
+h1, h2, h3{ margin: 0 0 12px 0; }
+.page-title{
+  font-size: 26px;
+  font-weight: 800;
+  margin: 12px 0 12px;
+}
+
+/* ---------- Cards ---------- */
+.card{
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.card.pad{ padding: 18px; }
+
+.card-title{
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.card.row{
+  display: flex;
+}
+
+.gap{ gap: 14px; }
+.align-center{ align-items: center; }
+
+/* ---------- Buttons ---------- */
+.btn{
+  border: 0;
+  background: #111827;
   color: #fff;
-  font-weight: 600;
-  padding: 0 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 800;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
 }
 
-/* =========================
-   CARD
-========================= */
-.card {
+.btn:hover{ filter: brightness(1.05); }
+
+.btn.ghost{
   background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  padding: 12px;
+  color: #111827;
+  border: 1px solid #cfd8ea;
 }
 
-/* =========================
-   TABLES (SCOPED)
-========================= */
-.table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.table thead th {
-  text-align: left;
+.btn.ghost.small{
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-weight: 800;
   font-size: 13px;
-  font-weight: 700;
-  padding: 10px;
-  border-bottom: 1px solid #e2e8f0;
 }
 
-.table tbody td {
-  padding: 10px;
-  font-size: 14px;
+.btn.btn-blue{ background: #2563eb; }
+.btn.btn-grey{ background: #374151; }
+.btn.danger{ background: #dc2626; }
+
+/* ---------- Tables ---------- */
+.tbl{
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
 }
 
-.table tbody tr:nth-child(even) {
+.tr.thead th{
+  background: #f3f6fb;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: #111827;
+  border-bottom: 1px solid #e6ecf7;
+}
+
+.tbl th, .tbl td{
+  padding: 12px 12px;
+  border-bottom: 1px solid #eef2fb;
+  vertical-align: middle;
+}
+
+.tbl tr:last-child td{
+  border-bottom: 0;
+}
+
+.tbl tr:nth-child(even) td{
   background: #f8fafc;
 }
 
-.table a {
-  color: #2563eb;
-  text-decoration: none;
-  font-weight: 600;
+.td.left{ text-align: left; }
+.td.right, .td.c{ text-align: right; }
+.td.muted{ color: var(--muted); }
+.td.left.ellipsis{
+  max-width: 360px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* =========================
-   BUTTONS
-========================= */
-.btn {
-  border-radius: 8px;
-  border: none;
-  padding: 6px 12px;
-  font-weight: 600;
+/* clickable header button used for sorting */
+.th-btn{
+  background: transparent;
+  border: 0;
+  font: inherit;
+  padding: 0;
   cursor: pointer;
-}
-
-.btn-dark {
-  background: #1e293b;
-  color: #fff;
-}
-
-.btn-danger {
-  background: #dc2626;
-  color: #fff;
-}
-
-/* =========================
-   STATS TABS
-========================= */
-.stats-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.stats-tabs button {
-  border-radius: 8px;
-  border: none;
-  padding: 6px 12px;
-  font-weight: 700;
-  background: #1e293b;
-  color: #fff;
-}
-
-.stats-tabs button.active {
-  background: #3b82f6;
-}
-
-/* =========================
-   TEAM PAGE LAYOUT
-========================= */
-.team-top {
-  display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.team-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.chart-card {
-  height: 220px;
-}
-
-/* =========================
-   FOOTER
-========================= */
-.footer {
-  margin-top: 24px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
   font-size: 12px;
-  color: #64748b;
+}
+
+/* ---------- Small UI bits ---------- */
+.chip{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d6deed;
+  background: #f8fafc;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.button-group{
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Desktop layout "tightness" helpers ---------- */
+.card + .card{ margin-top: 14px; }
+.page > .card{ margin-top: 12px; }
+
+/* Some pages render the main table inside a card; keep it wide and centered */
+.card .tbl{ width: 100%; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 980px){
+  .brand-title{ font-size: 22px; }
+  .nav-inner{ flex-wrap: wrap; justify-content: center; }
+  .filters-right{ width: 100%; justify-content: center; }
+  .nav-links{ justify-content: center; flex-wrap: wrap; }
+}
+
+@media (max-width: 640px){
+  :root{ --padx: 14px; }
+  .header-inner{ padding: 14px var(--padx); }
+  .brand img, .brand-logo{ height: 44px; }
+  .brand-title{ font-size: 18px; }
+  .brand-subtitle{ font-size: 12px; }
+  .auth-row{ padding-top: 10px; }
+  .page{ padding-bottom: 28px; }
+  .td.left.ellipsis{ max-width: 220px; }
 }
