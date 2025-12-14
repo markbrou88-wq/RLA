@@ -1,0 +1,192 @@
+/* ======================================================
+   v2-styles.css — CLEAN BASELINE (DESKTOP FIRST)
+   ====================================================== */
+
+/* ---------- RESET ---------- */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: #ffffff;
+  color: #111827;
+}
+
+/* ---------- LAYOUT ---------- */
+.page-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 12px 16px 24px;
+}
+
+/* ---------- HEADER ---------- */
+.site-header {
+  background: #000;
+  color: #fff;
+}
+
+.site-header-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.site-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.site-header-logo {
+  height: 64px;
+}
+
+.site-header-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-header-subtitle {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  text-transform: uppercase;
+}
+
+/* ---------- RED NAV ---------- */
+.red-nav-bar {
+  background: #e53935;
+}
+
+.red-nav-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  white-space: nowrap;
+}
+
+.nhl-tabs {
+  display: flex;
+  gap: 24px;
+}
+
+.nhl-tabs a {
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-bottom: 4px;
+  border-bottom: 3px solid transparent;
+}
+
+.nhl-tabs a.active {
+  border-bottom-color: #fff;
+}
+
+.season-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #fff;
+}
+
+.season-selector select {
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  padding: 2px 8px;
+  font-weight: 700;
+}
+
+/* ---------- AUTH BAR ---------- */
+.auth-bar {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+/* ---------- HEADINGS ---------- */
+h1 {
+  font-size: 1.25rem;
+  margin: 8px 0 12px;
+}
+
+/* ---------- CARD ---------- */
+.card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+/* ---------- STANDINGS TABLE (CLASSIC) ---------- */
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.standings-table th {
+  background: #f1f5f9;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 10px;
+  text-align: left;
+}
+
+.standings-table td {
+  padding: 10px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.standings-table tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.standings-table td:last-child {
+  font-weight: 800;
+}
+
+/* ---------- LINKS ---------- */
+a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- MOBILE ---------- */
+@media (max-width: 600px) {
+
+  .page-container {
+    padding: 8px;
+  }
+
+  .red-nav-inner {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .nhl-tabs {
+    justify-content: space-around;
+  }
+
+  .standings-table th,
+  .standings-table td {
+    padding: 6px;
+    font-size: 0.75rem;
+  }
+}
