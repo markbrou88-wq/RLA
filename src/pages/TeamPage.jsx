@@ -126,7 +126,7 @@ function useRoster(teamId, seasonId, categoryId) {
 
     const { data, error } = await supabase
       .from("team_players")
-      .select("player:players(id,number,name,position)")
+     .select("number, player:players(id,name,position)")
       .eq("team_id", Number(teamId))
       .eq("season_id", Number(seasonId))
       .eq("category_id", Number(categoryId))
@@ -134,7 +134,14 @@ function useRoster(teamId, seasonId, categoryId) {
       .order("player(number)", { ascending: true });
 
     if (error) return console.error(error);
-    setPlayers((data || []).map((r) => r.player).filter(Boolean));
+    setPlayers(
+  (data || [])
+    .map((r) => ({
+      ...r.player,
+      number: r.number,
+    }))
+    .filter(Boolean)
+);
   }, [teamId, seasonId, categoryId]);
 
   React.useEffect(() => void reload(), [reload]);
@@ -320,10 +327,9 @@ export default function TeamPage() {
     }
 
     const payloadPlayer = {
-      number: newPlayer.number === "" ? null : Number(newPlayer.number),
-      name: newPlayer.name,
-      position: newPlayer.position || "F",
-    };
+  name: newPlayer.name,
+  position: newPlayer.position || "F",
+};
 
     const { data: insertedPlayer, error: pErr } = await supabase
       .from("players")
@@ -333,12 +339,13 @@ export default function TeamPage() {
     if (pErr) return alert(pErr.message);
 
     const payloadTeamPlayer = {
-      team_id: Number(id),
-      player_id: Number(insertedPlayer.id),
-      season_id: Number(seasonId),
-      category_id: Number(categoryId),
-      is_active: true,
-    };
+  team_id: Number(id),
+  player_id: Number(insertedPlayer.id),
+  season_id: Number(seasonId),
+  category_id: Number(categoryId),
+  number: newPlayer.number === "" ? null : Number(newPlayer.number),
+  is_active: true,
+};
 
     const { error: tpErr } = await supabase.from("team_players").insert(payloadTeamPlayer);
     if (tpErr) return alert(tpErr.message);
@@ -384,12 +391,29 @@ export default function TeamPage() {
   async function saveEdit(pid) {
     const row = players.find((p) => p.id === pid);
     if (!row || !row.__edit) return;
-    const payload = {
-      number: row.__edit.number === "" ? null : Number(row.__edit.number),
-      name: row.__edit.name,
-      position: row.__edit.position || "F",
-    };
-    const { error } = await supabase.from("players").update(payload).eq("id", pid);
+    // update players table (name, position)
+const { error: pErr } = await supabase
+  .from("players")
+  .update({
+    name: row.__edit.name,
+    position: row.__edit.position || "F",
+  })
+  .eq("id", pid);
+
+if (pErr) return alert(pErr.message);
+
+// update team_players number for this roster context
+const { error: tpErr } = await supabase
+  .from("team_players")
+  .update({
+    number: row.__edit.number === "" ? null : Number(row.__edit.number),
+  })
+  .eq("team_id", Number(id))
+  .eq("player_id", Number(pid))
+  .eq("season_id", Number(seasonId))
+  .eq("category_id", Number(categoryId));
+
+if (tpErr) return alert(tpErr.message);
     if (error) return alert(error.message);
     reload();
   }
@@ -562,9 +586,9 @@ export default function TeamPage() {
                     >
                       <option value="">Select existing player…</option>
                       {existingPlayers.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          #{p.number ?? ""} {p.name}
-                        </option>
+                       <option key={p.id} value={p.id}>
+  {p.name}
+</option>
                       ))}
                     </select>
                     <button className="btn" onClick={addExistingPlayer}>
