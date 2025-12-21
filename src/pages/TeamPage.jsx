@@ -264,28 +264,51 @@ export default function TeamPage() {
   const [existingPlayers, setExistingPlayers] = React.useState([]);
   const [selectedExisting, setSelectedExisting] = React.useState("");
 
-  // Load existing players not already on this roster
+  // ✅ FIXED: Load existing players not already on this roster (2-step, no subquery)
   React.useEffect(() => {
     if (!adding || addMode !== "existing" || !seasonId || !categoryId) {
       setExistingPlayers([]);
       return;
     }
+
     (async () => {
-      const { data, error } = await supabase
-        .from("players")
-        .select("id,number,name,position")
-        .not(
-          "id",
-          "in",
-          `(${supabase
-            .from("team_players")
-            .select("player_id")
-            .eq("team_id", Number(id))
-            .eq("season_id", Number(seasonId))
-            .eq("category_id", Number(categoryId))})`
-        );
-      if (error) console.error(error);
-      setExistingPlayers(data || []);
+      try {
+        // 1) get already-used player ids for this team/season/category
+        const { data: usedRows, error: usedErr } = await supabase
+          .from("team_players")
+          .select("player_id")
+          .eq("team_id", Number(id))
+          .eq("season_id", Number(seasonId))
+          .eq("category_id", Number(categoryId))
+          .eq("is_active", true);
+
+        if (usedErr) {
+          console.error("team_players fetch error", usedErr);
+          setExistingPlayers([]);
+          return;
+        }
+
+        const usedIds = (usedRows || []).map((r) => r.player_id).filter((x) => x != null);
+
+        // 2) fetch players, excluding used ids
+        let q = supabase.from("players").select("id,number,name,position").order("name", { ascending: true });
+
+        if (usedIds.length > 0) {
+          q = q.not("id", "in", `(${usedIds.join(",")})`);
+        }
+
+        const { data: avail, error: availErr } = await q;
+        if (availErr) {
+          console.error("players fetch error", availErr);
+          setExistingPlayers([]);
+          return;
+        }
+
+        setExistingPlayers(avail || []);
+      } catch (e) {
+        console.error("existing players load crash", e);
+        setExistingPlayers([]);
+      }
     })();
   }, [adding, addMode, id, seasonId, categoryId]);
 
@@ -433,30 +456,40 @@ export default function TeamPage() {
         {label}{" "}
         {sortKey === (sortKeyFor ?? col) ? <span className="muted">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
       </button>
-      <span
-        className="col-resize grip"
-        onMouseDown={(e) => startResize(col, e.clientX)}
-        aria-hidden
-      />
+      <span className="col-resize grip" onMouseDown={(e) => startResize(col, e.clientX)} aria-hidden />
     </div>
   );
 
   return (
     <div className="team-page">
       <div className="row gap">
-        <Link to="/" className="btn ghost small">← Back to Standings</Link>
+        <Link to="/" className="btn ghost small">
+          ← Back to Standings
+        </Link>
       </div>
 
       <div className="row gap wrap">
         <div className="card row gap align-center" style={{ minWidth: 300 }}>
-          <img src={team?.logo_url || ""} alt={team?.short_name || team?.name || "team"} style={{ width: 96, height: 96, objectFit: "contain" }} />
+          <img
+            src={team?.logo_url || ""}
+            alt={team?.short_name || team?.name || "team"}
+            style={{ width: 96, height: 96, objectFit: "contain" }}
+          />
           <div>
-            <div className="h-title" style={{ marginBottom: 6 }}>{team?.name || "Team"}</div>
-            <div className="muted">GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL {summary.record.otl}</div>
-            <div className="muted">GF {summary.record.gf} • GA {summary.record.ga} • Diff {summary.record.gf - summary.record.ga}</div>
+            <div className="h-title" style={{ marginBottom: 6 }}>
+              {team?.name || "Team"}
+            </div>
+            <div className="muted">
+              GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL {summary.record.otl}
+            </div>
+            <div className="muted">
+              GF {summary.record.gf} • GA {summary.record.ga} • Diff {summary.record.gf - summary.record.ga}
+            </div>
             <div className="row gap xs" style={{ marginTop: 6 }}>
               {summary.recent.map((r, i) => (
-                <span key={i} className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}>{r}</span>
+                <span key={i} className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}>
+                  {r}
+                </span>
               ))}
               {summary.recent.length === 0 && <span className="muted">No final games yet</span>}
             </div>
@@ -477,7 +510,9 @@ export default function TeamPage() {
         {isLoggedIn && (
           <>
             {!adding ? (
-              <button className="btn" onClick={() => setAdding(true)}>Add Player</button>
+              <button className="btn" onClick={() => setAdding(true)}>
+                Add Player
+              </button>
             ) : (
               <div className="row gap wrap">
                 <select className="in" value={addMode} onChange={(e) => setAddMode(e.target.value)}>
@@ -487,24 +522,44 @@ export default function TeamPage() {
 
                 {addMode === "new" ? (
                   <>
-                    <input className="in" placeholder="#" style={{ width: 70, textAlign: "center" }}
+                    <input
+                      className="in"
+                      placeholder="#"
+                      style={{ width: 70, textAlign: "center" }}
                       value={newPlayer.number}
-                      onChange={(e) => setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))} />
-                    <input className="in" placeholder="Player name" style={{ width: 260 }}
+                      onChange={(e) =>
+                        setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))
+                      }
+                    />
+                    <input
+                      className="in"
+                      placeholder="Player name"
+                      style={{ width: 260 }}
                       value={newPlayer.name}
-                      onChange={(e) => setNewPlayer((s) => ({ ...s, name: e.target.value }))} />
-                    <select className="in" style={{ width: 80 }} value={newPlayer.position}
-                      onChange={(e) => setNewPlayer((s) => ({ ...s, position: e.target.value }))}>
+                      onChange={(e) => setNewPlayer((s) => ({ ...s, name: e.target.value }))}
+                    />
+                    <select
+                      className="in"
+                      style={{ width: 80 }}
+                      value={newPlayer.position}
+                      onChange={(e) => setNewPlayer((s) => ({ ...s, position: e.target.value }))}
+                    >
                       <option value="F">F</option>
                       <option value="D">D</option>
                       <option value="G">G</option>
                     </select>
-                    <button className="btn" onClick={addPlayer}>Save</button>
+                    <button className="btn" onClick={addPlayer}>
+                      Save
+                    </button>
                   </>
                 ) : (
                   <>
-                    <select className="in" style={{ width: 260 }} value={selectedExisting}
-                      onChange={(e) => setSelectedExisting(e.target.value)}>
+                    <select
+                      className="in"
+                      style={{ width: 260 }}
+                      value={selectedExisting}
+                      onChange={(e) => setSelectedExisting(e.target.value)}
+                    >
                       <option value="">Select existing player…</option>
                       {existingPlayers.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -512,11 +567,15 @@ export default function TeamPage() {
                         </option>
                       ))}
                     </select>
-                    <button className="btn" onClick={addExistingPlayer}>Add</button>
+                    <button className="btn" onClick={addExistingPlayer}>
+                      Add
+                    </button>
                   </>
                 )}
 
-                <button className="btn ghost" onClick={() => setAdding(false)}>Cancel</button>
+                <button className="btn ghost" onClick={() => setAdding(false)}>
+                  Cancel
+                </button>
               </div>
             )}
           </>
@@ -539,56 +598,106 @@ export default function TeamPage() {
         {sortedRows.map((r) =>
           r.__edit ? (
             <div className="tr" key={r.id}>
-              <div className="td" style={{ width: widths.player }}><input className="in" value={r.__edit.name}
-                onChange={(e) => setPlayers((cur) =>
-                  cur.map((x) => (x.id === r.id ? { ...x, __edit: { ...x.__edit, name: e.target.value } } : x))
-                )} /></div>
-              <div className="td c" style={{ width: widths.number }}><input className="in" style={{ textAlign: "center" }} value={r.__edit.number}
-                onChange={(e) => setPlayers((cur) =>
-                  cur.map((x) =>
-                    x.id === r.id
-                      ? { ...x, __edit: { ...x.__edit, number: e.target.value.replace(/\D/g, "") } }
-                      : x
-                  )
-                )} /></div>
-              <div className="td c" style={{ width: widths.pos }}>
-                <select className="in" value={r.__edit.position}
-                  onChange={(e) => setPlayers((cur) =>
-                    cur.map((x) =>
-                      x.id === r.id ? { ...x, __edit: { ...x.__edit, position: e.target.value } } : x
+              <div className="td" style={{ width: widths.player }}>
+                <input
+                  className="in"
+                  value={r.__edit.name}
+                  onChange={(e) =>
+                    setPlayers((cur) =>
+                      cur.map((x) => (x.id === r.id ? { ...x, __edit: { ...x.__edit, name: e.target.value } } : x))
                     )
-                  )}>
+                  }
+                />
+              </div>
+              <div className="td c" style={{ width: widths.number }}>
+                <input
+                  className="in"
+                  style={{ textAlign: "center" }}
+                  value={r.__edit.number}
+                  onChange={(e) =>
+                    setPlayers((cur) =>
+                      cur.map((x) =>
+                        x.id === r.id
+                          ? { ...x, __edit: { ...x.__edit, number: e.target.value.replace(/\D/g, "") } }
+                          : x
+                      )
+                    )
+                  }
+                />
+              </div>
+              <div className="td c" style={{ width: widths.pos }}>
+                <select
+                  className="in"
+                  value={r.__edit.position}
+                  onChange={(e) =>
+                    setPlayers((cur) =>
+                      cur.map((x) =>
+                        x.id === r.id ? { ...x, __edit: { ...x.__edit, position: e.target.value } } : x
+                      )
+                    )
+                  }
+                >
                   <option value="F">F</option>
                   <option value="D">D</option>
                   <option value="G">G</option>
                 </select>
               </div>
-              <div className="td c" style={{ width: widths.gp }}>{r.gp}</div>
-              <div className="td c" style={{ width: widths.g }}>{r.g}</div>
-              <div className="td c" style={{ width: widths.a }}>{r.a}</div>
-              <div className="td c b" style={{ width: widths.pts }}>{r.pts}</div>
+              <div className="td c" style={{ width: widths.gp }}>
+                {r.gp}
+              </div>
+              <div className="td c" style={{ width: widths.g }}>
+                {r.g}
+              </div>
+              <div className="td c" style={{ width: widths.a }}>
+                {r.a}
+              </div>
+              <div className="td c b" style={{ width: widths.pts }}>
+                {r.pts}
+              </div>
               {isLoggedIn && (
                 <div className="td right" style={{ width: widths.actions }}>
-                  <button className="btn" onClick={() => saveEdit(r.id)}>Save</button>
-                  <button className="btn ghost" style={{ marginLeft: 8 }} onClick={() => cancelEdit(r.id)}>Cancel</button>
+                  <button className="btn" onClick={() => saveEdit(r.id)}>
+                    Save
+                  </button>
+                  <button className="btn ghost" style={{ marginLeft: 8 }} onClick={() => cancelEdit(r.id)}>
+                    Cancel
+                  </button>
                 </div>
               )}
             </div>
           ) : (
             <div className="tr" key={r.id}>
               <div className="td left ellipsis" style={{ width: widths.player }} title={r.name}>
-                <Link className="link" to={`/players/${r.id}`}>{r.name}</Link>
+                <Link className="link" to={`/players/${r.id}`}>
+                  {r.name}
+                </Link>
               </div>
-              <div className="td c" style={{ width: widths.number }}>{r.number}</div>
-              <div className="td c" style={{ width: widths.pos }}>{r.position}</div>
-              <div className="td c" style={{ width: widths.gp }}>{r.gp}</div>
-              <div className="td c" style={{ width: widths.g }}>{r.g}</div>
-              <div className="td c" style={{ width: widths.a }}>{r.a}</div>
-              <div className="td c b" style={{ width: widths.pts }}>{r.pts}</div>
+              <div className="td c" style={{ width: widths.number }}>
+                {r.number}
+              </div>
+              <div className="td c" style={{ width: widths.pos }}>
+                {r.position}
+              </div>
+              <div className="td c" style={{ width: widths.gp }}>
+                {r.gp}
+              </div>
+              <div className="td c" style={{ width: widths.g }}>
+                {r.g}
+              </div>
+              <div className="td c" style={{ width: widths.a }}>
+                {r.a}
+              </div>
+              <div className="td c b" style={{ width: widths.pts }}>
+                {r.pts}
+              </div>
               {isLoggedIn && (
                 <div className="td right" style={{ width: widths.actions }}>
-                  <button className="btn" onClick={() => beginEdit(r.id)}>Edit</button>
-                  <button className="btn danger" style={{ marginLeft: 8 }} onClick={() => deletePlayer(r.id)}>Delete</button>
+                  <button className="btn" onClick={() => beginEdit(r.id)}>
+                    Edit
+                  </button>
+                  <button className="btn danger" style={{ marginLeft: 8 }} onClick={() => deletePlayer(r.id)}>
+                    Delete
+                  </button>
                 </div>
               )}
             </div>
@@ -598,9 +707,7 @@ export default function TeamPage() {
         {sortedRows.length === 0 && (
           <div className="tr">
             <div className="td muted">
-              {!seasonId || !categoryId
-                ? "Select a Season and Category to view this team's roster."
-                : "No players found."}
+              {!seasonId || !categoryId ? "Select a Season and Category to view this team's roster." : "No players found."}
             </div>
           </div>
         )}
