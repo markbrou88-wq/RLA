@@ -113,14 +113,12 @@ function useTeamSummary(teamId) {
 }
 
 /**
- * Roster now comes from team_players (season roster).
- * We scope it to current season/category so you see Season 1 / Category 1 properly.
+ * Roster from team_players scoped to season/category
  */
 function useRoster(teamId, seasonId, categoryId) {
   const [players, setPlayers] = React.useState([]);
 
   const reload = React.useCallback(async () => {
-    // If season/category not selected yet, show empty list (prevents mixing rosters across seasons).
     if (!seasonId || !categoryId) {
       setPlayers([]);
       return;
@@ -143,7 +141,7 @@ function useRoster(teamId, seasonId, categoryId) {
   return { players, setPlayers, reload };
 }
 
-/** Skater stats from leaders_current (GP/G/A/PTS) scoped to season/category */
+/** Stats from leaders_current */
 function useStatsForPlayers(playerIds, seasonId, categoryId) {
   const [map, setMap] = React.useState(new Map());
 
@@ -168,7 +166,6 @@ function useStatsForPlayers(playerIds, seasonId, categoryId) {
       }
       const m = new Map();
       for (const r of data || []) {
-        // normalize key to number; players.id is numeric
         m.set(Number(r.player_id), {
           gp: r.gp ?? 0,
           g: r.g ?? 0,
@@ -219,8 +216,6 @@ function useResizableColumns(teamId, defaults) {
 /* ---------- Page ---------- */
 export default function TeamPage() {
   const { id } = useParams();
-
-  // NEW: use the current season/category selection to scope the roster + stats
   const { seasonId } = useSeason();
   const { categoryId } = useCategory();
 
@@ -242,43 +237,65 @@ export default function TeamPage() {
     actions: 200,
   });
 
-  // ---- Auth: find out if a user is logged in ----
+  // ---- Auth ----
   const [user, setUser] = React.useState(null);
   React.useEffect(() => {
     let mounted = true;
-
     (async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) console.error(error);
+      const { data } = await supabase.auth.getUser();
       if (mounted) setUser(data?.user ?? null);
     })();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) return;
-      setUser(session?.user ?? null);
+    const { data: authListener } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (mounted) setUser(s?.user ?? null);
     });
-
     return () => {
       mounted = false;
       authListener?.subscription?.unsubscribe?.();
     };
   }, []);
-
   const isLoggedIn = !!user;
 
-  // Add / Edit / Delete
+  // ---- Add / Edit / Delete ----
   const [adding, setAdding] = React.useState(false);
+  const [addMode, setAddMode] = React.useState("new"); // NEW: "new" | "existing"
   const [newPlayer, setNewPlayer] = React.useState({ number: "", name: "", position: "F" });
+
+  // NEW: existing players list
+  const [existingPlayers, setExistingPlayers] = React.useState([]);
+  const [selectedExisting, setSelectedExisting] = React.useState("");
+
+  // Load existing players not already on this roster
+  React.useEffect(() => {
+    if (!adding || addMode !== "existing" || !seasonId || !categoryId) {
+      setExistingPlayers([]);
+      return;
+    }
+    (async () => {
+      const { data, error } = await supabase
+        .from("players")
+        .select("id,number,name,position")
+        .not(
+          "id",
+          "in",
+          `(${supabase
+            .from("team_players")
+            .select("player_id")
+            .eq("team_id", Number(id))
+            .eq("season_id", Number(seasonId))
+            .eq("category_id", Number(categoryId))})`
+        );
+      if (error) console.error(error);
+      setExistingPlayers(data || []);
+    })();
+  }, [adding, addMode, id, seasonId, categoryId]);
 
   async function addPlayer() {
     if (!newPlayer.name) return;
-
     if (!seasonId || !categoryId) {
       alert("Please select a Season and Category first.");
       return;
     }
 
-    // 1) Create the global player (NO team_id anymore)
     const payloadPlayer = {
       number: newPlayer.number === "" ? null : Number(newPlayer.number),
       name: newPlayer.name,
@@ -290,10 +307,8 @@ export default function TeamPage() {
       .insert(payloadPlayer)
       .select("id")
       .single();
-
     if (pErr) return alert(pErr.message);
 
-    // 2) Add to season roster (team_players)
     const payloadTeamPlayer = {
       team_id: Number(id),
       player_id: Number(insertedPlayer.id),
@@ -307,6 +322,27 @@ export default function TeamPage() {
 
     setAdding(false);
     setNewPlayer({ number: "", name: "", position: "F" });
+    reload();
+  }
+
+  async function addExistingPlayer() {
+    if (!selectedExisting) return;
+    if (!seasonId || !categoryId) {
+      alert("Please select a Season and Category first.");
+      return;
+    }
+
+    const { error } = await supabase.from("team_players").insert({
+      team_id: Number(id),
+      player_id: Number(selectedExisting),
+      season_id: Number(seasonId),
+      category_id: Number(categoryId),
+      is_active: true,
+    });
+    if (error) return alert(error.message);
+
+    setAdding(false);
+    setSelectedExisting("");
     reload();
   }
 
@@ -336,15 +372,11 @@ export default function TeamPage() {
   }
 
   async function deletePlayer(pid) {
-    if (!window.confirm("Remove this player from this team roster for the selected season?"))
-      return;
-
+    if (!window.confirm("Remove this player from this team roster for the selected season?")) return;
     if (!seasonId || !categoryId) {
       alert("Please select a Season and Category first.");
       return;
     }
-
-    // IMPORTANT: do NOT delete the player globally (keeps history/stats intact)
     const { error } = await supabase
       .from("team_players")
       .update({ is_active: false })
@@ -352,12 +384,11 @@ export default function TeamPage() {
       .eq("player_id", Number(pid))
       .eq("season_id", Number(seasonId))
       .eq("category_id", Number(categoryId));
-
     if (error) return alert(error.message);
     reload();
   }
 
-  // Merge stats into display rows
+  // ---- Build rows ----
   const rows = React.useMemo(() => {
     return players.map((p) => {
       const s = statsMap.get(p.id) || { gp: 0, g: 0, a: 0, pts: 0 };
@@ -375,7 +406,6 @@ export default function TeamPage() {
     });
   }, [players, statsMap]);
 
-  // sorting
   const [sortKey, setSortKey] = React.useState("pts");
   const [sortDir, setSortDir] = React.useState("desc");
   const sortedRows = React.useMemo(() => {
@@ -398,69 +428,35 @@ export default function TeamPage() {
   };
 
   const Th = ({ col, label, sortKeyFor }) => (
-    <div
-      className="td th-resizable"
-      style={{ width: widths[col], minWidth: widths[col], maxWidth: widths[col] }}
-    >
-      <button
-        className="th-btn"
-        onClick={() => clickSort(sortKeyFor ?? col)}
-        title="Click to sort"
-        style={{ color: "#111" }}
-      >
+    <div className="td th-resizable" style={{ width: widths[col], minWidth: widths[col], maxWidth: widths[col] }}>
+      <button className="th-btn" onClick={() => clickSort(sortKeyFor ?? col)} title="Click to sort">
         {label}{" "}
-        {sortKey === (sortKeyFor ?? col) ? (
-          <span className="muted">{sortDir === "asc" ? "▲" : "▼"}</span>
-        ) : null}
+        {sortKey === (sortKeyFor ?? col) ? <span className="muted">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
       </button>
       <span
         className="col-resize grip"
         onMouseDown={(e) => startResize(col, e.clientX)}
         aria-hidden
-        style={{
-          width: 8,
-          right: -3,
-          borderLeft: "2px solid #d0d5dd",
-          background:
-            "repeating-linear-gradient(180deg,#e5e7eb 0,#e5e7eb 4px,#fff 4px,#fff 8px)",
-        }}
       />
     </div>
   );
 
   return (
     <div className="team-page">
-      {/* Back + header */}
       <div className="row gap">
-        <Link to="/" className="btn ghost small">
-          ← Back to Standings
-        </Link>
+        <Link to="/" className="btn ghost small">← Back to Standings</Link>
       </div>
 
       <div className="row gap wrap">
         <div className="card row gap align-center" style={{ minWidth: 300 }}>
-          <img
-            src={team?.logo_url || ""}
-            alt={team?.short_name || team?.name || "team"}
-            style={{ width: 96, height: 96, objectFit: "contain" }}
-          />
+          <img src={team?.logo_url || ""} alt={team?.short_name || team?.name || "team"} style={{ width: 96, height: 96, objectFit: "contain" }} />
           <div>
-            <div className="h-title" style={{ marginBottom: 6 }}>
-              {team?.name || "Team"}
-            </div>
-            <div className="muted">
-              GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL{" "}
-              {summary.record.otl}
-            </div>
-            <div className="muted">
-              GF {summary.record.gf} • GA {summary.record.ga} • Diff{" "}
-              {summary.record.gf - summary.record.ga}
-            </div>
+            <div className="h-title" style={{ marginBottom: 6 }}>{team?.name || "Team"}</div>
+            <div className="muted">GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL {summary.record.otl}</div>
+            <div className="muted">GF {summary.record.gf} • GA {summary.record.ga} • Diff {summary.record.gf - summary.record.ga}</div>
             <div className="row gap xs" style={{ marginTop: 6 }}>
               {summary.recent.map((r, i) => (
-                <span key={i} className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}>
-                  {r}
-                </span>
+                <span key={i} className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}>{r}</span>
               ))}
               {summary.recent.length === 0 && <span className="muted">No final games yet</span>}
             </div>
@@ -481,53 +477,53 @@ export default function TeamPage() {
         {isLoggedIn && (
           <>
             {!adding ? (
-              <button className="btn" onClick={() => setAdding(true)}>
-                Add Player
-              </button>
+              <button className="btn" onClick={() => setAdding(true)}>Add Player</button>
             ) : (
-              <div className="row gap">
-                <input
-                  className="in"
-                  placeholder="#"
-                  style={{ width: 70, textAlign: "center" }}
-                  value={newPlayer.number}
-                  onChange={(e) =>
-                    setNewPlayer((s) => ({
-                      ...s,
-                      number: e.target.value.replace(/\D/g, ""),
-                    }))
-                  }
-                />
-                <input
-                  className="in"
-                  placeholder="Player name"
-                  style={{ width: 260 }}
-                  value={newPlayer.name}
-                  onChange={(e) => setNewPlayer((s) => ({ ...s, name: e.target.value }))}
-                />
-                <select
-                  className="in"
-                  style={{ width: 80 }}
-                  value={newPlayer.position}
-                  onChange={(e) => setNewPlayer((s) => ({ ...s, position: e.target.value }))}
-                >
-                  <option value="F">F</option>
-                  <option value="D">D</option>
-                  <option value="G">G</option>
+              <div className="row gap wrap">
+                <select className="in" value={addMode} onChange={(e) => setAddMode(e.target.value)}>
+                  <option value="new">New</option>
+                  <option value="existing">Existing</option>
                 </select>
-                <button className="btn" onClick={addPlayer}>
-                  Save
-                </button>
-                <button className="btn ghost" onClick={() => setAdding(false)}>
-                  Cancel
-                </button>
+
+                {addMode === "new" ? (
+                  <>
+                    <input className="in" placeholder="#" style={{ width: 70, textAlign: "center" }}
+                      value={newPlayer.number}
+                      onChange={(e) => setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))} />
+                    <input className="in" placeholder="Player name" style={{ width: 260 }}
+                      value={newPlayer.name}
+                      onChange={(e) => setNewPlayer((s) => ({ ...s, name: e.target.value }))} />
+                    <select className="in" style={{ width: 80 }} value={newPlayer.position}
+                      onChange={(e) => setNewPlayer((s) => ({ ...s, position: e.target.value }))}>
+                      <option value="F">F</option>
+                      <option value="D">D</option>
+                      <option value="G">G</option>
+                    </select>
+                    <button className="btn" onClick={addPlayer}>Save</button>
+                  </>
+                ) : (
+                  <>
+                    <select className="in" style={{ width: 260 }} value={selectedExisting}
+                      onChange={(e) => setSelectedExisting(e.target.value)}>
+                      <option value="">Select existing player…</option>
+                      {existingPlayers.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          #{p.number ?? ""} {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="btn" onClick={addExistingPlayer}>Add</button>
+                  </>
+                )}
+
+                <button className="btn ghost" onClick={() => setAdding(false)}>Cancel</button>
               </div>
             )}
           </>
         )}
       </div>
 
-      {/* Combined table */}
+      {/* Table */}
       <div className="tbl">
         <div className="tr thead">
           <Th col="player" label="Player" sortKeyFor="name" />
@@ -543,132 +539,56 @@ export default function TeamPage() {
         {sortedRows.map((r) =>
           r.__edit ? (
             <div className="tr" key={r.id}>
-              <div
-                className="td"
-                style={{ width: widths.player, minWidth: widths.player, maxWidth: widths.player }}
-              >
-                <input
-                  className="in"
-                  value={r.__edit.name}
-                  onChange={(e) =>
-                    setPlayers((cur) =>
-                      cur.map((x) =>
-                        x.id === r.id ? { ...x, __edit: { ...x.__edit, name: e.target.value } } : x
-                      )
+              <div className="td" style={{ width: widths.player }}><input className="in" value={r.__edit.name}
+                onChange={(e) => setPlayers((cur) =>
+                  cur.map((x) => (x.id === r.id ? { ...x, __edit: { ...x.__edit, name: e.target.value } } : x))
+                )} /></div>
+              <div className="td c" style={{ width: widths.number }}><input className="in" style={{ textAlign: "center" }} value={r.__edit.number}
+                onChange={(e) => setPlayers((cur) =>
+                  cur.map((x) =>
+                    x.id === r.id
+                      ? { ...x, __edit: { ...x.__edit, number: e.target.value.replace(/\D/g, "") } }
+                      : x
+                  )
+                )} /></div>
+              <div className="td c" style={{ width: widths.pos }}>
+                <select className="in" value={r.__edit.position}
+                  onChange={(e) => setPlayers((cur) =>
+                    cur.map((x) =>
+                      x.id === r.id ? { ...x, __edit: { ...x.__edit, position: e.target.value } } : x
                     )
-                  }
-                />
-              </div>
-              <div
-                className="td c"
-                style={{ width: widths.number, minWidth: widths.number, maxWidth: widths.number }}
-              >
-                <input
-                  className="in"
-                  style={{ textAlign: "center" }}
-                  value={r.__edit.number}
-                  onChange={(e) =>
-                    setPlayers((cur) =>
-                      cur.map((x) =>
-                        x.id === r.id
-                          ? {
-                              ...x,
-                              __edit: { ...x.__edit, number: e.target.value.replace(/\D/g, "") },
-                            }
-                          : x
-                      )
-                    )
-                  }
-                />
-              </div>
-              <div
-                className="td c"
-                style={{ width: widths.pos, minWidth: widths.pos, maxWidth: widths.pos }}
-              >
-                <select
-                  className="in"
-                  value={r.__edit.position}
-                  onChange={(e) =>
-                    setPlayers((cur) =>
-                      cur.map((x) =>
-                        x.id === r.id
-                          ? { ...x, __edit: { ...x.__edit, position: e.target.value } }
-                          : x
-                      )
-                    )
-                  }
-                >
+                  )}>
                   <option value="F">F</option>
                   <option value="D">D</option>
                   <option value="G">G</option>
                 </select>
               </div>
-              <div className="td c" style={{ width: widths.gp, minWidth: widths.gp, maxWidth: widths.gp }}>
-                {r.gp}
-              </div>
-              <div className="td c" style={{ width: widths.g, minWidth: widths.g, maxWidth: widths.g }}>
-                {r.g}
-              </div>
-              <div className="td c" style={{ width: widths.a, minWidth: widths.a, maxWidth: widths.a }}>
-                {r.a}
-              </div>
-              <div className="td c b" style={{ width: widths.pts, minWidth: widths.pts, maxWidth: widths.pts }}>
-                {r.pts}
-              </div>
+              <div className="td c" style={{ width: widths.gp }}>{r.gp}</div>
+              <div className="td c" style={{ width: widths.g }}>{r.g}</div>
+              <div className="td c" style={{ width: widths.a }}>{r.a}</div>
+              <div className="td c b" style={{ width: widths.pts }}>{r.pts}</div>
               {isLoggedIn && (
-                <div
-                  className="td right"
-                  style={{ width: widths.actions, minWidth: widths.actions, maxWidth: widths.actions }}
-                >
-                  <button className="btn" onClick={() => saveEdit(r.id)}>
-                    Save
-                  </button>
-                  <button className="btn ghost" style={{ marginLeft: 8 }} onClick={() => cancelEdit(r.id)}>
-                    Cancel
-                  </button>
+                <div className="td right" style={{ width: widths.actions }}>
+                  <button className="btn" onClick={() => saveEdit(r.id)}>Save</button>
+                  <button className="btn ghost" style={{ marginLeft: 8 }} onClick={() => cancelEdit(r.id)}>Cancel</button>
                 </div>
               )}
             </div>
           ) : (
             <div className="tr" key={r.id}>
-              <div
-                className="td left ellipsis"
-                style={{ width: widths.player, minWidth: widths.player, maxWidth: widths.player }}
-                title={r.name}
-              >
-                <Link className="link" to={`/players/${r.id}`}>
-                  {r.name}
-                </Link>
+              <div className="td left ellipsis" style={{ width: widths.player }} title={r.name}>
+                <Link className="link" to={`/players/${r.id}`}>{r.name}</Link>
               </div>
-              <div className="td c" style={{ width: widths.number, minWidth: widths.number, maxWidth: widths.number }}>
-                {r.number}
-              </div>
-              <div className="td c" style={{ width: widths.pos, minWidth: widths.pos, maxWidth: widths.pos }}>
-                {r.position}
-              </div>
-              <div className="td c" style={{ width: widths.gp, minWidth: widths.gp, maxWidth: widths.gp }}>
-                {r.gp}
-              </div>
-              <div className="td c" style={{ width: widths.g, minWidth: widths.g, maxWidth: widths.g }}>
-                {r.g}
-              </div>
-              <div className="td c" style={{ width: widths.a, minWidth: widths.a, maxWidth: widths.a }}>
-                {r.a}
-              </div>
-              <div className="td c b" style={{ width: widths.pts, minWidth: widths.pts, maxWidth: widths.pts }}>
-                {r.pts}
-              </div>
+              <div className="td c" style={{ width: widths.number }}>{r.number}</div>
+              <div className="td c" style={{ width: widths.pos }}>{r.position}</div>
+              <div className="td c" style={{ width: widths.gp }}>{r.gp}</div>
+              <div className="td c" style={{ width: widths.g }}>{r.g}</div>
+              <div className="td c" style={{ width: widths.a }}>{r.a}</div>
+              <div className="td c b" style={{ width: widths.pts }}>{r.pts}</div>
               {isLoggedIn && (
-                <div
-                  className="td right"
-                  style={{ width: widths.actions, minWidth: widths.actions, maxWidth: widths.actions }}
-                >
-                  <button className="btn" onClick={() => beginEdit(r.id)}>
-                    Edit
-                  </button>
-                  <button className="btn danger" style={{ marginLeft: 8 }} onClick={() => deletePlayer(r.id)}>
-                    Delete
-                  </button>
+                <div className="td right" style={{ width: widths.actions }}>
+                  <button className="btn" onClick={() => beginEdit(r.id)}>Edit</button>
+                  <button className="btn danger" style={{ marginLeft: 8 }} onClick={() => deletePlayer(r.id)}>Delete</button>
                 </div>
               )}
             </div>
