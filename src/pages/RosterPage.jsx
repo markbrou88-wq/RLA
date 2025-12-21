@@ -1,6 +1,5 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { getGameBySlug } from "../lib/db.js";
 import { supabase } from "../supabaseClient.js";
 
 export default function RosterPage() {
@@ -14,28 +13,37 @@ export default function RosterPage() {
 
   useEffect(() => {
     (async () => {
-      const g = await getGameBySlug(slug);
+      // 🔹 Fetch game directly so we ALWAYS get season_id & category_id
+      const { data: g, error } = await supabase
+        .from("games")
+        .select(
+          `
+          id,
+          slug,
+          season_id,
+          category_id,
+          home_team_id,
+          away_team_id,
+          home:teams!games_home_team_id_fkey(id,name,short_name,logo_url),
+          away:teams!games_away_team_id_fkey(id,name,short_name,logo_url)
+        `
+        )
+        .eq("slug", slug)
+        .single();
+
+      if (error) {
+        console.error("Error loading game:", error);
+        return;
+      }
+
       setGame(g);
 
-      // Load roster + season roster players
-      await load(g);
+      setHomeTeam(g.home);
+      setAwayTeam(g.away);
 
-      // Load team meta for logos
-      const h = g.home ?? (await fetchTeam(g.home_team_id));
-      const a = g.away ?? (await fetchTeam(g.away_team_id));
-      setHomeTeam(h);
-      setAwayTeam(a);
+      await load(g);
     })();
   }, [slug]);
-
-  async function fetchTeam(teamId) {
-    const { data } = await supabase
-      .from("teams")
-      .select("id,name,short_name,logo_url")
-      .eq("id", teamId)
-      .single();
-    return data ?? null;
-  }
 
   async function load(g) {
     const gameId = g.id;
@@ -119,30 +127,29 @@ export default function RosterPage() {
 
         <h2>Roster</h2>
         <p className="muted">
-          {awayTeam?.name ?? game.away?.name ?? "Away"} vs{" "}
-          {homeTeam?.name ?? game.home?.name ?? "Home"}
+          {awayTeam?.name ?? "Away"} vs {homeTeam?.name ?? "Home"}
         </p>
 
         <div className="roster-grid">
           <RosterColumn
-            title={awayTeam?.name ?? game.away?.name ?? "Away"}
-            logo={awayTeam?.logo_url ?? game.away?.logo_url}
+            title={awayTeam?.name ?? "Away"}
+            logo={awayTeam?.logo_url}
             teamId={game.away_team_id}
             players={awayPlayers}
             rosterMap={rosterMap}
             onToggle={togglePlayed}
-            teamTint={teamTint(awayTeam?.name ?? game.away?.name)}
+            teamTint={teamTint(awayTeam?.name)}
           />
 
           <RosterColumn
-            title={homeTeam?.name ?? game.home?.name ?? "Home"}
-            logo={homeTeam?.logo_url ?? game.home?.logo_url}
+            title={homeTeam?.name ?? "Home"}
+            logo={homeTeam?.logo_url}
             teamId={game.home_team_id}
             players={homePlayers}
             rosterMap={rosterMap}
             onToggle={togglePlayed}
-            teamTint={teamTint(homeTeam?.name ?? game.home?.name)}
-            />
+            teamTint={teamTint(homeTeam?.name)}
+          />
         </div>
       </div>
     </div>
