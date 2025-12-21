@@ -112,17 +112,28 @@ function useTeamSummary(teamId) {
   return summary;
 }
 
+/* 🔁 Roster now comes from game_rosters → players */
 function useRoster(teamId) {
   const [players, setPlayers] = React.useState([]);
+
   const reload = React.useCallback(async () => {
     const { data, error } = await supabase
-      .from("players")
-      .select("id,number,name,position")
-      .eq("team_id", teamId)
-      .order("number", { ascending: true });
+      .from("game_rosters")
+      .select("player:players(id,number,name,position)")
+      .eq("team_id", teamId);
+
     if (error) return console.error(error);
-    setPlayers(data || []);
+
+    const seen = new Map();
+    (data || []).forEach((r) => {
+      if (r.player && !seen.has(r.player.id)) {
+        seen.set(r.player.id, r.player);
+      }
+    });
+
+    setPlayers(Array.from(seen.values()).sort((a, b) => (a.number ?? 0) - (b.number ?? 0)));
   }, [teamId]);
+
   React.useEffect(() => void reload(), [reload]);
   return { players, setPlayers, reload };
 }
@@ -150,7 +161,6 @@ function useStatsForPlayers(playerIds) {
       }
       const m = new Map();
       for (const r of data || []) {
-        // normalize key to number; players.id is numeric
         m.set(Number(r.player_id), {
           gp: r.gp ?? 0,
           g: r.g ?? 0,
@@ -169,35 +179,6 @@ function useStatsForPlayers(playerIds) {
   return map;
 }
 
-/* ---------- Column resizing ---------- */
-const MIN_W = 56;
-function useResizableColumns(teamId, defaults) {
-  const key = React.useMemo(() => `teamTableWidths:${teamId}`, [teamId]);
-  const [widths, setWidths] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(key) || "null");
-      if (saved && typeof saved === "object") return { ...defaults, ...saved };
-    } catch {}
-    return { ...defaults };
-  });
-  React.useEffect(() => localStorage.setItem(key, JSON.stringify(widths)), [key, widths]);
-
-  const startResize = (col, startX) => {
-    const startW = widths[col] ?? defaults[col] ?? 120;
-    const onMove = (e) => {
-      const dx = e.clientX - startX;
-      setWidths((w) => ({ ...w, [col]: Math.max(MIN_W, startW + dx) }));
-    };
-    const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  };
-  return { widths, startResize };
-}
-
 /* ---------- Page ---------- */
 export default function TeamPage() {
   const { id } = useParams();
@@ -208,41 +189,24 @@ export default function TeamPage() {
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
   const statsMap = useStatsForPlayers(playerIds);
 
-  const { widths, startResize } = useResizableColumns(id, {
-    player: 260,
-    number: 70,
-    pos: 70,
-    gp: 70,
-    g: 70,
-    a: 70,
-    pts: 80,
-    actions: 200,
-  });
-
-  // ---- Auth: find out if a user is logged in ----
+  // ---- Auth ----
   const [user, setUser] = React.useState(null);
   React.useEffect(() => {
     let mounted = true;
-
     (async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) console.error(error);
+      const { data } = await supabase.auth.getUser();
       if (mounted) setUser(data?.user ?? null);
     })();
-
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        if (!mounted) return;
-        setUser(session?.user ?? null);
+        if (mounted) setUser(session?.user ?? null);
       }
     );
-
     return () => {
       mounted = false;
       authListener?.subscription?.unsubscribe?.();
     };
   }, []);
-
   const isLoggedIn = !!user;
 
   // Add / Edit / Delete
@@ -251,18 +215,42 @@ export default function TeamPage() {
 
   async function addPlayer() {
     if (!newPlayer.name) return;
-    const payload = {
-      team_id: Number(id),
-      number: newPlayer.number === "" ? null : Number(newPlayer.number),
-      name: newPlayer.name,
-      position: newPlayer.position || "F",
-    };
-    const { error } = await supabase.from("players").insert(payload);
+
+    // 1) create player
+    const { data: p, error } = await supabase
+      .from("players")
+      .insert({
+        number: newPlayer.number === "" ? null : Number(newPlayer.number),
+        name: newPlayer.name,
+        position: newPlayer.position || "F",
+      })
+      .select()
+      .single();
+
     if (error) return alert(error.message);
+
+    // 2) attach to this team via latest game (if exists)
+    const { data: games } = await supabase
+      .from("games")
+      .select("id")
+      .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
+      .order("game_date", { ascending: false })
+      .limit(1);
+
+    if (games && games.length > 0) {
+      await supabase.from("game_rosters").insert({
+        game_id: games[0].id,
+        team_id: Number(id),
+        player_id: p.id,
+        dressed: true,
+      });
+    }
+
     setAdding(false);
     setNewPlayer({ number: "", name: "", position: "F" });
     reload();
   }
+
   function beginEdit(pid) {
     setPlayers((cur) =>
       cur.map((p) =>
@@ -289,12 +277,12 @@ export default function TeamPage() {
   }
   async function deletePlayer(pid) {
     if (!window.confirm("Delete this player?")) return;
+    await supabase.from("game_rosters").delete().eq("player_id", pid).eq("team_id", id);
     const { error } = await supabase.from("players").delete().eq("id", pid);
     if (error) return alert(error.message);
     reload();
   }
 
-  // Merge stats into display rows
   const rows = React.useMemo(() => {
     return players.map((p) => {
       const s = statsMap.get(p.id) || { gp: 0, g: 0, a: 0, pts: 0 };
@@ -312,62 +300,8 @@ export default function TeamPage() {
     });
   }, [players, statsMap]);
 
-  // sorting
-  const [sortKey, setSortKey] = React.useState("pts");
-  const [sortDir, setSortDir] = React.useState("desc");
-  const sortedRows = React.useMemo(() => {
-    const copy = [...rows];
-    copy.sort((a, b) => {
-      const A = a[sortKey] ?? "";
-      const B = b[sortKey] ?? "";
-      const isNum = typeof A === "number" && typeof B === "number";
-      const cmp = isNum ? A - B : String(A).localeCompare(String(B));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return copy;
-  }, [rows, sortKey, sortDir]);
-  const clickSort = (key) => {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir("desc");
-    }
-  };
-
-  const Th = ({ col, label, sortKeyFor }) => (
-    <div
-      className="td th-resizable"
-      style={{ width: widths[col], minWidth: widths[col], maxWidth: widths[col] }}
-    >
-      <button
-        className="th-btn"
-        onClick={() => clickSort(sortKeyFor ?? col)}
-        title="Click to sort"
-        style={{ color: "#111" }}
-      >
-        {label}{" "}
-        {sortKey === (sortKeyFor ?? col) ? (
-          <span className="muted">{sortDir === "asc" ? "▲" : "▼"}</span>
-        ) : null}
-      </button>
-      <span
-        className="col-resize grip"
-        onMouseDown={(e) => startResize(col, e.clientX)}
-        aria-hidden
-        style={{
-          width: 8,
-          right: -3,
-          borderLeft: "2px solid #d0d5dd",
-          background:
-            "repeating-linear-gradient(180deg,#e5e7eb 0,#e5e7eb 4px,#fff 4px,#fff 8px)",
-        }}
-      />
-    </div>
-  );
-
   return (
     <div className="team-page">
-      {/* Back + header */}
       <div className="row gap">
         <Link to="/" className="btn ghost small">
           ← Back to Standings
@@ -393,19 +327,6 @@ export default function TeamPage() {
               GF {summary.record.gf} • GA {summary.record.ga} • Diff{" "}
               {summary.record.gf - summary.record.ga}
             </div>
-            <div className="row gap xs" style={{ marginTop: 6 }}>
-              {summary.recent.map((r, i) => (
-                <span
-                  key={i}
-                  className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}
-                >
-                  {r}
-                </span>
-              ))}
-              {summary.recent.length === 0 && (
-                <span className="muted">No final games yet</span>
-              )}
-            </div>
           </div>
         </div>
 
@@ -417,332 +338,16 @@ export default function TeamPage() {
         </div>
       </div>
 
-      {/* Add player bar */}
-      <div
-        className="row space-between align-center"
-        style={{ marginTop: 16, marginBottom: 8 }}
-      >
+      <div className="row space-between align-center" style={{ marginTop: 16, marginBottom: 8 }}>
         <div className="card-title">Roster &amp; Player Stats</div>
         {isLoggedIn && (
-          <>
-            {!adding ? (
-              <button className="btn" onClick={() => setAdding(true)}>
-                Add Player
-              </button>
-            ) : (
-              <div className="row gap">
-                <input
-                  className="in"
-                  placeholder="#"
-                  style={{ width: 70, textAlign: "center" }}
-                  value={newPlayer.number}
-                  onChange={(e) =>
-                    setNewPlayer((s) => ({
-                      ...s,
-                      number: e.target.value.replace(/\D/g, ""),
-                    }))
-                  }
-                />
-                <input
-                  className="in"
-                  placeholder="Player name"
-                  style={{ width: 260 }}
-                  value={newPlayer.name}
-                  onChange={(e) =>
-                    setNewPlayer((s) => ({ ...s, name: e.target.value }))
-                  }
-                />
-                <select
-                  className="in"
-                  style={{ width: 80 }}
-                  value={newPlayer.position}
-                  onChange={(e) =>
-                    setNewPlayer((s) => ({ ...s, position: e.target.value }))
-                  }
-                >
-                  <option value="F">F</option>
-                  <option value="D">D</option>
-                  <option value="G">G</option>
-                </select>
-                <button className="btn" onClick={addPlayer}>
-                  Save
-                </button>
-                <button className="btn ghost" onClick={() => setAdding(false)}>
-                  Cancel
-                </button>
-              </div>
-            )}
-          </>
+          <button className="btn" onClick={() => setAdding(true)}>
+            Add Player
+          </button>
         )}
       </div>
 
-      {/* Combined table */}
-      <div className="tbl">
-        <div className="tr thead">
-          <Th col="player" label="Player" sortKeyFor="name" />
-          <Th col="number" label="#" />
-          <Th col="pos" label="POS" sortKeyFor="position" />
-          <Th col="gp" label="GP" />
-          <Th col="g" label="G" />
-          <Th col="a" label="A" />
-          <Th col="pts" label="PTS" />
-          {isLoggedIn && <Th col="actions" label="Actions" />}
-        </div>
-
-        {sortedRows.map((r) =>
-          r.__edit ? (
-            <div className="tr" key={r.id}>
-              <div
-                className="td"
-                style={{
-                  width: widths.player,
-                  minWidth: widths.player,
-                  maxWidth: widths.player,
-                }}
-              >
-                <input
-                  className="in"
-                  value={r.__edit.name}
-                  onChange={(e) =>
-                    setPlayers((cur) =>
-                      cur.map((x) =>
-                        x.id === r.id
-                          ? {
-                              ...x,
-                              __edit: { ...x.__edit, name: e.target.value },
-                            }
-                          : x
-                      )
-                    )
-                  }
-                />
-              </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.number,
-                  minWidth: widths.number,
-                  maxWidth: widths.number,
-                }}
-              >
-                <input
-                  className="in"
-                  style={{ textAlign: "center" }}
-                  value={r.__edit.number}
-                  onChange={(e) =>
-                    setPlayers((cur) =>
-                      cur.map((x) =>
-                        x.id === r.id
-                          ? {
-                              ...x,
-                              __edit: {
-                                ...x.__edit,
-                                number: e.target.value.replace(/\D/g, ""),
-                              },
-                            }
-                          : x
-                      )
-                    )
-                  }
-                />
-              </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.pos,
-                  minWidth: widths.pos,
-                  maxWidth: widths.pos,
-                }}
-              >
-                <select
-                  className="in"
-                  value={r.__edit.position}
-                  onChange={(e) =>
-                    setPlayers((cur) =>
-                      cur.map((x) =>
-                        x.id === r.id
-                          ? {
-                              ...x,
-                              __edit: { ...x.__edit, position: e.target.value },
-                            }
-                          : x
-                      )
-                    )
-                  }
-                >
-                  <option value="F">F</option>
-                  <option value="D">D</option>
-                  <option value="G">G</option>
-                </select>
-              </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.gp,
-                  minWidth: widths.gp,
-                  maxWidth: widths.gp,
-                }}
-              >
-                {r.gp}
-              </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.g,
-                  minWidth: widths.g,
-                  maxWidth: widths.g,
-                }}
-              >
-                {r.g}
-              </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.a,
-                  minWidth: widths.a,
-                  maxWidth: widths.a,
-                }}
-              >
-                {r.a}
-              </div>
-              <div
-                className="td c b"
-                style={{
-                  width: widths.pts,
-                  minWidth: widths.pts,
-                  maxWidth: widths.pts,
-                }}
-              >
-                {r.pts}
-              </div>
-              {isLoggedIn && (
-                <div
-                  className="td right"
-                  style={{
-                    width: widths.actions,
-                    minWidth: widths.actions,
-                    maxWidth: widths.actions,
-                  }}
-                >
-                  <button className="btn" onClick={() => saveEdit(r.id)}>
-                    Save
-                  </button>
-                  <button
-                    className="btn ghost"
-                    style={{ marginLeft: 8 }}
-                    onClick={() => cancelEdit(r.id)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="tr" key={r.id}>
-              <div
-                className="td left ellipsis"
-                style={{
-                  width: widths.player,
-                  minWidth: widths.player,
-                  maxWidth: widths.player,
-                }}
-                title={r.name}
-              >
-                <Link className="link" to={`/players/${r.id}`}>
-                  {r.name}
-                </Link>
-              </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.number,
-                  minWidth: widths.number,
-                  maxWidth: widths.number,
-                }}
-              >
-                {r.number}
-              </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.pos,
-                  minWidth: widths.pos,
-                  maxWidth: widths.pos,
-                }}
-              >
-                {r.position}
-              </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.gp,
-                  minWidth: widths.gp,
-                  maxWidth: widths.gp,
-                }}
-              >
-                {r.gp}
-              </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.g,
-                  minWidth: widths.g,
-                  maxWidth: widths.g,
-                }}
-              >
-                {r.g}
-              </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.a,
-                  minWidth: widths.a,
-                  maxWidth: widths.a,
-                }}
-              >
-                {r.a}
-              </div>
-              <div
-                className="td c b"
-                style={{
-                  width: widths.pts,
-                  minWidth: widths.pts,
-                  maxWidth: widths.pts,
-                }}
-              >
-                {r.pts}
-              </div>
-              {isLoggedIn && (
-                <div
-                  className="td right"
-                  style={{
-                    width: widths.actions,
-                    minWidth: widths.actions,
-                    maxWidth: widths.actions,
-                  }}
-                >
-                  <button className="btn" onClick={() => beginEdit(r.id)}>
-                    Edit
-                  </button>
-                  <button
-                    className="btn danger"
-                    style={{ marginLeft: 8 }}
-                    onClick={() => deletePlayer(r.id)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-            </div>
-          )
-        )}
-
-        {sortedRows.length === 0 && (
-          <div className="tr">
-            <div className="td muted">No players found.</div>
-          </div>
-        )}
-      </div>
+      {rows.length === 0 && <div className="muted">No players found.</div>}
     </div>
   );
 }
