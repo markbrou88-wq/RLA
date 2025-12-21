@@ -2,6 +2,8 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { useSeason } from "../contexts/SeasonContext";
+import { useCategory } from "../contexts/CategoryContext";
 
 /* ---------- Tiny sparkline (no deps) ---------- */
 function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" }) {
@@ -66,9 +68,7 @@ function useTeamSummary(teamId) {
     (async () => {
       const { data: games, error } = await supabase
         .from("games")
-        .select(
-          "id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot"
-        )
+        .select("id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot")
         .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
         .order("game_date", { ascending: false })
         .limit(20);
@@ -112,27 +112,43 @@ function useTeamSummary(teamId) {
   return summary;
 }
 
-function useRoster(teamId) {
+/**
+ * Roster now comes from team_players (season roster).
+ * We scope it to current season/category so you see Season 1 / Category 1 properly.
+ */
+function useRoster(teamId, seasonId, categoryId) {
   const [players, setPlayers] = React.useState([]);
+
   const reload = React.useCallback(async () => {
+    // If season/category not selected yet, show empty list (prevents mixing rosters across seasons).
+    if (!seasonId || !categoryId) {
+      setPlayers([]);
+      return;
+    }
+
     const { data, error } = await supabase
-      .from("players")
-      .select("id,number,name,position")
-      .eq("team_id", teamId)
-      .order("number", { ascending: true });
+      .from("team_players")
+      .select("player:players(id,number,name,position)")
+      .eq("team_id", Number(teamId))
+      .eq("season_id", Number(seasonId))
+      .eq("category_id", Number(categoryId))
+      .eq("is_active", true)
+      .order("player(number)", { ascending: true });
+
     if (error) return console.error(error);
-    setPlayers(data || []);
-  }, [teamId]);
+    setPlayers((data || []).map((r) => r.player).filter(Boolean));
+  }, [teamId, seasonId, categoryId]);
+
   React.useEffect(() => void reload(), [reload]);
   return { players, setPlayers, reload };
 }
 
-/** Skater stats from leaders_current (GP/G/A/PTS) */
-function useStatsForPlayers(playerIds) {
+/** Skater stats from leaders_current (GP/G/A/PTS) scoped to season/category */
+function useStatsForPlayers(playerIds, seasonId, categoryId) {
   const [map, setMap] = React.useState(new Map());
 
   React.useEffect(() => {
-    if (!playerIds || playerIds.length === 0) {
+    if (!seasonId || !categoryId || !playerIds || playerIds.length === 0) {
       setMap(new Map());
       return;
     }
@@ -141,6 +157,8 @@ function useStatsForPlayers(playerIds) {
       const { data, error } = await supabase
         .from("leaders_current")
         .select("player_id, gp, g, a, pts")
+        .eq("season_id", Number(seasonId))
+        .eq("category_id", Number(categoryId))
         .in("player_id", playerIds);
 
       if (error) {
@@ -164,7 +182,7 @@ function useStatsForPlayers(playerIds) {
     return () => {
       stop = true;
     };
-  }, [playerIds]);
+  }, [playerIds, seasonId, categoryId]);
 
   return map;
 }
@@ -201,12 +219,17 @@ function useResizableColumns(teamId, defaults) {
 /* ---------- Page ---------- */
 export default function TeamPage() {
   const { id } = useParams();
+
+  // NEW: use the current season/category selection to scope the roster + stats
+  const { seasonId } = useSeason();
+  const { categoryId } = useCategory();
+
   const team = useTeam(id);
   const summary = useTeamSummary(id);
-  const { players, setPlayers, reload } = useRoster(id);
+  const { players, setPlayers, reload } = useRoster(id, seasonId, categoryId);
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
-  const statsMap = useStatsForPlayers(playerIds);
+  const statsMap = useStatsForPlayers(playerIds, seasonId, categoryId);
 
   const { widths, startResize } = useResizableColumns(id, {
     player: 260,
@@ -230,12 +253,10 @@ export default function TeamPage() {
       if (mounted) setUser(data?.user ?? null);
     })();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!mounted) return;
-        setUser(session?.user ?? null);
-      }
-    );
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      setUser(session?.user ?? null);
+    });
 
     return () => {
       mounted = false;
@@ -251,18 +272,44 @@ export default function TeamPage() {
 
   async function addPlayer() {
     if (!newPlayer.name) return;
-    const payload = {
-      team_id: Number(id),
+
+    if (!seasonId || !categoryId) {
+      alert("Please select a Season and Category first.");
+      return;
+    }
+
+    // 1) Create the global player (NO team_id anymore)
+    const payloadPlayer = {
       number: newPlayer.number === "" ? null : Number(newPlayer.number),
       name: newPlayer.name,
       position: newPlayer.position || "F",
     };
-    const { error } = await supabase.from("players").insert(payload);
-    if (error) return alert(error.message);
+
+    const { data: insertedPlayer, error: pErr } = await supabase
+      .from("players")
+      .insert(payloadPlayer)
+      .select("id")
+      .single();
+
+    if (pErr) return alert(pErr.message);
+
+    // 2) Add to season roster (team_players)
+    const payloadTeamPlayer = {
+      team_id: Number(id),
+      player_id: Number(insertedPlayer.id),
+      season_id: Number(seasonId),
+      category_id: Number(categoryId),
+      is_active: true,
+    };
+
+    const { error: tpErr } = await supabase.from("team_players").insert(payloadTeamPlayer);
+    if (tpErr) return alert(tpErr.message);
+
     setAdding(false);
     setNewPlayer({ number: "", name: "", position: "F" });
     reload();
   }
+
   function beginEdit(pid) {
     setPlayers((cur) =>
       cur.map((p) =>
@@ -287,9 +334,25 @@ export default function TeamPage() {
     if (error) return alert(error.message);
     reload();
   }
+
   async function deletePlayer(pid) {
-    if (!window.confirm("Delete this player?")) return;
-    const { error } = await supabase.from("players").delete().eq("id", pid);
+    if (!window.confirm("Remove this player from this team roster for the selected season?"))
+      return;
+
+    if (!seasonId || !categoryId) {
+      alert("Please select a Season and Category first.");
+      return;
+    }
+
+    // IMPORTANT: do NOT delete the player globally (keeps history/stats intact)
+    const { error } = await supabase
+      .from("team_players")
+      .update({ is_active: false })
+      .eq("team_id", Number(id))
+      .eq("player_id", Number(pid))
+      .eq("season_id", Number(seasonId))
+      .eq("category_id", Number(categoryId));
+
     if (error) return alert(error.message);
     reload();
   }
@@ -395,16 +458,11 @@ export default function TeamPage() {
             </div>
             <div className="row gap xs" style={{ marginTop: 6 }}>
               {summary.recent.map((r, i) => (
-                <span
-                  key={i}
-                  className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}
-                >
+                <span key={i} className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}>
                   {r}
                 </span>
               ))}
-              {summary.recent.length === 0 && (
-                <span className="muted">No final games yet</span>
-              )}
+              {summary.recent.length === 0 && <span className="muted">No final games yet</span>}
             </div>
           </div>
         </div>
@@ -418,10 +476,7 @@ export default function TeamPage() {
       </div>
 
       {/* Add player bar */}
-      <div
-        className="row space-between align-center"
-        style={{ marginTop: 16, marginBottom: 8 }}
-      >
+      <div className="row space-between align-center" style={{ marginTop: 16, marginBottom: 8 }}>
         <div className="card-title">Roster &amp; Player Stats</div>
         {isLoggedIn && (
           <>
@@ -448,17 +503,13 @@ export default function TeamPage() {
                   placeholder="Player name"
                   style={{ width: 260 }}
                   value={newPlayer.name}
-                  onChange={(e) =>
-                    setNewPlayer((s) => ({ ...s, name: e.target.value }))
-                  }
+                  onChange={(e) => setNewPlayer((s) => ({ ...s, name: e.target.value }))}
                 />
                 <select
                   className="in"
                   style={{ width: 80 }}
                   value={newPlayer.position}
-                  onChange={(e) =>
-                    setNewPlayer((s) => ({ ...s, position: e.target.value }))
-                  }
+                  onChange={(e) => setNewPlayer((s) => ({ ...s, position: e.target.value }))}
                 >
                   <option value="F">F</option>
                   <option value="D">D</option>
@@ -494,11 +545,7 @@ export default function TeamPage() {
             <div className="tr" key={r.id}>
               <div
                 className="td"
-                style={{
-                  width: widths.player,
-                  minWidth: widths.player,
-                  maxWidth: widths.player,
-                }}
+                style={{ width: widths.player, minWidth: widths.player, maxWidth: widths.player }}
               >
                 <input
                   className="in"
@@ -506,12 +553,7 @@ export default function TeamPage() {
                   onChange={(e) =>
                     setPlayers((cur) =>
                       cur.map((x) =>
-                        x.id === r.id
-                          ? {
-                              ...x,
-                              __edit: { ...x.__edit, name: e.target.value },
-                            }
-                          : x
+                        x.id === r.id ? { ...x, __edit: { ...x.__edit, name: e.target.value } } : x
                       )
                     )
                   }
@@ -519,11 +561,7 @@ export default function TeamPage() {
               </div>
               <div
                 className="td c"
-                style={{
-                  width: widths.number,
-                  minWidth: widths.number,
-                  maxWidth: widths.number,
-                }}
+                style={{ width: widths.number, minWidth: widths.number, maxWidth: widths.number }}
               >
                 <input
                   className="in"
@@ -535,10 +573,7 @@ export default function TeamPage() {
                         x.id === r.id
                           ? {
                               ...x,
-                              __edit: {
-                                ...x.__edit,
-                                number: e.target.value.replace(/\D/g, ""),
-                              },
+                              __edit: { ...x.__edit, number: e.target.value.replace(/\D/g, "") },
                             }
                           : x
                       )
@@ -548,11 +583,7 @@ export default function TeamPage() {
               </div>
               <div
                 className="td c"
-                style={{
-                  width: widths.pos,
-                  minWidth: widths.pos,
-                  maxWidth: widths.pos,
-                }}
+                style={{ width: widths.pos, minWidth: widths.pos, maxWidth: widths.pos }}
               >
                 <select
                   className="in"
@@ -561,10 +592,7 @@ export default function TeamPage() {
                     setPlayers((cur) =>
                       cur.map((x) =>
                         x.id === r.id
-                          ? {
-                              ...x,
-                              __edit: { ...x.__edit, position: e.target.value },
-                            }
+                          ? { ...x, __edit: { ...x.__edit, position: e.target.value } }
                           : x
                       )
                     )
@@ -575,63 +603,27 @@ export default function TeamPage() {
                   <option value="G">G</option>
                 </select>
               </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.gp,
-                  minWidth: widths.gp,
-                  maxWidth: widths.gp,
-                }}
-              >
+              <div className="td c" style={{ width: widths.gp, minWidth: widths.gp, maxWidth: widths.gp }}>
                 {r.gp}
               </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.g,
-                  minWidth: widths.g,
-                  maxWidth: widths.g,
-                }}
-              >
+              <div className="td c" style={{ width: widths.g, minWidth: widths.g, maxWidth: widths.g }}>
                 {r.g}
               </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.a,
-                  minWidth: widths.a,
-                  maxWidth: widths.a,
-                }}
-              >
+              <div className="td c" style={{ width: widths.a, minWidth: widths.a, maxWidth: widths.a }}>
                 {r.a}
               </div>
-              <div
-                className="td c b"
-                style={{
-                  width: widths.pts,
-                  minWidth: widths.pts,
-                  maxWidth: widths.pts,
-                }}
-              >
+              <div className="td c b" style={{ width: widths.pts, minWidth: widths.pts, maxWidth: widths.pts }}>
                 {r.pts}
               </div>
               {isLoggedIn && (
                 <div
                   className="td right"
-                  style={{
-                    width: widths.actions,
-                    minWidth: widths.actions,
-                    maxWidth: widths.actions,
-                  }}
+                  style={{ width: widths.actions, minWidth: widths.actions, maxWidth: widths.actions }}
                 >
                   <button className="btn" onClick={() => saveEdit(r.id)}>
                     Save
                   </button>
-                  <button
-                    className="btn ghost"
-                    style={{ marginLeft: 8 }}
-                    onClick={() => cancelEdit(r.id)}
-                  >
+                  <button className="btn ghost" style={{ marginLeft: 8 }} onClick={() => cancelEdit(r.id)}>
                     Cancel
                   </button>
                 </div>
@@ -641,94 +633,40 @@ export default function TeamPage() {
             <div className="tr" key={r.id}>
               <div
                 className="td left ellipsis"
-                style={{
-                  width: widths.player,
-                  minWidth: widths.player,
-                  maxWidth: widths.player,
-                }}
+                style={{ width: widths.player, minWidth: widths.player, maxWidth: widths.player }}
                 title={r.name}
               >
                 <Link className="link" to={`/players/${r.id}`}>
                   {r.name}
                 </Link>
               </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.number,
-                  minWidth: widths.number,
-                  maxWidth: widths.number,
-                }}
-              >
+              <div className="td c" style={{ width: widths.number, minWidth: widths.number, maxWidth: widths.number }}>
                 {r.number}
               </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.pos,
-                  minWidth: widths.pos,
-                  maxWidth: widths.pos,
-                }}
-              >
+              <div className="td c" style={{ width: widths.pos, minWidth: widths.pos, maxWidth: widths.pos }}>
                 {r.position}
               </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.gp,
-                  minWidth: widths.gp,
-                  maxWidth: widths.gp,
-                }}
-              >
+              <div className="td c" style={{ width: widths.gp, minWidth: widths.gp, maxWidth: widths.gp }}>
                 {r.gp}
               </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.g,
-                  minWidth: widths.g,
-                  maxWidth: widths.g,
-                }}
-              >
+              <div className="td c" style={{ width: widths.g, minWidth: widths.g, maxWidth: widths.g }}>
                 {r.g}
               </div>
-              <div
-                className="td c"
-                style={{
-                  width: widths.a,
-                  minWidth: widths.a,
-                  maxWidth: widths.a,
-                }}
-              >
+              <div className="td c" style={{ width: widths.a, minWidth: widths.a, maxWidth: widths.a }}>
                 {r.a}
               </div>
-              <div
-                className="td c b"
-                style={{
-                  width: widths.pts,
-                  minWidth: widths.pts,
-                  maxWidth: widths.pts,
-                }}
-              >
+              <div className="td c b" style={{ width: widths.pts, minWidth: widths.pts, maxWidth: widths.pts }}>
                 {r.pts}
               </div>
               {isLoggedIn && (
                 <div
                   className="td right"
-                  style={{
-                    width: widths.actions,
-                    minWidth: widths.actions,
-                    maxWidth: widths.actions,
-                  }}
+                  style={{ width: widths.actions, minWidth: widths.actions, maxWidth: widths.actions }}
                 >
                   <button className="btn" onClick={() => beginEdit(r.id)}>
                     Edit
                   </button>
-                  <button
-                    className="btn danger"
-                    style={{ marginLeft: 8 }}
-                    onClick={() => deletePlayer(r.id)}
-                  >
+                  <button className="btn danger" style={{ marginLeft: 8 }} onClick={() => deletePlayer(r.id)}>
                     Delete
                   </button>
                 </div>
@@ -739,7 +677,11 @@ export default function TeamPage() {
 
         {sortedRows.length === 0 && (
           <div className="tr">
-            <div className="td muted">No players found.</div>
+            <div className="td muted">
+              {!seasonId || !categoryId
+                ? "Select a Season and Category to view this team's roster."
+                : "No players found."}
+            </div>
           </div>
         )}
       </div>
