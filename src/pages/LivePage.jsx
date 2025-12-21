@@ -83,36 +83,115 @@ export default function LivePage() {
     } catch {}
   };
 
+  /* ---------- NEW: roster helpers (team_players -> game_rosters) ---------- */
+
+  async function fetchGameRosterDressed(gameId, teamId) {
+    const { data, error } = await supabase
+      .from("game_rosters")
+      .select("player_id, dressed, players:player_id(id,name,number,position)")
+      .eq("game_id", gameId)
+      .eq("team_id", teamId)
+      .eq("dressed", true);
+
+    if (error) {
+      console.error("fetchGameRosterDressed error:", error);
+      return [];
+    }
+
+    return (data || [])
+      .map((r) => r.players)
+      .filter(Boolean)
+      .sort((a, b) => (a.number || 0) - (b.number || 0));
+  }
+
+  async function initGameRostersFromTeamPlayers(gameId, seasonId, categoryId, teamId) {
+    // 1) read season roster from team_players
+    const { data: tp, error: tpErr } = await supabase
+      .from("team_players")
+      .select("player_id")
+      .eq("season_id", seasonId)
+      .eq("category_id", categoryId)
+      .eq("team_id", teamId)
+      .eq("is_active", true);
+
+    if (tpErr) {
+      console.error("initGameRostersFromTeamPlayers team_players error:", tpErr);
+      return;
+    }
+
+    const playerIds = (tp || []).map((r) => r.player_id).filter(Boolean);
+    if (!playerIds.length) return;
+
+    // 2) avoid duplicates: fetch existing game_rosters for this game/team
+    const { data: existing, error: exErr } = await supabase
+      .from("game_rosters")
+      .select("player_id")
+      .eq("game_id", gameId)
+      .eq("team_id", teamId);
+
+    if (exErr) {
+      console.error("initGameRostersFromTeamPlayers existing game_rosters error:", exErr);
+      return;
+    }
+
+    const existingSet = new Set((existing || []).map((r) => r.player_id));
+    const toInsert = playerIds
+      .filter((pid) => !existingSet.has(pid))
+      .map((pid) => ({
+        game_id: gameId,
+        team_id: teamId,
+        player_id: pid,
+        dressed: true,
+      }));
+
+    if (!toInsert.length) return;
+
+    const { error: insErr } = await supabase.from("game_rosters").insert(toInsert);
+    if (insErr) {
+      console.error("initGameRostersFromTeamPlayers insert error:", insErr);
+    }
+  }
+
+  async function ensureAndLoadDressed(gameRow, teamId) {
+    // Prefer existing game_rosters
+    let dressed = await fetchGameRosterDressed(gameRow.id, teamId);
+
+    // If none, auto-initialize from team_players, then re-read
+    if (!dressed.length) {
+      await initGameRostersFromTeamPlayers(
+        gameRow.id,
+        gameRow.season_id,
+        gameRow.category_id,
+        teamId
+      );
+      dressed = await fetchGameRosterDressed(gameRow.id, teamId);
+    }
+
+    return dressed;
+  }
+
   /* ---------- initial load ---------- */
   useEffect(() => {
     let dead = false;
     (async () => {
-      const { data: g } = await supabase
+      const { data: g, error: gErr } = await supabase
         .from("games")
         .select("*")
         .eq("slug", slug)
         .single();
-      if (!g) return;
 
-      const [{ data: ht }, { data: at }] = await Promise.all([
+      if (gErr || !g) {
+        console.error("Error loading game:", gErr);
+        return;
+      }
+
+      const [{ data: ht, error: htErr }, { data: at, error: atErr }] = await Promise.all([
         supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
       ]);
 
-      const [{ data: hr }, { data: ar }] = await Promise.all([
-        supabase
-          .from("game_rosters")
-          .select("players:player_id(id,name,number,position)")
-          .eq("game_id", g.id)
-          .eq("team_id", g.home_team_id)
-          .eq("dressed", true),
-        supabase
-          .from("game_rosters")
-          .select("players:player_id(id,name,number,position)")
-          .eq("game_id", g.id)
-          .eq("team_id", g.away_team_id)
-          .eq("dressed", true),
-      ]);
+      if (htErr) console.error("Error loading home team:", htErr);
+      if (atErr) console.error("Error loading away team:", atErr);
 
       const { data: gg } = await supabase
         .from("game_goalies")
@@ -120,15 +199,20 @@ export default function LivePage() {
         .eq("game_id", g.id);
 
       if (dead) return;
+
       setGame(g);
       setHome(ht);
       setAway(at);
-      setHomeDressed(
-        (hr || []).map((r) => r.players).sort((a, b) => (a.number || 0) - (b.number || 0))
-      );
-      setAwayDressed(
-        (ar || []).map((r) => r.players).sort((a, b) => (a.number || 0) - (b.number || 0))
-      );
+
+      // ✅ NEW: ensure rosters exist for this game; then load dressed
+      const [homeDress, awayDress] = await Promise.all([
+        ensureAndLoadDressed(g, g.home_team_id),
+        ensureAndLoadDressed(g, g.away_team_id),
+      ]);
+
+      if (dead) return;
+      setHomeDressed(homeDress);
+      setAwayDressed(awayDress);
 
       // length from DB or default
       const baseLen = g.period_seconds ? Math.round(g.period_seconds / 60) : 15;
@@ -137,9 +221,7 @@ export default function LivePage() {
       const ls = loadLS(g.id);
 
       setLenMin(ls.lenMin ?? baseLen);
-      const startMs = mmssToMs(
-        ls.clock ?? msToMMSS((ls.lenMin ?? baseLen) * 60 * 1000)
-      );
+      const startMs = mmssToMs(ls.clock ?? msToMMSS((ls.lenMin ?? baseLen) * 60 * 1000));
       remainingMs.current = startMs;
       setClock(ls.clock ?? msToMMSS(startMs));
       setPeriod(ls.period ?? 1);
@@ -167,6 +249,7 @@ export default function LivePage() {
 
       await refreshEvents(g.id);
     })();
+
     return () => {
       dead = true;
       clearInterval(tickTimer.current);
@@ -189,11 +272,13 @@ export default function LivePage() {
   async function refreshEvents(gameId) {
     const { data: ev } = await supabase
       .from("events")
-      .select(`
+      .select(
+        `
         id, game_id, team_id, player_id, period, time_mmss, event, goalie_id,
         players!events_player_id_fkey ( id, name, number ),
         teams!events_team_id_fkey ( id, name, short_name )
-      `)
+      `
+      )
       .eq("game_id", gameId)
       .order("period", { ascending: true })
       .order("time_mmss", { ascending: false });
@@ -305,10 +390,7 @@ export default function LivePage() {
       .eq("team_id", teamId)
       .maybeSingle();
     if (ex?.id) {
-      await supabase
-        .from("game_goalies")
-        .update({ player_id: playerId || null })
-        .eq("id", ex.id);
+      await supabase.from("game_goalies").update({ player_id: playerId || null }).eq("id", ex.id);
     } else {
       await supabase
         .from("game_goalies")
@@ -333,13 +415,7 @@ export default function LivePage() {
         await supabase
           .from("game_stats")
           .insert([
-            {
-              game_id: game.id,
-              team_id: teamId,
-              player_id: playerId,
-              is_goalie: true,
-              goalie_shots_against: 0,
-            },
+            { game_id: game.id, team_id: teamId, player_id: playerId, is_goalie: true, goalie_shots_against: 0 },
           ])
           .select("id")
           .single()
@@ -356,15 +432,7 @@ export default function LivePage() {
     if (gg?.id) return gg;
     const { data: created } = await supabase
       .from("game_goalies")
-      .insert([
-        {
-          game_id: game.id,
-          team_id: teamId,
-          player_id: playerId,
-          shots_against: 0,
-          goals_against: 0,
-        },
-      ])
+      .insert([{ game_id: game.id, team_id: teamId, player_id: playerId, shots_against: 0, goals_against: 0 }])
       .select("id, shots_against, goals_against")
       .single();
     return created;
@@ -399,10 +467,7 @@ export default function LivePage() {
 
         const next = Math.max(0, (cur?.goalie_shots_against || 0) + delta);
 
-        await supabase
-          .from("game_stats")
-          .update({ goalie_shots_against: next })
-          .eq("id", gsId);
+        await supabase.from("game_stats").update({ goalie_shots_against: next }).eq("id", gsId);
       }
     }
 
@@ -421,33 +486,21 @@ export default function LivePage() {
       const { data: created } = await supabase
         .from("game_goalies")
         .insert([
-          {
-            game_id: game.id,
-            team_id: goalieTeamId,
-            player_id: goalieId || null,
-            shots_against: 0,
-            goals_against: 0,
-          },
+          { game_id: game.id, team_id: goalieTeamId, player_id: goalieId || null, shots_against: 0, goals_against: 0 },
         ])
         .select("id, shots_against, player_id")
         .single();
       row = created;
     } else if (!row.player_id && goalieId) {
       // Back-fill goalie on existing row if it was missing.
-      await supabase
-        .from("game_goalies")
-        .update({ player_id: goalieId })
-        .eq("id", row.id);
+      await supabase.from("game_goalies").update({ player_id: goalieId }).eq("id", row.id);
     }
 
     if (!row?.id) return;
 
     const nextSA = Math.max(0, (row.shots_against || 0) + delta);
 
-    await supabase
-      .from("game_goalies")
-      .update({ shots_against: nextSA })
-      .eq("id", row.id);
+    await supabase.from("game_goalies").update({ shots_against: nextSA }).eq("id", row.id);
   }
 
   // NOTE: increases are blocked if no opposing goalie is selected; decreases are allowed
@@ -521,10 +574,7 @@ export default function LivePage() {
     if (!goalieId) return;
     const gg = await upsertGameGoalieRow(opposingTeamId, goalieId);
     const nextGA = Math.max(0, (gg?.goals_against || 0) + delta);
-    await supabase
-      .from("game_goalies")
-      .update({ goals_against: nextGA })
-      .eq("id", gg.id);
+    await supabase.from("game_goalies").update({ goals_against: nextGA }).eq("id", gg.id);
   }
 
   /* ---------- goal modal ---------- */
@@ -599,14 +649,7 @@ export default function LivePage() {
       if (aList.length > existing.length) {
         for (let i = existing.length; i < aList.length; i++) {
           await supabase.from("events").insert([
-            {
-              game_id: game.id,
-              team_id: tid,
-              player_id: aList[i],
-              period: per,
-              time_mmss: tm,
-              event: "assist",
-            },
+            { game_id: game.id, team_id: tid, player_id: aList[i], period: per, time_mmss: tm, event: "assist" },
           ]);
         }
       } else if (existing.length > aList.length) {
@@ -624,11 +667,9 @@ export default function LivePage() {
           (game.away_score || 0) +
           (tid === away.id ? 1 : 0) -
           (prevTeamId === away.id ? 1 : 0);
+
         setGame((g) => ({ ...g, home_score: nextHome, away_score: nextAway }));
-        await supabase
-          .from("games")
-          .update({ home_score: nextHome, away_score: nextAway })
-          .eq("id", game.id);
+        await supabase.from("games").update({ home_score: nextHome, away_score: nextAway }).eq("id", game.id);
 
         // GA: old opposing goalie -1, new opposing goalie +1
         await bumpGoalieGA(prevTeamId === home.id ? away.id : home.id, -1);
@@ -643,27 +684,12 @@ export default function LivePage() {
 
     // --- CREATE NEW GOAL ---
     await supabase.from("events").insert([
-      {
-        game_id: game.id,
-        team_id: tid,
-        player_id: scorerId,
-        period: per,
-        time_mmss: tm,
-        event: "goal",
-        goalie_id: goalieScoredOnId, // only goals store goalie_id
-      },
+      { game_id: game.id, team_id: tid, player_id: scorerId, period: per, time_mmss: tm, event: "goal", goalie_id: goalieScoredOnId },
     ]);
 
     for (const aid of aList) {
       await supabase.from("events").insert([
-        {
-          game_id: game.id,
-          team_id: tid,
-          player_id: aid,
-          period: per,
-          time_mmss: tm,
-          event: "assist", // assists: goalie_id left NULL
-        },
+        { game_id: game.id, team_id: tid, player_id: aid, period: per, time_mmss: tm, event: "assist" },
       ]);
     }
 
@@ -673,18 +699,14 @@ export default function LivePage() {
         ? {
             ...g,
             home_score: tid === g.home_team_id ? (g.home_score || 0) + 1 : g.home_score,
-            away_score:
-              tid === g.home_team_id ? g.away_score : (g.away_score || 0) + 1,
+            away_score: tid === g.home_team_id ? g.away_score : (g.away_score || 0) + 1,
           }
         : g
     );
+
     await supabase
       .from("games")
-      .update(
-        tid === game.home_team_id
-          ? { home_score: (game.home_score || 0) + 1 }
-          : { away_score: (game.away_score || 0) + 1 }
-      )
+      .update(tid === game.home_team_id ? { home_score: (game.home_score || 0) + 1 } : { away_score: (game.away_score || 0) + 1 })
       .eq("id", game.id);
 
     // GA on opposing goalie
@@ -701,15 +723,7 @@ export default function LivePage() {
 
       // create 'shot' event that matches this goal
       await supabase.from("events").insert([
-        {
-          game_id: game.id,
-          team_id: tid,
-          player_id: scorerId,
-          period: per,
-          time_mmss: tm,
-          event: "shot",
-          goalie_id: goalieScoredOnId,
-        },
+        { game_id: game.id, team_id: tid, player_id: scorerId, period: per, time_mmss: tm, event: "shot", goalie_id: goalieScoredOnId },
       ]);
     }
 
@@ -727,8 +741,7 @@ export default function LivePage() {
 
     const roster = teamId === home.id ? homeDressed : awayDressed;
     const idsOnIce = new Set(onIce.filter((t) => t.team_id === teamId).map((t) => t.id));
-    const pref =
-      roster.find((p) => idsOnIce.has(p.id))?.id || (roster.length ? roster[0].id : "") || "";
+    const pref = roster.find((p) => idsOnIce.has(p.id))?.id || (roster.length ? roster[0].id : "") || "";
     setShotShooter(pref);
   }
 
@@ -765,15 +778,7 @@ export default function LivePage() {
 
     // 2) create shot event
     await supabase.from("events").insert([
-      {
-        game_id: game.id,
-        team_id: tid,
-        player_id: shooterId,
-        period: per,
-        time_mmss: tm,
-        event: "shot",
-        goalie_id: goalieId,
-      },
+      { game_id: game.id, team_id: tid, player_id: shooterId, period: per, time_mmss: tm, event: "shot", goalie_id: goalieId },
     ]);
 
     setShotPick(null);
@@ -811,17 +816,10 @@ export default function LivePage() {
         }
       }
 
-      const nextHome = isHome
-        ? Math.max(0, (game.home_score || 0) - 1)
-        : game.home_score;
-      const nextAway = isHome
-        ? game.away_score
-        : Math.max(0, (game.away_score || 0) - 1);
+      const nextHome = isHome ? Math.max(0, (game.home_score || 0) - 1) : game.home_score;
+      const nextAway = isHome ? game.away_score : Math.max(0, (game.away_score || 0) - 1);
       setGame((g) => ({ ...g, home_score: nextHome, away_score: nextAway }));
-      await supabase
-        .from("games")
-        .update({ home_score: nextHome, away_score: nextAway })
-        .eq("id", game.id);
+      await supabase.from("games").update({ home_score: nextHome, away_score: nextAway }).eq("id", game.id);
 
       // undo GA on opposing goalie
       await bumpGoalieGA(isHome ? away.id : home.id, -1);
@@ -858,14 +856,7 @@ export default function LivePage() {
       </div>
 
       {/* header: scores + clock + shots */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr auto 1fr",
-          gap: 12,
-          alignItems: "center",
-        }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "center" }}>
         <div>
           <ScoreCard team={away} score={game.away_score || 0} side="left" />
           <ShotCounter
@@ -915,9 +906,7 @@ export default function LivePage() {
           color={awayColor}
           height={RINK_H}
           benchTeamId={away.id}
-          onDropBack={(pid, tid) =>
-            tid === away.id && setOnIce((cur) => cur.filter((t) => t.id !== pid))
-          }
+          onDropBack={(pid, tid) => tid === away.id && setOnIce((cur) => cur.filter((t) => t.id !== pid))}
         />
         <Rink
           height={RINK_H}
@@ -941,9 +930,7 @@ export default function LivePage() {
           color={homeColor}
           height={RINK_H}
           benchTeamId={home.id}
-          onDropBack={(pid, tid) =>
-            tid === home.id && setOnIce((cur) => cur.filter((t) => t.id !== pid))
-          }
+          onDropBack={(pid, tid) => tid === home.id && setOnIce((cur) => cur.filter((t) => t.id !== pid))}
         />
       </div>
 
@@ -972,13 +959,9 @@ export default function LivePage() {
             {rows.map((r, i) => {
               if (r.goal) {
                 const aTxt = r.assists
-                  .map((a) =>
-                    a.players?.name ||
-                    (a.players?.number ? `#${a.players.number}` : "—")
-                  )
+                  .map((a) => a.players?.name || (a.players?.number ? `#${a.players.number}` : "—"))
                   .join(", ");
-                const teamLabel =
-                  r.goal.teams?.short_name || r.goal.teams?.name || "";
+                const teamLabel = r.goal.teams?.short_name || r.goal.teams?.name || "";
                 return (
                   <tr key={`g${i}`} style={{ borderTop: "1px solid #f0f0f0" }}>
                     <td style={{ padding: 8 }}>{r.goal.period}</td>
@@ -987,34 +970,15 @@ export default function LivePage() {
                     <td style={{ padding: 8 }}>goal</td>
                     <td style={{ padding: 8 }}>
                       <strong>
-                        {r.goal.players?.name ||
-                          (r.goal.players?.number
-                            ? `#${r.goal.players.number}`
-                            : "—")}
+                        {r.goal.players?.name || (r.goal.players?.number ? `#${r.goal.players.number}` : "—")}
                       </strong>
-                      {aTxt && (
-                        <span style={{ color: "#666" }}> (A: {aTxt})</span>
-                      )}
+                      {aTxt && <span style={{ color: "#666" }}> (A: {aTxt})</span>}
                     </td>
-                    <td
-                      style={{
-                        padding: 8,
-                        textAlign: "right",
-                        display: "flex",
-                        gap: 8,
-                        justifyContent: "flex-end",
-                      }}
-                    >
-                      <button
-                        className="btn btn-grey"
-                        onClick={() => openGoalFor(null, null, r)}
-                      >
+                    <td style={{ padding: 8, textAlign: "right", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button className="btn btn-grey" onClick={() => openGoalFor(null, null, r)}>
                         Edit
                       </button>
-                      <button
-                        className="btn btn-grey"
-                        onClick={() => deleteRow(r)}
-                      >
+                      <button className="btn btn-grey" onClick={() => deleteRow(r)}>
                         Delete
                       </button>
                     </td>
@@ -1026,19 +990,11 @@ export default function LivePage() {
                 <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f0f0f0" }}>
                   <td style={{ padding: 8 }}>{e.period}</td>
                   <td style={{ padding: 8 }}>{e.time_mmss}</td>
-                  <td style={{ padding: 8 }}>
-                    {e.teams?.short_name || e.teams?.name || ""}
-                  </td>
+                  <td style={{ padding: 8 }}>{e.teams?.short_name || e.teams?.name || ""}</td>
                   <td style={{ padding: 8 }}>{e.event}</td>
-                  <td style={{ padding: 8 }}>
-                    {e.players?.name ||
-                      (e.players?.number ? `#${e.players.number}` : "—")}
-                  </td>
+                  <td style={{ padding: 8 }}>{e.players?.name || (e.players?.number ? `#${e.players.number}` : "—")}</td>
                   <td style={{ padding: 8, textAlign: "right" }}>
-                    <button
-                      className="btn btn-grey"
-                      onClick={() => deleteRow(r)}
-                    >
+                    <button className="btn btn-grey" onClick={() => deleteRow(r)}>
                       Delete
                     </button>
                   </td>
@@ -1052,13 +1008,8 @@ export default function LivePage() {
       {/* goal modal */}
       {goalPick && (
         <Modal>
-          <div
-            className="card"
-            style={{ width: 560, maxWidth: "calc(100vw - 24px)" }}
-          >
-            <div style={{ fontWeight: 800, marginBottom: 6 }}>
-              {goalPick.editKey ? "Edit Goal" : "Confirm Goal"}
-            </div>
+          <div className="card" style={{ width: 560, maxWidth: "calc(100vw - 24px)" }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>{goalPick.editKey ? "Edit Goal" : "Confirm Goal"}</div>
             <div className="muted" style={{ marginBottom: 8 }}>
               {goalPick.team_id === home.id
                 ? home.short_name || home.name
@@ -1067,14 +1018,7 @@ export default function LivePage() {
                 : ""}
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "100px 120px 1fr",
-                gap: 10,
-                marginBottom: 10,
-              }}
-            >
+            <div style={{ display: "grid", gridTemplateColumns: "100px 120px 1fr", gap: 10, marginBottom: 10 }}>
               <div>
                 <div className="muted">Period</div>
                 <input
@@ -1082,55 +1026,34 @@ export default function LivePage() {
                   type="number"
                   min={1}
                   value={goalPeriod}
-                  onChange={(e) =>
-                    setGoalPeriod(parseInt(e.target.value || "1", 10))
-                  }
+                  onChange={(e) => setGoalPeriod(parseInt(e.target.value || "1", 10))}
                 />
               </div>
               <div>
                 <div className="muted">Time</div>
-                <input
-                  className="input"
-                  value={goalTime}
-                  onChange={(e) =>
-                    setGoalTime(e.target.value.replace(/[^\d:]/g, ""))
-                  }
-                />
+                <input className="input" value={goalTime} onChange={(e) => setGoalTime(e.target.value.replace(/[^\d:]/g, ""))} />
               </div>
               <div>
                 <div className="muted">Scorer</div>
                 <select
                   className="input"
                   value={goalPick.scorer}
-                  onChange={(e) =>
-                    setGoalPick((g) => ({
-                      ...g,
-                      scorer: Number(e.target.value),
-                    }))
-                  }
+                  onChange={(e) => setGoalPick((g) => ({ ...g, scorer: Number(e.target.value) }))}
                 >
-                  {(goalPick.team_id === home.id ? homeDressed : awayDressed).map(
-                    (p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.number ? `#${p.number} ` : ""}
-                        {p.name}
-                      </option>
-                    )
-                  )}
+                  {(goalPick.team_id === home.id ? homeDressed : awayDressed).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.number ? `#${p.number} ` : ""}
+                      {p.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
 
-            <div
-              style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
-            >
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <div>
                 <div className="muted">Assist 1</div>
-                <select
-                  className="input"
-                  value={assist1}
-                  onChange={(e) => setAssist1(e.target.value)}
-                >
+                <select className="input" value={assist1} onChange={(e) => setAssist1(e.target.value)}>
                   <option value="">—</option>
                   {assistChoices.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -1142,11 +1065,7 @@ export default function LivePage() {
               </div>
               <div>
                 <div className="muted">Assist 2</div>
-                <select
-                  className="input"
-                  value={assist2}
-                  onChange={(e) => setAssist2(e.target.value)}
-                >
+                <select className="input" value={assist2} onChange={(e) => setAssist2(e.target.value)}>
                   <option value="">—</option>
                   {assistChoices.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -1158,18 +1077,8 @@ export default function LivePage() {
               </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                justifyContent: "flex-end",
-                marginTop: 12,
-              }}
-            >
-              <button
-                className="btn btn-grey"
-                onClick={() => setGoalPick(null)}
-              >
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+              <button className="btn btn-grey" onClick={() => setGoalPick(null)}>
                 Cancel
               </button>
               <button className="btn btn-blue" onClick={confirmGoal}>
@@ -1183,10 +1092,7 @@ export default function LivePage() {
       {/* shot modal */}
       {shotPick && (
         <Modal>
-          <div
-            className="card"
-            style={{ width: 480, maxWidth: "calc(100vw - 24px)" }}
-          >
+          <div className="card" style={{ width: 480, maxWidth: "calc(100vw - 24px)" }}>
             <div style={{ fontWeight: 800, marginBottom: 6 }}>Record Shot</div>
             <div className="muted" style={{ marginBottom: 8 }}>
               {shotPick.team_id === home.id
@@ -1196,14 +1102,7 @@ export default function LivePage() {
                 : ""}
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "100px 120px 1fr",
-                gap: 10,
-                marginBottom: 10,
-              }}
-            >
+            <div style={{ display: "grid", gridTemplateColumns: "100px 120px 1fr", gap: 10, marginBottom: 10 }}>
               <div>
                 <div className="muted">Period</div>
                 <input
@@ -1211,28 +1110,16 @@ export default function LivePage() {
                   type="number"
                   min={1}
                   value={shotPeriod}
-                  onChange={(e) =>
-                    setShotPeriod(parseInt(e.target.value || "1", 10))
-                  }
+                  onChange={(e) => setShotPeriod(parseInt(e.target.value || "1", 10))}
                 />
               </div>
               <div>
                 <div className="muted">Time</div>
-                <input
-                  className="input"
-                  value={shotTime}
-                  onChange={(e) =>
-                    setShotTime(e.target.value.replace(/[^\d:]/g, ""))
-                  }
-                />
+                <input className="input" value={shotTime} onChange={(e) => setShotTime(e.target.value.replace(/[^\d:]/g, ""))} />
               </div>
               <div>
                 <div className="muted">Shooter</div>
-                <select
-                  className="input"
-                  value={shotShooter}
-                  onChange={(e) => setShotShooter(e.target.value)}
-                >
+                <select className="input" value={shotShooter} onChange={(e) => setShotShooter(e.target.value)}>
                   <option value="">—</option>
                   {shotChoices.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -1244,18 +1131,8 @@ export default function LivePage() {
               </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                justifyContent: "flex-end",
-                marginTop: 12,
-              }}
-            >
-              <button
-                className="btn btn-grey"
-                onClick={() => setShotPick(null)}
-              >
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+              <button className="btn btn-grey" onClick={() => setShotPick(null)}>
                 Cancel
               </button>
               <button className="btn btn-blue" onClick={confirmShot}>
@@ -1337,11 +1214,7 @@ function TeamLogoLarge({ team }) {
   const src = team?.logo_url;
   const name = team?.short_name || team?.name || "";
   return src ? (
-    <img
-      src={src}
-      alt={name}
-      style={{ width: 84, height: 48, objectFit: "contain" }}
-    />
+    <img src={src} alt={name} style={{ width: 84, height: 48, objectFit: "contain" }} />
   ) : (
     <div
       style={{
@@ -1365,37 +1238,16 @@ function TeamLogoLarge({ team }) {
   );
 }
 
-function ClockBlock({
-  running,
-  clock,
-  onClockChange,
-  onStart,
-  onReset,
-  period,
-  setPeriod,
-  lenMin,
-  setLenMin,
-}) {
+function ClockBlock({ running, clock, onClockChange, onStart, onReset, period, setPeriod, lenMin, setLenMin }) {
   return (
-    <div
-      className="card"
-      style={{ padding: 12, textAlign: "center", minWidth: 340 }}
-    >
+    <div className="card" style={{ padding: 12, textAlign: "center", minWidth: 340 }}>
       <input
         className="input"
         value={clock}
         onChange={(e) => onClockChange(e.target.value)}
         style={{ fontWeight: 900, fontSize: 34, textAlign: "center" }}
       />
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          justifyContent: "center",
-          marginTop: 8,
-          flexWrap: "wrap",
-        }}
-      >
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
         <button className="btn btn-grey" onClick={onStart}>
           {running ? "Stop" : "Start"}
         </button>
@@ -1403,14 +1255,7 @@ function ClockBlock({
           Reset
         </button>
       </div>
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          justifyContent: "center",
-          marginTop: 8,
-        }}
-      >
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
         <span className="muted">Len</span>
         <input
           className="input"
@@ -1418,9 +1263,7 @@ function ClockBlock({
           min={1}
           max={30}
           value={lenMin}
-          onChange={(e) =>
-            setLenMin(parseInt(e.target.value || "15", 10))
-          }
+          onChange={(e) => setLenMin(parseInt(e.target.value || "15", 10))}
           style={{ width: 70 }}
         />
         <span className="muted">min</span>
@@ -1431,9 +1274,7 @@ function ClockBlock({
           type="number"
           min={1}
           value={period}
-          onChange={(e) =>
-            setPeriod(parseInt(e.target.value || "1", 10))
-          }
+          onChange={(e) => setPeriod(parseInt(e.target.value || "1", 10))}
           style={{ width: 70 }}
         />
       </div>
@@ -1471,10 +1312,7 @@ function Bench({ title, players, color, height, benchTeamId, onDropBack }) {
             key={p.id}
             draggable
             onDragStart={(e) =>
-              e.dataTransfer.setData(
-                "text/plain",
-                JSON.stringify({ id: p.id, team_id: benchTeamId })
-              )
+              e.dataTransfer.setData("text/plain", JSON.stringify({ id: p.id, team_id: benchTeamId }))
             }
             className="chip"
             title={`Drag #${p.number ?? "?"} onto the rink`}
@@ -1533,26 +1371,8 @@ function Rink({
       onDrop={onDrop}
     >
       {/* yellow bands */}
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          height: 10,
-          background: "#ffd400",
-          top: 0,
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          height: 10,
-          background: "#ffd400",
-          bottom: 0,
-        }}
-      />
+      <div style={{ position: "absolute", left: 0, right: 0, height: 10, background: "#ffd400", top: 0 }} />
+      <div style={{ position: "absolute", left: 0, right: 0, height: 10, background: "#ffd400", bottom: 0 }} />
       <div
         style={{
           position: "absolute",
@@ -1615,14 +1435,8 @@ function Rink({
           textShadow: "0 1px 2px rgba(0,0,0,0.35)",
         }}
       >
-        <div style={{ fontSize: 12, marginBottom: 4 }}>
-          {away.short_name || away.name} Goalie
-        </div>
-        <select
-          className="input"
-          value={goalieOnIce[away.id] || ""}
-          onChange={(e) => setGoalie(away.id, Number(e.target.value) || null)}
-        >
+        <div style={{ fontSize: 12, marginBottom: 4 }}>{away.short_name || away.name} Goalie</div>
+        <select className="input" value={goalieOnIce[away.id] || ""} onChange={(e) => setGoalie(away.id, Number(e.target.value) || null)}>
           <option value="">—</option>
           {awayDressed
             .filter((p) => (p.position || "").toLowerCase().includes("g"))
@@ -1643,14 +1457,8 @@ function Rink({
           textShadow: "0 1px 2px rgba(0,0,0,0.35)",
         }}
       >
-        <div style={{ fontSize: 12, marginBottom: 4 }}>
-          {home.short_name || home.name} Goalie
-        </div>
-        <select
-          className="input"
-          value={goalieOnIce[home.id] || ""}
-          onChange={(e) => setGoalie(home.id, Number(e.target.value) || null)}
-        >
+        <div style={{ fontSize: 12, marginBottom: 4 }}>{home.short_name || home.name} Goalie</div>
+        <select className="input" value={goalieOnIce[home.id] || ""} onChange={(e) => setGoalie(home.id, Number(e.target.value) || null)}>
           <option value="">—</option>
           {homeDressed
             .filter((p) => (p.position || "").toLowerCase().includes("g"))
@@ -1676,16 +1484,8 @@ function Rink({
             x={t.x}
             y={t.y}
             color={col}
-            onMove={(nx, ny) =>
-              setOnIce((cur) =>
-                cur.map((it) =>
-                  it.id === t.id ? { ...it, x: nx, y: ny } : it
-                )
-              )
-            }
-            onRemove={() =>
-              setOnIce((cur) => cur.filter((it) => it.id !== t.id))
-            }
+            onMove={(nx, ny) => setOnIce((cur) => cur.map((it) => (it.id === t.id ? { ...it, x: nx, y: ny } : it)))}
+            onRemove={() => setOnIce((cur) => cur.filter((it) => it.id !== t.id))}
           />
         );
       })}
@@ -1696,10 +1496,7 @@ function Rink({
 function IceToken({ player, teamId, x, y, color, onMove, onRemove }) {
   const ref = useRef(null);
   function onDragStart(e) {
-    e.dataTransfer.setData(
-      "text/plain",
-      JSON.stringify({ id: player.id, team_id: teamId })
-    );
+    e.dataTransfer.setData("text/plain", JSON.stringify({ id: player.id, team_id: teamId }));
   }
   function onDragEnd(e) {
     const parent = ref.current?.parentElement?.getBoundingClientRect();
