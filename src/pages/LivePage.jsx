@@ -34,6 +34,7 @@ export default function LivePage() {
 
   const [homeDressed, setHomeDressed] = useState([]);
   const [awayDressed, setAwayDressed] = useState([]);
+  const [numberMapByTeam, setNumberMapByTeam] = useState({}); // teamId -> { playerId: number }
 
   const [goalieOnIce, setGoalieOnIce] = useState({});
   const [onIce, setOnIce] = useState([]);
@@ -85,24 +86,27 @@ export default function LivePage() {
 
   /* ---------- NEW: roster helpers (team_players -> game_rosters) ---------- */
 
-  async function fetchGameRosterDressed(gameId, teamId) {
+  
+  async function fetchGameRosterDressed(gameId, teamId, numMap) {
     const { data, error } = await supabase
       .from("game_rosters")
-      .select("player_id, dressed, players:player_id(id,name,number,position)")
+      .select("player_id, dressed, players:player_id(id,name,position)")
       .eq("game_id", gameId)
-      .eq("team_id", teamId)
-      .eq("dressed", true);
+      .eq("team_id", teamId);
 
-    if (error) {
-      console.error("fetchGameRosterDressed error:", error);
-      return [];
-    }
+    if (error) throw error;
 
-    return (data || [])
-      .map((r) => r.players)
-      .filter(Boolean)
-      .sort((a, b) => (a.number || 0) - (b.number || 0));
+    const rows = (data || [])
+      .map((r) => {
+        const pid = r.players?.id ?? r.player_id;
+        const number = numMap?.[pid] ?? "";
+        return { ...r, players: r.players ? { ...r.players, number } : r.players };
+      })
+      .sort((a, b) => (Number(a.players?.number) || 999) - (Number(b.players?.number) || 999) || String(a.players?.name || "").localeCompare(String(b.players?.name || "")));
+
+    return rows;
   }
+
 
   async function initGameRostersFromTeamPlayers(gameId, seasonId, categoryId, teamId) {
     // 1) read season roster from team_players
@@ -152,9 +156,29 @@ export default function LivePage() {
     }
   }
 
-  async function ensureAndLoadDressed(gameRow, teamId) {
+  
+  async function fetchNumberMapForTeam(teamId, seasonId, categoryId) {
+    if (!teamId || !seasonId || !categoryId) return {};
+    const { data, error } = await supabase
+      .from("team_players")
+      .select("player_id, number")
+      .eq("team_id", teamId)
+      .eq("season_id", seasonId)
+      .eq("category_id", categoryId)
+      .eq("is_active", true);
+
+    if (error) throw error;
+
+    const map = {};
+    (data || []).forEach((r) => {
+      map[Number(r.player_id)] = r.number;
+    });
+    return map;
+  }
+
+async function ensureAndLoadDressed(gameRow, teamId) {
     // Prefer existing game_rosters
-    let dressed = await fetchGameRosterDressed(gameRow.id, teamId);
+    let dressed = await fetchGameRosterDressed(gameRow.id, teamId, numberMapByTeam[teamId] || {});
 
     // If none, auto-initialize from team_players, then re-read
     if (!dressed.length) {
@@ -164,7 +188,7 @@ export default function LivePage() {
         gameRow.category_id,
         teamId
       );
-      dressed = await fetchGameRosterDressed(gameRow.id, teamId);
+      dressed = await fetchGameRosterDressed(gameRow.id, teamId, numberMapByTeam[teamId] || {});
     }
 
     return dressed;
