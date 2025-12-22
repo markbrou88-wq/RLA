@@ -336,7 +336,8 @@ export default function TeamPage() {
       }
 
       // refresh roster + existing list
-      setExistingPlayerId("");
+      setSelectedExistingId("");
+
       setExistingNumber("");
       await reload();
       setAddMode("new");
