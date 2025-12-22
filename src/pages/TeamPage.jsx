@@ -114,6 +114,7 @@ function useTeamSummary(teamId) {
 
 /**
  * Roster from team_players scoped to season/category
+ * (jersey number is team_players.number)
  */
 function useRoster(teamId, seasonId, categoryId) {
   const [players, setPlayers] = React.useState([]);
@@ -126,22 +127,24 @@ function useRoster(teamId, seasonId, categoryId) {
 
     const { data, error } = await supabase
       .from("team_players")
-     .select("number, player:players(id,name,position)")
+      .select("number, player:players(id,name,position)")
       .eq("team_id", Number(teamId))
       .eq("season_id", Number(seasonId))
       .eq("category_id", Number(categoryId))
       .eq("is_active", true)
-      .order("player(number)", { ascending: true });
+      .order("number", { ascending: true, nullsFirst: false });
 
     if (error) return console.error(error);
+
+    // Map into flat player objects but keep roster number from team_players
     setPlayers(
-  (data || [])
-    .map((r) => ({
-      ...r.player,
-      number: r.number,
-    }))
-    .filter(Boolean)
-);
+      (data || [])
+        .map((r) => ({
+          ...(r.player || {}),
+          number: r.number ?? "",
+        }))
+        .filter((p) => p && p.id != null)
+    );
   }, [teamId, seasonId, categoryId]);
 
   React.useEffect(() => void reload(), [reload]);
@@ -264,14 +267,17 @@ export default function TeamPage() {
 
   // ---- Add / Edit / Delete ----
   const [adding, setAdding] = React.useState(false);
-  const [addMode, setAddMode] = React.useState("new"); // NEW: "new" | "existing"
+  const [addMode, setAddMode] = React.useState("new"); // "new" | "existing"
+
+  // NEW player (jersey number goes to team_players.number)
   const [newPlayer, setNewPlayer] = React.useState({ number: "", name: "", position: "F" });
 
-  // NEW: existing players list
+  // EXISTING player selection + jersey input
   const [existingPlayers, setExistingPlayers] = React.useState([]);
   const [selectedExisting, setSelectedExisting] = React.useState("");
+  const [existingNumber, setExistingNumber] = React.useState("");
 
-  // ✅ FIXED: Load existing players not already on this roster (2-step, no subquery)
+  // Load existing players not already on this roster (for this team/season/category)
   React.useEffect(() => {
     if (!adding || addMode !== "existing" || !seasonId || !categoryId) {
       setExistingPlayers([]);
@@ -280,7 +286,6 @@ export default function TeamPage() {
 
     (async () => {
       try {
-        // 1) get already-used player ids for this team/season/category
         const { data: usedRows, error: usedErr } = await supabase
           .from("team_players")
           .select("player_id")
@@ -297,14 +302,15 @@ export default function TeamPage() {
 
         const usedIds = (usedRows || []).map((r) => r.player_id).filter((x) => x != null);
 
-        // 2) fetch players, excluding used ids
-        let q = supabase.from("players").select("id,number,name,position").order("name", { ascending: true });
+        // IMPORTANT: players table no longer has "number"
+        let q = supabase.from("players").select("id,name,position").order("name", { ascending: true });
 
         if (usedIds.length > 0) {
           q = q.not("id", "in", `(${usedIds.join(",")})`);
         }
 
         const { data: avail, error: availErr } = await q;
+
         if (availErr) {
           console.error("players fetch error", availErr);
           setExistingPlayers([]);
@@ -327,9 +333,9 @@ export default function TeamPage() {
     }
 
     const payloadPlayer = {
-  name: newPlayer.name,
-  position: newPlayer.position || "F",
-};
+      name: newPlayer.name,
+      position: newPlayer.position || "F",
+    };
 
     const { data: insertedPlayer, error: pErr } = await supabase
       .from("players")
@@ -339,19 +345,22 @@ export default function TeamPage() {
     if (pErr) return alert(pErr.message);
 
     const payloadTeamPlayer = {
-  team_id: Number(id),
-  player_id: Number(insertedPlayer.id),
-  season_id: Number(seasonId),
-  category_id: Number(categoryId),
-  number: newPlayer.number === "" ? null : Number(newPlayer.number),
-  is_active: true,
-};
+      team_id: Number(id),
+      player_id: Number(insertedPlayer.id),
+      season_id: Number(seasonId),
+      category_id: Number(categoryId),
+      number: newPlayer.number === "" ? null : Number(newPlayer.number),
+      is_active: true,
+    };
 
     const { error: tpErr } = await supabase.from("team_players").insert(payloadTeamPlayer);
     if (tpErr) return alert(tpErr.message);
 
     setAdding(false);
+    setAddMode("new");
     setNewPlayer({ number: "", name: "", position: "F" });
+    setSelectedExisting("");
+    setExistingNumber("");
     reload();
   }
 
@@ -367,12 +376,15 @@ export default function TeamPage() {
       player_id: Number(selectedExisting),
       season_id: Number(seasonId),
       category_id: Number(categoryId),
+      number: existingNumber === "" ? null : Number(existingNumber),
       is_active: true,
     });
     if (error) return alert(error.message);
 
     setAdding(false);
+    setAddMode("new");
     setSelectedExisting("");
+    setExistingNumber("");
     reload();
   }
 
@@ -380,41 +392,52 @@ export default function TeamPage() {
     setPlayers((cur) =>
       cur.map((p) =>
         p.id === pid
-          ? { ...p, __edit: { number: p.number ?? "", name: p.name, position: p.position || "F" } }
+          ? {
+              ...p,
+              __edit: { number: p.number ?? "", name: p.name, position: p.position || "F" },
+            }
           : p
       )
     );
   }
+
   function cancelEdit(pid) {
     setPlayers((cur) => cur.map((p) => (p.id === pid ? { ...p, __edit: undefined } : p)));
   }
+
   async function saveEdit(pid) {
     const row = players.find((p) => p.id === pid);
     if (!row || !row.__edit) return;
-    // update players table (name, position)
-const { error: pErr } = await supabase
-  .from("players")
-  .update({
-    name: row.__edit.name,
-    position: row.__edit.position || "F",
-  })
-  .eq("id", pid);
 
-if (pErr) return alert(pErr.message);
+    if (!seasonId || !categoryId) {
+      alert("Please select a Season and Category first.");
+      return;
+    }
 
-// update team_players number for this roster context
-const { error: tpErr } = await supabase
-  .from("team_players")
-  .update({
-    number: row.__edit.number === "" ? null : Number(row.__edit.number),
-  })
-  .eq("team_id", Number(id))
-  .eq("player_id", Number(pid))
-  .eq("season_id", Number(seasonId))
-  .eq("category_id", Number(categoryId));
+    // Update players table (name, position)
+    const { error: pErr } = await supabase
+      .from("players")
+      .update({
+        name: row.__edit.name,
+        position: row.__edit.position || "F",
+      })
+      .eq("id", pid);
 
-if (tpErr) return alert(tpErr.message);
-    if (error) return alert(error.message);
+    if (pErr) return alert(pErr.message);
+
+    // Update team_players.number for THIS roster context
+    const { error: tpErr } = await supabase
+      .from("team_players")
+      .update({
+        number: row.__edit.number === "" ? null : Number(row.__edit.number),
+      })
+      .eq("team_id", Number(id))
+      .eq("player_id", Number(pid))
+      .eq("season_id", Number(seasonId))
+      .eq("category_id", Number(categoryId));
+
+    if (tpErr) return alert(tpErr.message);
+
     reload();
   }
 
@@ -466,6 +489,7 @@ if (tpErr) return alert(tpErr.message);
     });
     return copy;
   }, [rows, sortKey, sortDir]);
+
   const clickSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -539,7 +563,15 @@ if (tpErr) return alert(tpErr.message);
               </button>
             ) : (
               <div className="row gap wrap">
-                <select className="in" value={addMode} onChange={(e) => setAddMode(e.target.value)}>
+                <select
+                  className="in"
+                  value={addMode}
+                  onChange={(e) => {
+                    setAddMode(e.target.value);
+                    setSelectedExisting("");
+                    setExistingNumber("");
+                  }}
+                >
                   <option value="new">New</option>
                   <option value="existing">Existing</option>
                 </select>
@@ -551,9 +583,7 @@ if (tpErr) return alert(tpErr.message);
                       placeholder="#"
                       style={{ width: 70, textAlign: "center" }}
                       value={newPlayer.number}
-                      onChange={(e) =>
-                        setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))
-                      }
+                      onChange={(e) => setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))}
                     />
                     <input
                       className="in"
@@ -578,26 +608,40 @@ if (tpErr) return alert(tpErr.message);
                   </>
                 ) : (
                   <>
-                    <select
-                      className="in"
-                      style={{ width: 260 }}
-                      value={selectedExisting}
-                      onChange={(e) => setSelectedExisting(e.target.value)}
-                    >
+                    <select className="in" style={{ width: 260 }} value={selectedExisting} onChange={(e) => setSelectedExisting(e.target.value)}>
                       <option value="">Select existing player…</option>
                       {existingPlayers.map((p) => (
-                       <option key={p.id} value={p.id}>
-  {p.name}
-</option>
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
                       ))}
                     </select>
+
+                    <input
+                      className="in"
+                      placeholder="#"
+                      style={{ width: 70, textAlign: "center" }}
+                      value={existingNumber}
+                      onChange={(e) => setExistingNumber(e.target.value.replace(/\D/g, ""))}
+                      title="Jersey number for this team/season/category"
+                    />
+
                     <button className="btn" onClick={addExistingPlayer}>
                       Add
                     </button>
                   </>
                 )}
 
-                <button className="btn ghost" onClick={() => setAdding(false)}>
+                <button
+                  className="btn ghost"
+                  onClick={() => {
+                    setAdding(false);
+                    setAddMode("new");
+                    setNewPlayer({ number: "", name: "", position: "F" });
+                    setSelectedExisting("");
+                    setExistingNumber("");
+                  }}
+                >
                   Cancel
                 </button>
               </div>
@@ -610,7 +654,7 @@ if (tpErr) return alert(tpErr.message);
       <div className="tbl">
         <div className="tr thead">
           <Th col="player" label="Player" sortKeyFor="name" />
-          <Th col="number" label="#" />
+          <Th col="number" label="#" sortKeyFor="number" />
           <Th col="pos" label="POS" sortKeyFor="position" />
           <Th col="gp" label="GP" />
           <Th col="g" label="G" />
