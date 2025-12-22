@@ -45,39 +45,67 @@ export default function RosterPage() {
     })();
   }, [slug]);
 
-  async function load(g) {
-    const gameId = g.id;
-    const { home_team_id, away_team_id, season_id, category_id } = g;
+  
+  async function load() {
+    setLoading(true);
+    try {
+      const { data: g, error: gErr } = await supabase
+        .from("games")
+        .select("id, season_id, category_id, home_team_id, away_team_id")
+        .eq("slug", slug)
+        .single();
 
-    const [{ data: rp }, { data: hp }, { data: ap }] = await Promise.all([
-      // existing dressed toggles
-      supabase.from("game_rosters").select("*").eq("game_id", gameId),
+      if (gErr) throw gErr;
+      setGame(g);
 
-      // HOME season roster
-      supabase
-        .from("team_players")
-        .select("player:players(*)")
-        .eq("team_id", home_team_id)
-        .eq("season_id", season_id)
-        .eq("category_id", category_id)
-        .eq("is_active", true)
-        .order("player(number)"),
+      const [homeNumsRes, awayNumsRes] = await Promise.all([
+        supabase
+          .from("team_players")
+          .select("player_id, number")
+          .eq("team_id", g.home_team_id)
+          .eq("season_id", g.season_id)
+          .eq("category_id", g.category_id)
+          .eq("is_active", true),
+        supabase
+          .from("team_players")
+          .select("player_id, number")
+          .eq("team_id", g.away_team_id)
+          .eq("season_id", g.season_id)
+          .eq("category_id", g.category_id)
+          .eq("is_active", true),
+      ]);
 
-      // AWAY season roster
-      supabase
-        .from("team_players")
-        .select("player:players(*)")
-        .eq("team_id", away_team_id)
-        .eq("season_id", season_id)
-        .eq("category_id", category_id)
-        .eq("is_active", true)
-        .order("player(number)"),
-    ]);
+      if (homeNumsRes.error) throw homeNumsRes.error;
+      if (awayNumsRes.error) throw awayNumsRes.error;
 
-    setRosterMap(new Map((rp || []).map((r) => [`${r.team_id}:${r.player_id}`, r])));
-    setHomePlayers((hp || []).map((r) => r.player).filter(Boolean));
-    setAwayPlayers((ap || []).map((r) => r.player).filter(Boolean));
+      const homeNumMap = new Map((homeNumsRes.data || []).map((r) => [Number(r.player_id), r.number]));
+      const awayNumMap = new Map((awayNumsRes.data || []).map((r) => [Number(r.player_id), r.number]));
+
+      const { data, error } = await supabase
+        .from("game_rosters")
+        .select("team_id, player_id, dressed, players:player_id(id,name,position)")
+        .eq("game_id", g.id);
+
+      if (error) throw error;
+
+      const rows = (data || []).map((r) => {
+        const num =
+          r.team_id === g.home_team_id
+            ? homeNumMap.get(Number(r.player_id))
+            : awayNumMap.get(Number(r.player_id));
+
+        return { ...r, players: r.players ? { ...r.players, number: num ?? "" } : null };
+      });
+
+      setHomeRoster(rows.filter((r) => r.team_id === g.home_team_id));
+      setAwayRoster(rows.filter((r) => r.team_id === g.away_team_id));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }
+
 
   async function togglePlayed(teamId, player) {
     const key = `${teamId}:${player.id}`;
