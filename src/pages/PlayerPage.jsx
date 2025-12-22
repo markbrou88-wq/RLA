@@ -5,7 +5,6 @@ import { supabase } from "../supabaseClient";
 
 function useMaybeI18n() {
   try {
-    // eslint-disable-next-line global-require
     const { useI18n } = require("../i18n");
     return useI18n();
   } catch {
@@ -19,13 +18,11 @@ export default function PlayerPage() {
   const pid = Number(id);
 
   const [player, setPlayer] = React.useState(null);
-  const [team, setTeam] = React.useState(null);
+  const [headerTeam, setHeaderTeam] = React.useState(null);
+  const [headerNumber, setHeaderNumber] = React.useState(null);
 
-  // season cards
-  const [skaterStat, setSkaterStat] = React.useState(null);
-  const [goalieStat, setGoalieStat] = React.useState(null);
+  const [seasonStats, setSeasonStats] = React.useState([]);
 
-  // logs
   const [skaterLog, setSkaterLog] = React.useState([]);
   const [goalieLog, setGoalieLog] = React.useState([]);
 
@@ -37,43 +34,57 @@ export default function PlayerPage() {
     async function load() {
       setLoading(true);
 
-      // Player
+      /* ---------- PLAYER (no number, no team anymore) ---------- */
       const { data: pRow, error: e1 } = await supabase
         .from("players")
-        .select("id, name, number, position, team_id")
+        .select("id, name, position")
         .eq("id", pid)
         .single();
+
       if (e1 || !pRow) {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
         return;
       }
 
-      const isGoalie = String(pRow.position || "").trim().toUpperCase() === "G";
+      const isGoalie =
+        String(pRow.position || "").trim().toUpperCase() === "G";
 
-      // Team (for header)
-      const { data: tRow } = await supabase
-        .from("teams")
-        .select("id, name, short_name, logo_url")
-        .eq("id", pRow.team_id)
-        .maybeSingle();
+      /* ---------- SEASON STATS (leaders_current) ---------- */
+      const { data: statRows } = await supabase
+        .from("leaders_current")
+        .select(
+          "season_id, category_id, team, gp, g, a, pts"
+        )
+        .eq("player_id", pid)
+        .order("season_id", { ascending: false })
+        .order("category_id", { ascending: false });
 
-      // Season cards (views)
-      const [{ data: sk }, { data: gs }] = await Promise.all([
-        supabase
-          .from("player_stats_current")
-          .select("player_id, gp, g, a, pts, team")
-          .eq("player_id", pid)
-          .maybeSingle(),
-        supabase
-          .from("goalie_stats_current")
+      const stats = statRows || [];
+
+      /* ---------- HEADER TEAM + NUMBER (latest season/category) ---------- */
+      let teamRow = null;
+      let jersey = null;
+
+      if (stats.length > 0) {
+        const latest = stats[0];
+
+        const { data: tpRow } = await supabase
+          .from("team_players")
           .select(
-            "player_id, sa, ga, sv_pct, gaa, toi_seconds, wins, losses, otl, so, team"
+            "number, team_id, teams ( id, name, short_name, logo_url )"
           )
           .eq("player_id", pid)
-          .maybeSingle(),
-      ]);
+          .eq("season_id", latest.season_id)
+          .eq("category_id", latest.category_id)
+          .maybeSingle();
 
-      // Look up teams and games once for both logs
+        if (tpRow) {
+          jersey = tpRow.number;
+          teamRow = tpRow.teams || null;
+        }
+      }
+
+      /* ---------- MAP TEAMS & GAMES (for logs) ---------- */
       const [{ data: teams }, { data: games }] = await Promise.all([
         supabase.from("teams").select("id, name, short_name"),
         supabase
@@ -82,20 +93,19 @@ export default function PlayerPage() {
             "id, game_date, home_team_id, away_team_id, slug, home_score, away_score"
           ),
       ]);
+
       const tMap = new Map((teams || []).map((x) => [x.id, x]));
       const gMap = new Map((games || []).map((x) => [x.id, x]));
 
-      // ---------- SKATER LOG (only if not G) ----------
+      /* ---------- SKATER LOG ---------- */
       let builtSkaterLog = [];
       if (!isGoalie) {
-        // All dressed games
         const { data: rosterRows } = await supabase
           .from("game_rosters")
           .select("game_id, team_id, dressed")
           .eq("player_id", pid)
           .eq("dressed", true);
 
-        // Overlay G/A from events for this player
         const { data: evs } = await supabase
           .from("events")
           .select("game_id, event, player_id")
@@ -129,20 +139,20 @@ export default function PlayerPage() {
             };
           })
           .sort(
-            (a, b) => (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0)
+            (a, b) =>
+              (b.date?.getTime?.() || 0) -
+              (a.date?.getTime?.() || 0)
           );
       }
 
-      // ---------- GOALIE LOG (roster-based, like skater) ----------
+      /* ---------- GOALIE LOG ---------- */
       let builtGoalieLog = [];
-      // get dressed games for this player
       const { data: gRoster } = await supabase
         .from("game_rosters")
         .select("game_id, team_id, dressed")
         .eq("player_id", pid)
         .eq("dressed", true);
 
-      // overlay per-game goalie numbers if they exist
       const { data: gStats } = await supabase
         .from("game_goalies")
         .select(
@@ -158,7 +168,9 @@ export default function PlayerPage() {
           const overlay = ggMap.get(r.game_id);
           const date = gm?.game_date ? new Date(gm.game_date) : null;
           const oppId =
-            r.team_id === gm?.home_team_id ? gm?.away_team_id : gm?.home_team_id;
+            r.team_id === gm?.home_team_id
+              ? gm?.away_team_id
+              : gm?.home_team_id;
           const opp = tMap.get(oppId);
           return {
             game_id: r.game_id,
@@ -173,14 +185,16 @@ export default function PlayerPage() {
           };
         })
         .sort(
-          (a, b) => (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0)
+          (a, b) =>
+            (b.date?.getTime?.() || 0) -
+            (a.date?.getTime?.() || 0)
         );
 
       if (!cancelled) {
         setPlayer(pRow);
-        setTeam(tRow || null);
-        setSkaterStat(sk || null);
-        setGoalieStat(gs || null);
+        setSeasonStats(stats);
+        setHeaderTeam(teamRow);
+        setHeaderNumber(jersey);
         setSkaterLog(builtSkaterLog);
         setGoalieLog(builtGoalieLog);
         setLoading(false);
@@ -196,18 +210,18 @@ export default function PlayerPage() {
   if (loading) return <div>Loading…</div>;
   if (!player) return <div>Player not found.</div>;
 
-  const isGoalie = String(player.position || "").trim().toUpperCase() === "G";
+  const isGoalie =
+    String(player.position || "").trim().toUpperCase() === "G";
 
   return (
     <div className="player-page">
-      {/* back link, no short name at top-right */}
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <Link to="/stats" style={{ textDecoration: "none" }}>
           ← Back to Stats
         </Link>
       </div>
 
-      {/* Header: bigger logo, number+name then position on one line */}
+      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -217,83 +231,78 @@ export default function PlayerPage() {
           flexWrap: "wrap",
         }}
       >
-        {team?.logo_url ? (
+        {headerTeam?.logo_url && (
           <img
-            src={team.logo_url}
-            alt={team?.short_name || team?.name || ""}
+            src={headerTeam.logo_url}
+            alt={headerTeam.short_name || headerTeam.name}
             style={{ width: 72, height: 72, objectFit: "contain" }}
           />
-        ) : null}
+        )}
         <h2 style={{ margin: 0, fontWeight: 700 }}>
-          {player.number ? `#${player.number} ` : ""}
+          {headerNumber ? `#${headerNumber} ` : ""}
           {player.name}
-          <span style={{ marginLeft: 10, color: "#666", fontWeight: 500 }}>
+          <span
+            style={{
+              marginLeft: 10,
+              color: "#666",
+              fontWeight: 500,
+            }}
+          >
             {player.position || "-"}
           </span>
         </h2>
       </div>
 
-      {/* Summary cards – show only the relevant one */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-          gap: 12,
-          marginTop: 16,
-        }}
-      >
-        {!isGoalie && (
-          <div style={cardS}>
-            <div style={cardTitle}>Skater (season)</div>
-            {skaterStat ? (
-              <table style={miniTbl}>
-                <tbody>
-                  <SR label="GP" v={skaterStat.gp} />
-                  <SR label="G" v={skaterStat.g} />
-                  <SR label="A" v={skaterStat.a} />
-                  <SR label="P" v={skaterStat.pts} strong />
-                </tbody>
-              </table>
-            ) : (
-              <div style={{ color: "#777" }}>No skater stats yet.</div>
-            )}
-          </div>
-        )}
+      {/* Season stats table */}
+      <section style={{ marginTop: 18 }}>
+        <h3 style={{ margin: "8px 0" }}>
+          Stats by season & category
+        </h3>
+        <div
+          style={{
+            overflowX: "auto",
+            border: "1px solid #eee",
+            borderRadius: 10,
+          }}
+        >
+          <table style={logTbl}>
+            <thead style={theadS}>
+              <tr>
+                <th style={thS}>Season</th>
+                <th style={thS}>Cat</th>
+                <th style={thS}>Team</th>
+                <th style={thS}>GP</th>
+                <th style={thS}>G</th>
+                <th style={thS}>A</th>
+                <th style={thS}>PTS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {seasonStats.length === 0 ? (
+                <tr>
+                  <td style={tdS} colSpan={7}>
+                    No stats yet.
+                  </td>
+                </tr>
+              ) : (
+                seasonStats.map((r, i) => (
+                  <tr key={i}>
+                    <td style={tdS}>{r.season_id}</td>
+                    <td style={tdS}>{r.category_id}</td>
+                    <td style={tdS}>{r.team}</td>
+                    <td style={tdS}>{r.gp}</td>
+                    <td style={tdS}>{r.g}</td>
+                    <td style={tdS}>{r.a}</td>
+                    <td style={tdS}>{r.pts}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-        {isGoalie && (
-          <div style={cardS}>
-            <div style={cardTitle}>Goalie (season)</div>
-            {goalieStat ? (
-              <table style={miniTbl}>
-                <tbody>
-                  <SR label="SA" v={goalieStat.sa ?? 0} />
-                  <SR label="GA" v={goalieStat.ga ?? 0} />
-                  <SR
-                    label="SV%"
-                    v={goalieStat.sv_pct != null ? `${goalieStat.sv_pct}%` : "—"}
-                  />
-                  <SR
-                    label="GAA"
-                    v={goalieStat.gaa != null ? goalieStat.gaa : "—"}
-                  />
-                  <SR label="TOI" v={fmtTOI(goalieStat.toi_seconds)} />
-                  <SR
-                    label="W-L-OTL"
-                    v={`${goalieStat.wins ?? 0}-${goalieStat.losses ?? 0}-${
-                      goalieStat.otl ?? 0
-                    }`}
-                  />
-                  <SR label="SO" v={goalieStat.so ?? 0} />
-                </tbody>
-              </table>
-            ) : (
-              <div style={{ color: "#777" }}>No goalie stats yet.</div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* LOGS */}
+      {/* Logs kept as-is */}
       {!isGoalie && (
         <section style={{ marginTop: 18 }}>
           <h3 style={{ margin: "8px 0" }}>Game log (Skater)</h3>
@@ -326,7 +335,9 @@ export default function PlayerPage() {
                   skaterLog.map((r) => (
                     <tr key={`sk-${r.game_id}`}>
                       <td style={tdS}>
-                        {r.date ? r.date.toLocaleDateString() : "—"}
+                        {r.date
+                          ? r.date.toLocaleDateString()
+                          : "—"}
                       </td>
                       <td style={tdS}>
                         {r.away} @ {r.home}
@@ -337,7 +348,11 @@ export default function PlayerPage() {
                         {r.hs}–{r.as}
                       </td>
                       <td style={tdS}>
-                        <Link to={`/games/${r.slug}/boxscore`}>View</Link>
+                        <Link
+                          to={`/games/${r.slug}/boxscore`}
+                        >
+                          View
+                        </Link>
                       </td>
                     </tr>
                   ))
@@ -383,22 +398,38 @@ export default function PlayerPage() {
                   goalieLog.map((r) => {
                     const svpct =
                       r.sa > 0
-                        ? `${Math.round((1 - r.ga / r.sa) * 1000) / 10}%`
+                        ? `${Math.round(
+                            (1 - r.ga / r.sa) * 1000
+                          ) / 10}%`
                         : "—";
                     return (
                       <tr key={`gl-${r.game_id}`}>
                         <td style={tdS}>
-                          {r.date ? r.date.toLocaleDateString() : "—"}
+                          {r.date
+                            ? r.date.toLocaleDateString()
+                            : "—"}
                         </td>
-                        <td style={tdS}>{r.opponent || "—"}</td>
+                        <td style={tdS}>
+                          {r.opponent || "—"}
+                        </td>
                         <td style={tdS}>{r.sa}</td>
                         <td style={tdS}>{r.ga}</td>
                         <td style={tdS}>{svpct}</td>
-                        <td style={tdS}>{fmtTOI(r.toi)}</td>
-                        <td style={tdS}>{r.decision || "—"}</td>
-                        <td style={tdS}>{r.so ? 1 : 0}</td>
                         <td style={tdS}>
-                          <Link to={`/games/${r.slug}/boxscore`}>View</Link>
+                          {fmtTOI(r.toi)}
+                        </td>
+                        <td style={tdS}>
+                          {r.decision || "—"}
+                        </td>
+                        <td style={tdS}>
+                          {r.so ? 1 : 0}
+                        </td>
+                        <td style={tdS}>
+                          <Link
+                            to={`/games/${r.slug}/boxscore`}
+                          >
+                            View
+                          </Link>
                         </td>
                       </tr>
                     );
@@ -414,23 +445,6 @@ export default function PlayerPage() {
 }
 
 /* ---------- helpers & styles ---------- */
-function SR({ label, v, strong }) {
-  return (
-    <tr>
-      <td style={{ padding: "6px 8px", color: "#666" }}>{label}</td>
-      <td
-        style={{
-          padding: "6px 8px",
-          textAlign: "right",
-          fontWeight: strong ? 700 : 500,
-        }}
-      >
-        {v ?? "—"}
-      </td>
-    </tr>
-  );
-}
-
 function fmtTOI(sec) {
   const s = Number(sec || 0);
   const m = Math.floor(s / 60);
@@ -438,11 +452,14 @@ function fmtTOI(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-const cardS = { border: "1px solid #eee", borderRadius: 10, padding: 12 };
-const cardTitle = { fontWeight: 700, marginBottom: 6 };
-const miniTbl = { width: "100%", borderCollapse: "collapse", fontSize: 14 };
-const logTbl = { width: "100%", borderCollapse: "collapse", fontSize: 14 };
-const theadS = { background: "var(--table-head, #f4f5f8)" };
+const logTbl = {
+  width: "100%",
+  borderCollapse: "collapse",
+  fontSize: 14,
+};
+const theadS = {
+  background: "var(--table-head, #f4f5f8)",
+};
 const thS = {
   textAlign: "left",
   padding: "10px 12px",
