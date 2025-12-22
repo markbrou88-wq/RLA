@@ -112,18 +112,14 @@ export default function LivePage() {
 
   // Fetch dressed roster for a given game/team, attaching the jersey number
   // from team_players (season/category scoped).
+
   async function fetchGameRosterDressed(gameId, teamId, numberMap = {}) {
-    const { data, error } = await supabase
-      .from("game_rosters")
-      .select("player_id, dressed, players:player_id(id,name,position)")
-      .eq("game_id", gameId)
-      .eq("team_id", teamId)
-      .eq("dressed", true);
+  // Try "dressed" first (your current code)
+  let data = null;
 
-    if (error) throw error;
-
-    const rows = data || [];
-    const roster = rows
+  // Helper to map -> roster with jersey numbers from team_players map
+  const buildRoster = (rows) =>
+    (rows || [])
       .map((r) => {
         const p = r.players;
         if (!p) return null;
@@ -131,7 +127,6 @@ export default function LivePage() {
         return { ...p, number: num };
       })
       .filter(Boolean)
-      // keep prior behavior: sort by jersey number then name
       .sort((a, b) => {
         const an = a.number ?? 9999;
         const bn = b.number ?? 9999;
@@ -139,8 +134,44 @@ export default function LivePage() {
         return String(a.name || "").localeCompare(String(b.name || ""));
       });
 
-    return roster;
+  // 1) Attempt with column "dressed"
+  {
+    const res = await supabase
+      .from("game_rosters")
+      .select("player_id, dressed, players:player_id(id,name,position)")
+      .eq("game_id", gameId)
+      .eq("team_id", teamId)
+      .eq("dressed", true);
+
+    if (!res.error) {
+      data = res.data || [];
+      return buildRoster(data);
+    }
+
+    // If the column doesn't exist, we'll try the alternate name below.
+    // Otherwise, throw the real error.
+    const msg = String(res.error?.message || "");
+    if (!msg.toLowerCase().includes("column") || !msg.toLowerCase().includes("dressed")) {
+      throw res.error;
+    }
   }
+
+  // 2) Fallback: attempt with column "is_dressed"
+  {
+    const res = await supabase
+      .from("game_rosters")
+      .select("player_id, is_dressed, players:player_id(id,name,position)")
+      .eq("game_id", gameId)
+      .eq("team_id", teamId)
+      .eq("is_dressed", true);
+
+    if (res.error) throw res.error;
+
+    data = res.data || [];
+    return buildRoster(data);
+  }
+}
+
 
   async function ensureAndLoadDressed(gameRow, teamId) {
     // Load jersey numbers (season/category scoped) for this team so roster rows can display '#'
@@ -272,6 +303,52 @@ export default function LivePage() {
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, [slug, game?.id]);
+
+  useEffect(() => {
+  if (!game?.id || !home?.id || !away?.id) return;
+
+  let dead = false;
+
+  async function reloadDressed() {
+    try {
+      // Load numbers for both teams (season/category scoped)
+      const numMap = await loadTeamPlayerNumbers(game.season_id, game.category_id, [home.id, away.id]);
+      if (dead) return;
+
+      setTeamPlayerNumberMap(numMap);
+
+      const [hd, ad] = await Promise.all([
+        fetchGameRosterDressed(game.id, home.id, numMap),
+        fetchGameRosterDressed(game.id, away.id, numMap),
+      ]);
+      if (dead) return;
+
+      setHomeDressed(hd);
+      setAwayDressed(ad);
+    } catch (e) {
+      console.warn("reloadDressed failed:", e);
+    }
+  }
+
+  // load once immediately
+  reloadDressed();
+
+  // realtime subscribe: any change to game_rosters should refresh dressed lists
+  const ch = supabase
+    .channel(`rt-rosters-${game.id}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "game_rosters", filter: `game_id=eq.${game.id}` },
+      () => reloadDressed()
+    )
+    .subscribe();
+
+  return () => {
+    dead = true;
+    supabase.removeChannel(ch);
+  };
+}, [game?.id, game?.season_id, game?.category_id, home?.id, away?.id]);
+
 
   /* realtime roster (dressed players) */
 useEffect(() => {
