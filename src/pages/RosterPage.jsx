@@ -13,7 +13,6 @@ export default function RosterPage() {
 
   useEffect(() => {
     (async () => {
-      // 🔹 Fetch game directly so we ALWAYS get season_id & category_id
       const { data: g, error } = await supabase
         .from("games")
         .select(
@@ -37,7 +36,6 @@ export default function RosterPage() {
       }
 
       setGame(g);
-
       setHomeTeam(g.home);
       setAwayTeam(g.away);
 
@@ -50,33 +48,45 @@ export default function RosterPage() {
     const { home_team_id, away_team_id, season_id, category_id } = g;
 
     const [{ data: rp }, { data: hp }, { data: ap }] = await Promise.all([
-      // existing dressed toggles
       supabase.from("game_rosters").select("*").eq("game_id", gameId),
 
-      // HOME season roster
+      // HOME roster with jersey number from team_players
       supabase
         .from("team_players")
-        .select("player:players(*)")
+        .select("number, player:players(*)")
         .eq("team_id", home_team_id)
         .eq("season_id", season_id)
         .eq("category_id", category_id)
         .eq("is_active", true)
-        .order("player(number)"),
+        .order("number"),
 
-      // AWAY season roster
+      // AWAY roster with jersey number from team_players
       supabase
         .from("team_players")
-        .select("player:players(*)")
+        .select("number, player:players(*)")
         .eq("team_id", away_team_id)
         .eq("season_id", season_id)
         .eq("category_id", category_id)
         .eq("is_active", true)
-        .order("player(number)"),
+        .order("number"),
     ]);
 
-    setRosterMap(new Map((rp || []).map((r) => [`${r.team_id}:${r.player_id}`, r])));
-    setHomePlayers((hp || []).map((r) => r.player).filter(Boolean));
-    setAwayPlayers((ap || []).map((r) => r.player).filter(Boolean));
+    setRosterMap(
+      new Map((rp || []).map((r) => [`${r.team_id}:${r.player_id}`, r]))
+    );
+
+    // Merge number into player object
+    setHomePlayers(
+      (hp || [])
+        .filter((r) => r.player)
+        .map((r) => ({ ...r.player, number: r.number }))
+    );
+
+    setAwayPlayers(
+      (ap || [])
+        .filter((r) => r.player)
+        .map((r) => ({ ...r.player, number: r.number }))
+    );
   }
 
   async function togglePlayed(teamId, player) {
@@ -164,11 +174,21 @@ function teamTint(name = "") {
   return { base: "#334155", text: "#ffffff" };
 }
 
-function RosterColumn({ title, logo, teamId, players, rosterMap, onToggle, teamTint }) {
+function RosterColumn({
+  title,
+  logo,
+  teamId,
+  players,
+  rosterMap,
+  onToggle,
+  teamTint,
+}) {
   return (
     <div className="card roster-column">
       <div className="roster-header">
-        {logo ? <img src={logo} alt={`${title} logo`} className="roster-logo" /> : null}
+        {logo ? (
+          <img src={logo} alt={`${title} logo`} className="roster-logo" />
+        ) : null}
         <h3 className="roster-title">{title}</h3>
       </div>
 
