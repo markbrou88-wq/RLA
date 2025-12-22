@@ -673,7 +673,7 @@ export default function TeamPage() {
                         style={{ width: 70, textAlign: "center" }}
                       />
                       <input
-                        placeholder={t("Player name")}
+                        placeholder=("Player name")
                         value={newPlayer.name}
                         onChange={(e) => setNewPlayer({ ...newPlayer, name: e.target.value })}
                         style={{ minWidth: 220 }}
@@ -693,7 +693,7 @@ export default function TeamPage() {
 
                 <div className="row gap" style={{ marginTop: 8 }}>
                   <button className="btn" onClick={addPlayer}>
-                    {t("Save")}
+                    ("Save")
                   </button>
                   <button
                     className="btn secondary"
@@ -704,7 +704,7 @@ export default function TeamPage() {
                       setExistingNumber("");
                     }}
                   >
-                    {t("Cancel")}
+                    ("Cancel")
                   </button>
                 </div>
               </>
