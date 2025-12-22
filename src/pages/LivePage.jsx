@@ -273,6 +273,34 @@ export default function LivePage() {
     return () => supabase.removeChannel(ch);
   }, [slug, game?.id]);
 
+  /* realtime roster (dressed players) */
+useEffect(() => {
+  if (!game?.id) return;
+
+  const ch = supabase
+    .channel(`rt-roster-${game.id}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "game_rosters", filter: `game_id=eq.${game.id}` },
+      async () => {
+        try {
+          const [homeDress, awayDress] = await Promise.all([
+            ensureAndLoadDressed(game, game.home_team_id),
+            ensureAndLoadDressed(game, game.away_team_id),
+          ]);
+          setHomeDressed(homeDress);
+          setAwayDressed(awayDress);
+        } catch (e) {
+          console.error("Failed to refresh dressed rosters:", e);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => supabase.removeChannel(ch);
+}, [game?.id]);
+
+
   async function refreshEvents(gameId) {
     const { data: ev } = await supabase
       .from("events")
