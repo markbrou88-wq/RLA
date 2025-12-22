@@ -2,8 +2,6 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import { useSeason } from "../contexts/SeasonContext";
-import { useCategory } from "../contexts/CategoryContext";
 
 /* ---------- Tiny sparkline (no deps) ---------- */
 function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" }) {
@@ -68,7 +66,9 @@ function useTeamSummary(teamId) {
     (async () => {
       const { data: games, error } = await supabase
         .from("games")
-        .select("id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot")
+        .select(
+          "id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot"
+        )
         .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
         .order("game_date", { ascending: false })
         .limit(20);
@@ -112,48 +112,27 @@ function useTeamSummary(teamId) {
   return summary;
 }
 
-/**
- * Roster from team_players scoped to season/category
- */
-function useRoster(teamId, seasonId, categoryId) {
+function useRoster(teamId) {
   const [players, setPlayers] = React.useState([]);
-
   const reload = React.useCallback(async () => {
-    if (!seasonId || !categoryId) {
-      setPlayers([]);
-      return;
-    }
-
     const { data, error } = await supabase
-      .from("team_players")
-     .select("number, player:players(id,name,position)")
-      .eq("team_id", Number(teamId))
-      .eq("season_id", Number(seasonId))
-      .eq("category_id", Number(categoryId))
-      .eq("is_active", true)
-      .order("player(number)", { ascending: true });
-
+      .from("players")
+      .select("id,number,name,position")
+      .eq("team_id", teamId)
+      .order("number", { ascending: true });
     if (error) return console.error(error);
-    setPlayers(
-  (data || [])
-    .map((r) => ({
-      ...r.player,
-      number: r.number,
-    }))
-    .filter(Boolean)
-);
-  }, [teamId, seasonId, categoryId]);
-
+    setPlayers(data || []);
+  }, [teamId]);
   React.useEffect(() => void reload(), [reload]);
   return { players, setPlayers, reload };
 }
 
-/** Stats from leaders_current */
+/** Skater stats from leaders_current (GP/G/A/PTS) */
 function useStatsForPlayers(playerIds, seasonId, categoryId) {
   const [map, setMap] = React.useState(new Map());
 
   React.useEffect(() => {
-    if (!seasonId || !categoryId || !playerIds || playerIds.length === 0) {
+    if (!playerIds || playerIds.length === 0) {
       setMap(new Map());
       return;
     }
@@ -162,8 +141,8 @@ function useStatsForPlayers(playerIds, seasonId, categoryId) {
       const { data, error } = await supabase
         .from("leaders_current")
         .select("player_id, gp, g, a, pts")
-        .eq("season_id", Number(seasonId))
-        .eq("category_id", Number(categoryId))
+        .eq("season_id", seasonId)
+        .eq("category_id", categoryId)
         .in("player_id", playerIds);
 
       if (error) {
@@ -173,6 +152,7 @@ function useStatsForPlayers(playerIds, seasonId, categoryId) {
       }
       const m = new Map();
       for (const r of data || []) {
+        // normalize key to number; players.id is numeric
         m.set(Number(r.player_id), {
           gp: r.gp ?? 0,
           g: r.g ?? 0,
@@ -223,15 +203,49 @@ function useResizableColumns(teamId, defaults) {
 /* ---------- Page ---------- */
 export default function TeamPage() {
   const { id } = useParams();
-  const { seasonId } = useSeason();
-  const { categoryId } = useCategory();
-
   const team = useTeam(id);
   const summary = useTeamSummary(id);
   const { players, setPlayers, reload } = useRoster(id, seasonId, categoryId);
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
   const statsMap = useStatsForPlayers(playerIds, seasonId, categoryId);
+
+  React.useEffect(() => {
+    let dead = false;
+    (async () => {
+      if (addMode !== "existing") return;
+      if (!seasonId || !categoryId || !id) return;
+
+      setLoadingExisting(true);
+      try {
+        const [{ data: allPlayers, error: allErr }, { data: tp, error: tpErr }] = await Promise.all([
+          supabase.from("players").select("id,name,position").order("name", { ascending: true }),
+          supabase
+            .from("team_players")
+            .select("player_id")
+            .eq("team_id", id)
+            .eq("season_id", seasonId)
+            .eq("category_id", categoryId)
+        ]);
+
+        if (allErr) throw allErr;
+        if (tpErr) throw tpErr;
+
+        const onRoster = new Set((tp || []).map((r) => Number(r.player_id)));
+        const list = (allPlayers || []).filter((p) => !onRoster.has(Number(p.id)));
+
+        if (!dead) setExistingPlayers(list);
+      } catch (e) {
+        console.error("load existing players error:", e);
+        if (!dead) setExistingPlayers([]);
+      } finally {
+        if (!dead) setLoadingExisting(false);
+      }
+    })();
+    return () => {
+      dead = true;
+    };
+  }, [addMode, seasonId, categoryId, id]);
 
   const { widths, startResize } = useResizableColumns(id, {
     player: 260,
@@ -244,136 +258,130 @@ export default function TeamPage() {
     actions: 200,
   });
 
-  // ---- Auth ----
+  // ---- Auth: find out if a user is logged in ----
   const [user, setUser] = React.useState(null);
   React.useEffect(() => {
     let mounted = true;
+
     (async () => {
-      const { data } = await supabase.auth.getUser();
+      const { data, error } = await supabase.auth.getUser();
+      if (error) console.error(error);
       if (mounted) setUser(data?.user ?? null);
     })();
-    const { data: authListener } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (mounted) setUser(s?.user ?? null);
-    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!mounted) return;
+        setUser(session?.user ?? null);
+      }
+    );
+
     return () => {
       mounted = false;
       authListener?.subscription?.unsubscribe?.();
     };
   }, []);
+
   const isLoggedIn = !!user;
 
-  // ---- Add / Edit / Delete ----
+  // Add / Edit / Delete
   const [adding, setAdding] = React.useState(false);
-  const [addMode, setAddMode] = React.useState("new"); // NEW: "new" | "existing"
   const [newPlayer, setNewPlayer] = React.useState({ number: "", name: "", position: "F" });
-
-  // NEW: existing players list
+  const [addMode, setAddMode] = React.useState("new"); // "new" | "existing"
   const [existingPlayers, setExistingPlayers] = React.useState([]);
-  const [selectedExisting, setSelectedExisting] = React.useState("");
+  const [selectedExistingId, setSelectedExistingId] = React.useState("");
+  const [existingNumber, setExistingNumber] = React.useState("");
+  const [loadingExisting, setLoadingExisting] = React.useState(false);
 
-  // ✅ FIXED: Load existing players not already on this roster (2-step, no subquery)
-  React.useEffect(() => {
-    if (!adding || addMode !== "existing" || !seasonId || !categoryId) {
-      setExistingPlayers([]);
-      return;
-    }
-
-    (async () => {
-      try {
-        // 1) get already-used player ids for this team/season/category
-        const { data: usedRows, error: usedErr } = await supabase
-          .from("team_players")
-          .select("player_id")
-          .eq("team_id", Number(id))
-          .eq("season_id", Number(seasonId))
-          .eq("category_id", Number(categoryId))
-          .eq("is_active", true);
-
-        if (usedErr) {
-          console.error("team_players fetch error", usedErr);
-          setExistingPlayers([]);
-          return;
-        }
-
-        const usedIds = (usedRows || []).map((r) => r.player_id).filter((x) => x != null);
-
-        // 2) fetch players, excluding used ids
-        let q = supabase.from("players").select("id,number,name,position").order("name", { ascending: true });
-
-        if (usedIds.length > 0) {
-          q = q.not("id", "in", `(${usedIds.join(",")})`);
-        }
-
-        const { data: avail, error: availErr } = await q;
-        if (availErr) {
-          console.error("players fetch error", availErr);
-          setExistingPlayers([]);
-          return;
-        }
-
-        setExistingPlayers(avail || []);
-      } catch (e) {
-        console.error("existing players load crash", e);
-        setExistingPlayers([]);
-      }
-    })();
-  }, [adding, addMode, id, seasonId, categoryId]);
-
+  
   async function addPlayer() {
-    if (!newPlayer.name) return;
     if (!seasonId || !categoryId) {
-      alert("Please select a Season and Category first.");
+      alert("Select season and category first.");
       return;
     }
 
-    const payloadPlayer = {
-  name: newPlayer.name,
-  position: newPlayer.position || "F",
-};
+    // ---- add existing player to this team/season/category ----
+    if (addMode === "existing") {
+      if (!selectedExistingId) return;
+      const num = String(existingNumber || "").replace(/\D/g, "");
+      if (!num) {
+        alert("Please enter a jersey number.");
+        return;
+      }
 
-    const { data: insertedPlayer, error: pErr } = await supabase
+      const row = {
+        team_id: Number(id),
+        player_id: Number(selectedExistingId),
+        season_id: Number(seasonId),
+        category_id: Number(categoryId),
+        number: Number(num),
+        is_active: true,
+      };
+
+      const { error } = await supabase
+        .from("team_players")
+        .upsert(row, { onConflict: "team_id,player_id,season_id,category_id" });
+
+      if (error) {
+        console.error("Error adding existing player:", error);
+        alert(error.message);
+        return;
+      }
+
+      // refresh roster + existing list
+      setExistingPlayerId("");
+      setExistingNumber("");
+      await reload();
+      setAddMode("new");
+      return;
+    }
+
+    // ---- create brand new player (global), then link in team_players with number ----
+    if (!newPlayer.name) return;
+
+    const num = String(newPlayer.number || "").replace(/\D/g, "");
+    if (!num) {
+      alert("Please enter a jersey number.");
+      return;
+    }
+
+    // 1) create player (global identity)
+    const payloadPlayer = {
+      name: newPlayer.name.trim(),
+      position: (newPlayer.position || "F").trim(),
+    };
+
+    const { data: created, error: pErr } = await supabase
       .from("players")
       .insert(payloadPlayer)
-      .select("id")
+      .select("id,name,position")
       .single();
-    if (pErr) return alert(pErr.message);
 
-    const payloadTeamPlayer = {
-  team_id: Number(id),
-  player_id: Number(insertedPlayer.id),
-  season_id: Number(seasonId),
-  category_id: Number(categoryId),
-  number: newPlayer.number === "" ? null : Number(newPlayer.number),
-  is_active: true,
-};
-
-    const { error: tpErr } = await supabase.from("team_players").insert(payloadTeamPlayer);
-    if (tpErr) return alert(tpErr.message);
-
-    setAdding(false);
-    setNewPlayer({ number: "", name: "", position: "F" });
-    reload();
-  }
-
-  async function addExistingPlayer() {
-    if (!selectedExisting) return;
-    if (!seasonId || !categoryId) {
-      alert("Please select a Season and Category first.");
+    if (pErr) {
+      console.error("Error creating player:", pErr);
+      alert(pErr.message);
       return;
     }
 
-    const { error } = await supabase.from("team_players").insert({
+    // 2) link to team roster for this season/category (with jersey number)
+    const payloadTP = {
       team_id: Number(id),
-      player_id: Number(selectedExisting),
+      player_id: created.id,
       season_id: Number(seasonId),
       category_id: Number(categoryId),
+      number: Number(num),
       is_active: true,
-    });
-    if (error) return alert(error.message);
+    };
 
-    setAdding(false);
-    setSelectedExisting("");
-    reload();
+    const { error: tpErr } = await supabase.from("team_players").insert(payloadTP);
+    if (tpErr) {
+      console.error("Error linking player to team:", tpErr);
+      alert(tpErr.message);
+      return;
+    }
+
+    setNewPlayer({ number: "", name: "", position: "F" });
+    await reload();
   }
 
   function beginEdit(pid) {
@@ -388,54 +396,93 @@ export default function TeamPage() {
   function cancelEdit(pid) {
     setPlayers((cur) => cur.map((p) => (p.id === pid ? { ...p, __edit: undefined } : p)));
   }
+  
   async function saveEdit(pid) {
     const row = players.find((p) => p.id === pid);
-    if (!row || !row.__edit) return;
-    // update players table (name, position)
-const { error: pErr } = await supabase
-  .from("players")
-  .update({
-    name: row.__edit.name,
-    position: row.__edit.position || "F",
-  })
-  .eq("id", pid);
+    if (!row?.__edit) return;
 
-if (pErr) return alert(pErr.message);
+    const name = (row.__edit.name || "").trim();
+    const position = (row.__edit.position || "F").trim();
+    const num = String(row.__edit.number || "").replace(/\D/g, "");
 
-// update team_players number for this roster context
-const { error: tpErr } = await supabase
-  .from("team_players")
-  .update({
-    number: row.__edit.number === "" ? null : Number(row.__edit.number),
-  })
-  .eq("team_id", Number(id))
-  .eq("player_id", Number(pid))
-  .eq("season_id", Number(seasonId))
-  .eq("category_id", Number(categoryId));
-
-if (tpErr) return alert(tpErr.message);
-    if (error) return alert(error.message);
-    reload();
-  }
-
-  async function deletePlayer(pid) {
-    if (!window.confirm("Remove this player from this team roster for the selected season?")) return;
-    if (!seasonId || !categoryId) {
-      alert("Please select a Season and Category first.");
+    if (!name) return;
+    if (!num) {
+      alert("Please enter a jersey number.");
       return;
     }
-    const { error } = await supabase
+
+    // update global player fields
+    const { error: pErr } = await supabase
+      .from("players")
+      .update({ name, position })
+      .eq("id", pid);
+
+    if (pErr) {
+      console.error("saveEdit players error:", pErr);
+      alert(pErr.message);
+      return;
+    }
+
+    // update roster-specific jersey number
+    const { error: tpErr } = await supabase
       .from("team_players")
-      .update({ is_active: false })
+      .update({ number: Number(num) })
       .eq("team_id", Number(id))
       .eq("player_id", Number(pid))
       .eq("season_id", Number(seasonId))
       .eq("category_id", Number(categoryId));
-    if (error) return alert(error.message);
-    reload();
+
+    if (tpErr) {
+      console.error("saveEdit team_players error:", tpErr);
+      alert(tpErr.message);
+      return;
+    }
+
+    setPlayers((cur) => cur.map((p) => (p.id === pid ? { ...p, name, position, number: Number(num), __edit: null } : p)));
   }
 
-  // ---- Build rows ----
+  
+  async function deletePlayer(pid) {
+    if (!window.confirm("Remove this player from this team?")) return;
+    if (!seasonId || !categoryId) {
+      alert("Please select season and category first.");
+      return;
+    }
+
+    // remove roster link for this season/category/team
+    const { error: tpErr } = await supabase
+      .from("team_players")
+      .delete()
+      .eq("team_id", Number(id))
+      .eq("player_id", Number(pid))
+      .eq("season_id", Number(seasonId))
+      .eq("category_id", Number(categoryId));
+
+    if (tpErr) {
+      console.error("delete team_players error:", tpErr);
+      alert(tpErr.message);
+      return;
+    }
+
+    // if player is not referenced by any other team_players rows, optionally delete the global player record
+    const { data: remaining, error: remErr } = await supabase
+      .from("team_players")
+      .select("id")
+      .eq("player_id", Number(pid))
+      .limit(1);
+
+    if (!remErr && (!remaining || remaining.length === 0)) {
+      await supabase.from("players").delete().eq("id", Number(pid));
+    }
+
+    setPlayers((cur) => cur.filter((p) => p.id !== pid));
+    // refresh existing list (so the player can be re-added if desired)
+    setAddMode("existing");
+    setAddMode("new");
+  }
+
+
+  // Merge stats into display rows
   const rows = React.useMemo(() => {
     return players.map((p) => {
       const s = statsMap.get(p.id) || { gp: 0, g: 0, a: 0, pts: 0 };
@@ -453,6 +500,7 @@ if (tpErr) return alert(tpErr.message);
     });
   }, [players, statsMap]);
 
+  // sorting
   const [sortKey, setSortKey] = React.useState("pts");
   const [sortDir, setSortDir] = React.useState("desc");
   const sortedRows = React.useMemo(() => {
@@ -475,17 +523,39 @@ if (tpErr) return alert(tpErr.message);
   };
 
   const Th = ({ col, label, sortKeyFor }) => (
-    <div className="td th-resizable" style={{ width: widths[col], minWidth: widths[col], maxWidth: widths[col] }}>
-      <button className="th-btn" onClick={() => clickSort(sortKeyFor ?? col)} title="Click to sort">
+    <div
+      className="td th-resizable"
+      style={{ width: widths[col], minWidth: widths[col], maxWidth: widths[col] }}
+    >
+      <button
+        className="th-btn"
+        onClick={() => clickSort(sortKeyFor ?? col)}
+        title="Click to sort"
+        style={{ color: "#111" }}
+      >
         {label}{" "}
-        {sortKey === (sortKeyFor ?? col) ? <span className="muted">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
+        {sortKey === (sortKeyFor ?? col) ? (
+          <span className="muted">{sortDir === "asc" ? "▲" : "▼"}</span>
+        ) : null}
       </button>
-      <span className="col-resize grip" onMouseDown={(e) => startResize(col, e.clientX)} aria-hidden />
+      <span
+        className="col-resize grip"
+        onMouseDown={(e) => startResize(col, e.clientX)}
+        aria-hidden
+        style={{
+          width: 8,
+          right: -3,
+          borderLeft: "2px solid #d0d5dd",
+          background:
+            "repeating-linear-gradient(180deg,#e5e7eb 0,#e5e7eb 4px,#fff 4px,#fff 8px)",
+        }}
+      />
     </div>
   );
 
   return (
     <div className="team-page">
+      {/* Back + header */}
       <div className="row gap">
         <Link to="/" className="btn ghost small">
           ← Back to Standings
@@ -504,18 +574,25 @@ if (tpErr) return alert(tpErr.message);
               {team?.name || "Team"}
             </div>
             <div className="muted">
-              GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL {summary.record.otl}
+              GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL{" "}
+              {summary.record.otl}
             </div>
             <div className="muted">
-              GF {summary.record.gf} • GA {summary.record.ga} • Diff {summary.record.gf - summary.record.ga}
+              GF {summary.record.gf} • GA {summary.record.ga} • Diff{" "}
+              {summary.record.gf - summary.record.ga}
             </div>
             <div className="row gap xs" style={{ marginTop: 6 }}>
               {summary.recent.map((r, i) => (
-                <span key={i} className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}>
+                <span
+                  key={i}
+                  className={`pill ${r === "W" ? "pill-green" : "pill-gray"}`}
+                >
                   {r}
                 </span>
               ))}
-              {summary.recent.length === 0 && <span className="muted">No final games yet</span>}
+              {summary.recent.length === 0 && (
+                <span className="muted">No final games yet</span>
+              )}
             </div>
           </div>
         </div>
@@ -529,7 +606,10 @@ if (tpErr) return alert(tpErr.message);
       </div>
 
       {/* Add player bar */}
-      <div className="row space-between align-center" style={{ marginTop: 16, marginBottom: 8 }}>
+      <div
+        className="row space-between align-center"
+        style={{ marginTop: 16, marginBottom: 8 }}
+      >
         <div className="card-title">Roster &amp; Player Stats</div>
         {isLoggedIn && (
           <>
@@ -538,75 +618,95 @@ if (tpErr) return alert(tpErr.message);
                 Add Player
               </button>
             ) : (
-              <div className="row gap wrap">
-                <select className="in" value={addMode} onChange={(e) => setAddMode(e.target.value)}>
-                  <option value="new">New</option>
-                  <option value="existing">Existing</option>
-                </select>
+              <>
+                <div className="row gap" style={{ alignItems: "center" }}>
+                  <select
+                    value={addMode}
+                    onChange={(e) => {
+                      setAddMode(e.target.value);
+                      setSelectedExistingId("");
+                      setExistingNumber("");
+                    }}
+                    style={{ maxWidth: 130 }}
+                  >
+                    <option value="new">New</option>
+                    <option value="existing">Existing</option>
+                  </select>
 
-                {addMode === "new" ? (
-                  <>
-                    <input
-                      className="in"
-                      placeholder="#"
-                      style={{ width: 70, textAlign: "center" }}
-                      value={newPlayer.number}
-                      onChange={(e) =>
-                        setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))
-                      }
-                    />
-                    <input
-                      className="in"
-                      placeholder="Player name"
-                      style={{ width: 260 }}
-                      value={newPlayer.name}
-                      onChange={(e) => setNewPlayer((s) => ({ ...s, name: e.target.value }))}
-                    />
-                    <select
-                      className="in"
-                      style={{ width: 80 }}
-                      value={newPlayer.position}
-                      onChange={(e) => setNewPlayer((s) => ({ ...s, position: e.target.value }))}
-                    >
-                      <option value="F">F</option>
-                      <option value="D">D</option>
-                      <option value="G">G</option>
-                    </select>
-                    <button className="btn" onClick={addPlayer}>
-                      Save
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <select
-                      className="in"
-                      style={{ width: 260 }}
-                      value={selectedExisting}
-                      onChange={(e) => setSelectedExisting(e.target.value)}
-                    >
-                      <option value="">Select existing player…</option>
-                      {existingPlayers.map((p) => (
-                       <option key={p.id} value={p.id}>
-  {p.name}
-</option>
-                      ))}
-                    </select>
-                    <button className="btn" onClick={addExistingPlayer}>
-                      Add
-                    </button>
-                  </>
-                )}
+                  {addMode === "existing" ? (
+                    <>
+                      <select
+                        value={selectedExistingId}
+                        onChange={(e) => setSelectedExistingId(e.target.value)}
+                        style={{ minWidth: 240 }}
+                        disabled={loadingExisting}
+                      >
+                        <option value="">Select existing player…</option>
+                        {existingPlayers.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
 
-                <button className="btn ghost" onClick={() => setAdding(false)}>
-                  Cancel
-                </button>
-              </div>
+                      <input
+                        placeholder="#"
+                        value={existingNumber}
+                        onChange={(e) => setExistingNumber(e.target.value)}
+                        style={{ width: 70, textAlign: "center" }}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        placeholder="#"
+                        value={newPlayer.number}
+                        onChange={(e) => setNewPlayer({ ...newPlayer, number: e.target.value })}
+                        style={{ width: 70, textAlign: "center" }}
+                      />
+                      <input
+                        placeholder={t("Player name")}
+                        value={newPlayer.name}
+                        onChange={(e) => setNewPlayer({ ...newPlayer, name: e.target.value })}
+                        style={{ minWidth: 220 }}
+                      />
+                      <select
+                        value={newPlayer.position}
+                        onChange={(e) => setNewPlayer({ ...newPlayer, position: e.target.value })}
+                        style={{ width: 80 }}
+                      >
+                        <option value="F">F</option>
+                        <option value="D">D</option>
+                        <option value="G">G</option>
+                      </select>
+                    </>
+                  )}
+                </div>
+
+                <div className="row gap" style={{ marginTop: 8 }}>
+                  <button className="btn" onClick={addPlayer}>
+                    {t("Save")}
+                  </button>
+                  <button
+                    className="btn secondary"
+                    onClick={() => {
+                      setAdding(false);
+                      setAddMode("new");
+                      setSelectedExistingId("");
+                      setExistingNumber("");
+                    }}
+                  >
+                    {t("Cancel")}
+                  </button>
+                </div>
+              </>
+            )
             )}
           </>
         )}
       </div>
 
-      {/* Table */}
+      {/* Combined table */}
       <div className="tbl">
         <div className="tr thead">
           <Th col="player" label="Player" sortKeyFor="name" />
@@ -622,18 +722,39 @@ if (tpErr) return alert(tpErr.message);
         {sortedRows.map((r) =>
           r.__edit ? (
             <div className="tr" key={r.id}>
-              <div className="td" style={{ width: widths.player }}>
+              <div
+                className="td"
+                style={{
+                  width: widths.player,
+                  minWidth: widths.player,
+                  maxWidth: widths.player,
+                }}
+              >
                 <input
                   className="in"
                   value={r.__edit.name}
                   onChange={(e) =>
                     setPlayers((cur) =>
-                      cur.map((x) => (x.id === r.id ? { ...x, __edit: { ...x.__edit, name: e.target.value } } : x))
+                      cur.map((x) =>
+                        x.id === r.id
+                          ? {
+                              ...x,
+                              __edit: { ...x.__edit, name: e.target.value },
+                            }
+                          : x
+                      )
                     )
                   }
                 />
               </div>
-              <div className="td c" style={{ width: widths.number }}>
+              <div
+                className="td c"
+                style={{
+                  width: widths.number,
+                  minWidth: widths.number,
+                  maxWidth: widths.number,
+                }}
+              >
                 <input
                   className="in"
                   style={{ textAlign: "center" }}
@@ -642,21 +763,39 @@ if (tpErr) return alert(tpErr.message);
                     setPlayers((cur) =>
                       cur.map((x) =>
                         x.id === r.id
-                          ? { ...x, __edit: { ...x.__edit, number: e.target.value.replace(/\D/g, "") } }
+                          ? {
+                              ...x,
+                              __edit: {
+                                ...x.__edit,
+                                number: e.target.value.replace(/\D/g, ""),
+                              },
+                            }
                           : x
                       )
                     )
                   }
                 />
               </div>
-              <div className="td c" style={{ width: widths.pos }}>
+              <div
+                className="td c"
+                style={{
+                  width: widths.pos,
+                  minWidth: widths.pos,
+                  maxWidth: widths.pos,
+                }}
+              >
                 <select
                   className="in"
                   value={r.__edit.position}
                   onChange={(e) =>
                     setPlayers((cur) =>
                       cur.map((x) =>
-                        x.id === r.id ? { ...x, __edit: { ...x.__edit, position: e.target.value } } : x
+                        x.id === r.id
+                          ? {
+                              ...x,
+                              __edit: { ...x.__edit, position: e.target.value },
+                            }
+                          : x
                       )
                     )
                   }
@@ -666,24 +805,63 @@ if (tpErr) return alert(tpErr.message);
                   <option value="G">G</option>
                 </select>
               </div>
-              <div className="td c" style={{ width: widths.gp }}>
+              <div
+                className="td c"
+                style={{
+                  width: widths.gp,
+                  minWidth: widths.gp,
+                  maxWidth: widths.gp,
+                }}
+              >
                 {r.gp}
               </div>
-              <div className="td c" style={{ width: widths.g }}>
+              <div
+                className="td c"
+                style={{
+                  width: widths.g,
+                  minWidth: widths.g,
+                  maxWidth: widths.g,
+                }}
+              >
                 {r.g}
               </div>
-              <div className="td c" style={{ width: widths.a }}>
+              <div
+                className="td c"
+                style={{
+                  width: widths.a,
+                  minWidth: widths.a,
+                  maxWidth: widths.a,
+                }}
+              >
                 {r.a}
               </div>
-              <div className="td c b" style={{ width: widths.pts }}>
+              <div
+                className="td c b"
+                style={{
+                  width: widths.pts,
+                  minWidth: widths.pts,
+                  maxWidth: widths.pts,
+                }}
+              >
                 {r.pts}
               </div>
               {isLoggedIn && (
-                <div className="td right" style={{ width: widths.actions }}>
+                <div
+                  className="td right"
+                  style={{
+                    width: widths.actions,
+                    minWidth: widths.actions,
+                    maxWidth: widths.actions,
+                  }}
+                >
                   <button className="btn" onClick={() => saveEdit(r.id)}>
                     Save
                   </button>
-                  <button className="btn ghost" style={{ marginLeft: 8 }} onClick={() => cancelEdit(r.id)}>
+                  <button
+                    className="btn ghost"
+                    style={{ marginLeft: 8 }}
+                    onClick={() => cancelEdit(r.id)}
+                  >
                     Cancel
                   </button>
                 </div>
@@ -691,35 +869,96 @@ if (tpErr) return alert(tpErr.message);
             </div>
           ) : (
             <div className="tr" key={r.id}>
-              <div className="td left ellipsis" style={{ width: widths.player }} title={r.name}>
+              <div
+                className="td left ellipsis"
+                style={{
+                  width: widths.player,
+                  minWidth: widths.player,
+                  maxWidth: widths.player,
+                }}
+                title={r.name}
+              >
                 <Link className="link" to={`/players/${r.id}`}>
                   {r.name}
                 </Link>
               </div>
-              <div className="td c" style={{ width: widths.number }}>
+              <div
+                className="td c"
+                style={{
+                  width: widths.number,
+                  minWidth: widths.number,
+                  maxWidth: widths.number,
+                }}
+              >
                 {r.number}
               </div>
-              <div className="td c" style={{ width: widths.pos }}>
+              <div
+                className="td c"
+                style={{
+                  width: widths.pos,
+                  minWidth: widths.pos,
+                  maxWidth: widths.pos,
+                }}
+              >
                 {r.position}
               </div>
-              <div className="td c" style={{ width: widths.gp }}>
+              <div
+                className="td c"
+                style={{
+                  width: widths.gp,
+                  minWidth: widths.gp,
+                  maxWidth: widths.gp,
+                }}
+              >
                 {r.gp}
               </div>
-              <div className="td c" style={{ width: widths.g }}>
+              <div
+                className="td c"
+                style={{
+                  width: widths.g,
+                  minWidth: widths.g,
+                  maxWidth: widths.g,
+                }}
+              >
                 {r.g}
               </div>
-              <div className="td c" style={{ width: widths.a }}>
+              <div
+                className="td c"
+                style={{
+                  width: widths.a,
+                  minWidth: widths.a,
+                  maxWidth: widths.a,
+                }}
+              >
                 {r.a}
               </div>
-              <div className="td c b" style={{ width: widths.pts }}>
+              <div
+                className="td c b"
+                style={{
+                  width: widths.pts,
+                  minWidth: widths.pts,
+                  maxWidth: widths.pts,
+                }}
+              >
                 {r.pts}
               </div>
               {isLoggedIn && (
-                <div className="td right" style={{ width: widths.actions }}>
+                <div
+                  className="td right"
+                  style={{
+                    width: widths.actions,
+                    minWidth: widths.actions,
+                    maxWidth: widths.actions,
+                  }}
+                >
                   <button className="btn" onClick={() => beginEdit(r.id)}>
                     Edit
                   </button>
-                  <button className="btn danger" style={{ marginLeft: 8 }} onClick={() => deletePlayer(r.id)}>
+                  <button
+                    className="btn danger"
+                    style={{ marginLeft: 8 }}
+                    onClick={() => deletePlayer(r.id)}
+                  >
                     Delete
                   </button>
                 </div>
@@ -730,9 +969,7 @@ if (tpErr) return alert(tpErr.message);
 
         {sortedRows.length === 0 && (
           <div className="tr">
-            <div className="td muted">
-              {!seasonId || !categoryId ? "Select a Season and Category to view this team's roster." : "No players found."}
-            </div>
+            <div className="td muted">No players found.</div>
           </div>
         )}
       </div>
