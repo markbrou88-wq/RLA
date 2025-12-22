@@ -2,6 +2,9 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { useSeason } from "../contexts/SeasonContext";
+import { useCategory } from "../contexts/CategoryContext";
+
 
 /* ---------- Tiny sparkline (no deps) ---------- */
 function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" }) {
@@ -203,6 +206,10 @@ function useResizableColumns(teamId, defaults) {
 /* ---------- Page ---------- */
 export default function TeamPage() {
   const { id } = useParams();
+  const { seasonId } = useSeason();
+  const { categoryId } = useCategory();
+
+  
   const team = useTeam(id);
   const summary = useTeamSummary(id);
   const { players, setPlayers, reload } = useRoster(id, seasonId, categoryId);
