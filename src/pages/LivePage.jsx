@@ -34,6 +34,7 @@ export default function LivePage() {
 
   const [homeDressed, setHomeDressed] = useState([]);
   const [awayDressed, setAwayDressed] = useState([]);
+  const [teamPlayerNumberMap, setTeamPlayerNumberMap] = useState({});
 
   const [goalieOnIce, setGoalieOnIce] = useState({});
   const [onIce, setOnIce] = useState([]);
@@ -85,76 +86,72 @@ export default function LivePage() {
 
   /* ---------- NEW: roster helpers (team_players -> game_rosters) ---------- */
 
-  async function fetchGameRosterDressed(gameId, teamId) {
+  
+  // Load jersey numbers from team_players for the current season/category.
+  // Returns a map keyed as `${team_id}:${player_id}` -> number (int or null).
+  async function loadTeamPlayerNumbers(seasonId, categoryId, teamIds) {
+    if (!seasonId || !categoryId || !Array.isArray(teamIds) || teamIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from("team_players")
+      .select("team_id, player_id, number")
+      .eq("season_id", seasonId)
+      .eq("category_id", categoryId)
+      .in("team_id", teamIds);
+
+    if (error) {
+      console.error("loadTeamPlayerNumbers error:", error);
+      return {};
+    }
+
+    const map = {};
+    (data || []).forEach((r) => {
+      map[`${r.team_id}:${r.player_id}`] = r.number ?? null;
+    });
+    return map;
+  }
+
+  // Fetch dressed roster for a given game/team, attaching the jersey number
+  // from team_players (season/category scoped).
+  async function fetchGameRosterDressed(gameId, teamId, numberMap = {}) {
     const { data, error } = await supabase
       .from("game_rosters")
-      .select("player_id, dressed, players:player_id(id,name,number,position)")
+      .select("player_id, dressed, players:player_id(id,name,position)")
       .eq("game_id", gameId)
       .eq("team_id", teamId)
       .eq("dressed", true);
 
-    if (error) {
-      console.error("fetchGameRosterDressed error:", error);
-      return [];
-    }
+    if (error) throw error;
 
-    return (data || [])
-      .map((r) => r.players)
+    const rows = data || [];
+    const roster = rows
+      .map((r) => {
+        const p = r.players;
+        if (!p) return null;
+        const num = numberMap[`${teamId}:${p.id}`] ?? null;
+        return { ...p, number: num };
+      })
       .filter(Boolean)
-      .sort((a, b) => (a.number || 0) - (b.number || 0));
-  }
+      // keep prior behavior: sort by jersey number then name
+      .sort((a, b) => {
+        const an = a.number ?? 9999;
+        const bn = b.number ?? 9999;
+        if (an !== bn) return an - bn;
+        return String(a.name || "").localeCompare(String(b.name || ""));
+      });
 
-  async function initGameRostersFromTeamPlayers(gameId, seasonId, categoryId, teamId) {
-    // 1) read season roster from team_players
-    const { data: tp, error: tpErr } = await supabase
-      .from("team_players")
-      .select("player_id")
-      .eq("season_id", seasonId)
-      .eq("category_id", categoryId)
-      .eq("team_id", teamId)
-      .eq("is_active", true);
-
-    if (tpErr) {
-      console.error("initGameRostersFromTeamPlayers team_players error:", tpErr);
-      return;
-    }
-
-    const playerIds = (tp || []).map((r) => r.player_id).filter(Boolean);
-    if (!playerIds.length) return;
-
-    // 2) avoid duplicates: fetch existing game_rosters for this game/team
-    const { data: existing, error: exErr } = await supabase
-      .from("game_rosters")
-      .select("player_id")
-      .eq("game_id", gameId)
-      .eq("team_id", teamId);
-
-    if (exErr) {
-      console.error("initGameRostersFromTeamPlayers existing game_rosters error:", exErr);
-      return;
-    }
-
-    const existingSet = new Set((existing || []).map((r) => r.player_id));
-    const toInsert = playerIds
-      .filter((pid) => !existingSet.has(pid))
-      .map((pid) => ({
-        game_id: gameId,
-        team_id: teamId,
-        player_id: pid,
-        dressed: true,
-      }));
-
-    if (!toInsert.length) return;
-
-    const { error: insErr } = await supabase.from("game_rosters").insert(toInsert);
-    if (insErr) {
-      console.error("initGameRostersFromTeamPlayers insert error:", insErr);
-    }
+    return roster;
   }
 
   async function ensureAndLoadDressed(gameRow, teamId) {
+    // Load jersey numbers (season/category scoped) for this team so roster rows can display '#'
+    const numberMap = await loadTeamPlayerNumbers(
+      gameRow.season_id,
+      gameRow.category_id,
+      [teamId]
+    );
+
     // Prefer existing game_rosters
-    let dressed = await fetchGameRosterDressed(gameRow.id, teamId);
+    let dressed = await fetchGameRosterDressed(gameRow.id, teamId, numberMap);
 
     // If none, auto-initialize from team_players, then re-read
     if (!dressed.length) {
@@ -164,7 +161,14 @@ export default function LivePage() {
         gameRow.category_id,
         teamId
       );
-      dressed = await fetchGameRosterDressed(gameRow.id, teamId);
+
+      // reload numbers (in case team_players was backfilled/edited)
+      const numberMap2 = await loadTeamPlayerNumbers(
+        gameRow.season_id,
+        gameRow.category_id,
+        [teamId]
+      );
+      dressed = await fetchGameRosterDressed(gameRow.id, teamId, numberMap2);
     }
 
     return dressed;
@@ -275,7 +279,7 @@ export default function LivePage() {
       .select(
         `
         id, game_id, team_id, player_id, period, time_mmss, event, goalie_id,
-        players!events_player_id_fkey ( id, name, number ),
+        players!events_player_id_fkey ( id, name, position ),
         teams!events_team_id_fkey ( id, name, short_name )
       `
       )
@@ -283,15 +287,33 @@ export default function LivePage() {
       .order("period", { ascending: true })
       .order("time_mmss", { ascending: false });
 
+    const events = ev || [];
+
+    // Attach jersey numbers from team_players (season/category scoped)
+    try {
+      const seasonId = game?.season_id;
+      const categoryId = game?.category_id;
+      if (seasonId && categoryId && events.length) {
+        const teamIds = Array.from(new Set(events.map((e) => e.team_id).filter(Boolean)));
+        const numMap = await loadTeamPlayerNumbers(seasonId, categoryId, teamIds);
+        setTeamPlayerNumberMap(numMap);
+        events.forEach((e) => {
+          if (e.players) e.players.number = numMap[`${e.team_id}:${e.player_id}`] ?? null;
+        });
+      }
+    } catch (e) {
+      console.warn("Unable to attach jersey numbers to events", e);
+    }
+
     const key = (e) => `${e.period}|${e.time_mmss}|${e.team_id}|goal`;
     const gmap = new Map();
-    (ev || []).forEach((e) => {
+    events.forEach((e) => {
       if (e.event === "goal") gmap.set(key(e), { goal: e, assists: [] });
     });
-    (ev || []).forEach((e) => {
+    events.forEach((e) => {
       if (e.event === "assist" && gmap.has(key(e))) gmap.get(key(e)).assists.push(e);
     });
-    const others = (ev || [])
+    const others = events
       .filter((e) => e.event !== "goal" && e.event !== "assist")
       .map((x) => ({ single: x }));
     const grouped = [...gmap.values(), ...others].sort((a, b) => {
