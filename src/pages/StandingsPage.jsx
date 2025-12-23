@@ -12,6 +12,8 @@ export default function StandingsPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("standings"); // "standings" | "playoffs"
 
+  const [playoffGames, setPlayoffGames] = useState([]);
+
   useEffect(() => {
     if (!seasonId || !categoryId) {
       setLoading(true);
@@ -20,27 +22,64 @@ export default function StandingsPage() {
 
     setLoading(true);
 
-    supabase
-      .from("standings_current")
-      .select("*")
-      .eq("season_id", seasonId)
-      .eq("category_id", categoryId)
-      .order("pts", { ascending: false })
-      .order("diff", { ascending: false })
-      .then(({ data, error }) => {
-        if (error) {
-          console.error("Standings fetch error:", error);
-          setRows([]);
-        } else {
-          setRows(data || []);
-        }
-        setLoading(false);
-      });
+    const fetchAll = async () => {
+      const { data: standingsData, error: standingsError } = await supabase
+        .from("standings_current")
+        .select("*")
+        .eq("season_id", seasonId)
+        .eq("category_id", categoryId)
+        .order("pts", { ascending: false })
+        .order("diff", { ascending: false });
+
+      if (standingsError) {
+        console.error("Standings fetch error:", standingsError);
+        setRows([]);
+      } else {
+        setRows(standingsData || []);
+      }
+
+      const { data: gamesData, error: gamesError } = await supabase
+        .from("games")
+        .select("*")
+        .eq("season_id", seasonId)
+        .eq("category_id", categoryId)
+        .in("game_type", ["semi", "final"]);
+
+      if (gamesError) {
+        console.error("Playoff games fetch error:", gamesError);
+        setPlayoffGames([]);
+      } else {
+        setPlayoffGames(gamesData || []);
+      }
+
+      setLoading(false);
+    };
+
+    fetchAll();
   }, [seasonId, categoryId]);
 
   const top1 = rows[0];
   const top2 = rows[1];
   const top3 = rows[2];
+
+  const semiGame = playoffGames.find((g) => g.game_type === "semi");
+  const finalGame = playoffGames.find((g) => g.game_type === "final");
+
+  const getTeamName = (id) => rows.find((r) => r.team_id === id)?.name || "TBD";
+
+  const semiWinner =
+    semiGame && semiGame.status === "final"
+      ? semiGame.home_score > semiGame.away_score
+        ? semiGame.home_team_id
+        : semiGame.away_team_id
+      : null;
+
+  const finalWinner =
+    finalGame && finalGame.status === "final"
+      ? finalGame.home_score > finalGame.away_score
+        ? finalGame.home_team_id
+        : finalGame.away_team_id
+      : null;
 
   return (
     <div className="page">
@@ -144,37 +183,49 @@ export default function StandingsPage() {
               <div className="card" style={{ textAlign: "center" }}>
                 <h4>Semi-Final</h4>
                 <div style={{ marginTop: 8 }}>
-                  <Link to={`/teams/${top2.team_id}`}>
-                    <strong>2.</strong> {top2.name}
-                  </Link>
+                  <strong>2.</strong> {top2?.name}
                 </div>
                 <div style={{ margin: "6px 0" }}>vs</div>
                 <div>
-                  <Link to={`/teams/${top3.team_id}`}>
-                    <strong>3.</strong> {top3.name}
-                  </Link>
+                  <strong>3.</strong> {top3?.name}
                 </div>
+
+                {semiGame && (
+                  <div style={{ marginTop: 10, fontWeight: "bold" }}>
+                    {semiGame.home_score} – {semiGame.away_score}
+                  </div>
+                )}
               </div>
 
               {/* Final */}
               <div className="card" style={{ textAlign: "center" }}>
                 <h4>Final</h4>
                 <div style={{ marginTop: 8 }}>
-                  <Link to={`/teams/${top1.team_id}`}>
-                    <strong>1.</strong> {top1.name}
-                  </Link>
+                  <strong>1.</strong> {top1?.name}
                 </div>
                 <div style={{ margin: "6px 0" }}>vs</div>
-                <div style={{ opacity: 0.6 }}>
-                  Winner of Semi-Final
+                <div style={{ opacity: semiWinner ? 1 : 0.6 }}>
+                  {semiWinner ? getTeamName(semiWinner) : "Winner of Semi-Final"}
                 </div>
+
+                {finalGame && (
+                  <div style={{ marginTop: 10, fontWeight: "bold" }}>
+                    {finalGame.home_score} – {finalGame.away_score}
+                  </div>
+                )}
               </div>
 
               {/* Champion */}
               <div className="card" style={{ textAlign: "center" }}>
                 <h4>Champion</h4>
-                <div style={{ marginTop: 20, fontSize: 18, opacity: 0.6 }}>
-                  🏆 TBD
+                <div style={{ marginTop: 20, fontSize: 18 }}>
+                  {finalWinner ? (
+                    <>
+                      🏆 <strong>{getTeamName(finalWinner)}</strong>
+                    </>
+                  ) : (
+                    <span style={{ opacity: 0.6 }}>🏆 TBD</span>
+                  )}
                 </div>
               </div>
             </div>
