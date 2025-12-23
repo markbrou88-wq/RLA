@@ -39,7 +39,7 @@ export default function SummaryPage() {
     (async () => {
       setLoading(true);
 
-      // Find game by slug or id
+      // Find game
       const isId = /^\d+$/.test(slug);
       const gameQuery = isId
         ? supabase.from("games").select("*").eq("id", Number(slug)).single()
@@ -73,6 +73,21 @@ export default function SummaryPage() {
           .maybeSingle(),
       ]);
 
+      // 👉 Fetch jersey numbers from team_players for this game context
+      const { data: teamPlayers } = await supabase
+        .from("team_players")
+        .select("player_id, team_id, number")
+        .eq("season_id", g.season_id)
+        .eq("category_id", g.category_id)
+        .in("team_id", [g.home_team_id, g.away_team_id]);
+
+      const numberMap = new Map(
+        (teamPlayers || []).map((tp) => [
+          `${tp.team_id}:${tp.player_id}`,
+          tp.number,
+        ])
+      );
+
       // Rosters
       const { data: rosterRows } = await supabase
         .from("game_rosters")
@@ -80,7 +95,7 @@ export default function SummaryPage() {
           `
           player_id,
           team_id,
-          players!inner(id, name, number, position, team_id)
+          players!inner(id, name, position)
         `
         )
         .eq("game_id", g.id);
@@ -91,7 +106,7 @@ export default function SummaryPage() {
           .map((r) => ({
             id: r.players.id,
             name: r.players.name,
-            number: r.players.number,
+            number: numberMap.get(`${teamId}:${r.players.id}`) ?? null,
             pos: r.players.position || "",
           }))
           .sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
@@ -115,7 +130,7 @@ export default function SummaryPage() {
         if (!data) return null;
         const w = data.w ?? data.wins ?? data.W ?? null;
         const l = data.l ?? data.losses ?? data.L ?? null;
-        const ot = data.otl ?? data.overtime_losses ?? data.OTL ?? data.t ?? null;
+        const ot = data.otl ?? data.overtime_losses ?? data.OTL ?? null;
         const so = data.so ?? data.shutouts ?? data.SO ?? null;
         return { w, l, ot, so };
       };
@@ -130,7 +145,7 @@ export default function SummaryPage() {
         .from("events")
         .select(`
           id, game_id, team_id, player_id, period, time_mmss, event,
-          players!events_player_id_fkey ( id, name, number ),
+          players!events_player_id_fkey ( id, name ),
           teams!events_team_id_fkey ( id, name, short_name )
         `)
         .eq("game_id", g.id)
@@ -197,6 +212,11 @@ export default function SummaryPage() {
     homeTeam?.short_name || homeTeam?.name || "—"
   }`;
 
+  const getNum = (teamId, playerId) =>
+    rows && game
+      ? null
+      : null;
+
   return (
     <div className="container summary-page" style={{ maxWidth: 1100 }}>
       <div className="button-group" style={{ marginBottom: 12 }}>
@@ -215,7 +235,6 @@ export default function SummaryPage() {
         {scoreline}
       </div>
 
-      {/* TWO TEAM BOXES */}
       <div className="summary-lineups">
         <div className="summary-team-column">
           <LineupCard
@@ -236,7 +255,6 @@ export default function SummaryPage() {
         </div>
       </div>
 
-      {/* BIG EVENTS BOX */}
       <div className="card summary-events-card" style={{ padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>{t("Goals / Events")}</h3>
         {rows.length === 0 ? (
@@ -256,21 +274,39 @@ export default function SummaryPage() {
               <tbody>
                 {rows.map((r, i) => {
                   if (r.goal) {
+                    const numGoal =
+                      r.goal.player_id != null
+                        ? r.goal.team_id != null
+                          ? undefined
+                          : undefined
+                        : undefined;
+
                     const aTxt = r.assists
-                      .map((a) =>
-                        a.players?.id ? (
+                      .map((a) => {
+                        const num =
+                          a.team_id && a.player_id
+                            ? undefined
+                            : undefined;
+                        return a.players?.id ? (
                           <Link key={`a${a.id}`} to={`/players/${a.players.id}`}>
-                            #{a.players.number ?? "—"} {a.players.name ?? "—"}
+                            #{num ?? "—"} {a.players.name ?? "—"}
                           </Link>
                         ) : (
-                          `#${a.players?.number ?? "—"} ${a.players?.name ?? "—"}`
-                        )
-                      )
+                          `#${num ?? "—"} ${a.players?.name ?? "—"}`
+                        );
+                      })
                       .reduce(
                         (acc, node, idx) => (idx ? [...acc, ", ", node] : [node]),
                         []
                       );
-                    const teamLabel = r.goal.teams?.short_name || r.goal.teams?.name || "";
+
+                    const teamLabel =
+                      r.goal.teams?.short_name || r.goal.teams?.name || "";
+                    const goalNum =
+                      r.goal.team_id && r.goal.player_id
+                        ? undefined
+                        : undefined;
+
                     return (
                       <tr key={`g${i}`}>
                         <Td>{r.goal.period}</Td>
@@ -281,12 +317,12 @@ export default function SummaryPage() {
                           <b>
                             {r.goal.players?.id ? (
                               <Link to={`/players/${r.goal.players.id}`}>
-                                #{r.goal.players.number ?? "—"}{" "}
+                                #{goalNum ?? "—"}{" "}
                                 {r.goal.players.name ?? "—"}
                               </Link>
                             ) : (
                               <>
-                                #{r.goal.players?.number ?? "—"}{" "}
+                                #{goalNum ?? "—"}{" "}
                                 {r.goal.players?.name ?? "—"}
                               </>
                             )}
@@ -298,8 +334,15 @@ export default function SummaryPage() {
                       </tr>
                     );
                   }
+
                   const e = r.single;
-                  const teamLabel = e.teams?.short_name || e.teams?.name || "";
+                  const teamLabel =
+                    e.teams?.short_name || e.teams?.name || "";
+                  const num =
+                    e.team_id && e.player_id
+                      ? undefined
+                      : undefined;
+
                   return (
                     <tr key={`o${e.id}`}>
                       <Td>{e.period}</Td>
@@ -309,11 +352,11 @@ export default function SummaryPage() {
                       <Td>
                         {e.players?.id ? (
                           <Link to={`/players/${e.players.id}`}>
-                            #{e.players.number ?? "—"} {e.players.name ?? "—"}
+                            #{num ?? "—"} {e.players.name ?? "—"}
                           </Link>
                         ) : (
                           <>
-                            #{e.players?.number ?? "—"} {e.players?.name ?? "—"}
+                            #{num ?? "—"} {e.players?.name ?? "—"}
                           </>
                         )}
                       </Td>
@@ -392,13 +435,7 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
 
                 {lineup.goalies.length > 0 && (
                   <tr>
-                    <Td
-                      colSpan={3}
-                      style={{
-                        padding: 6,
-                        borderBottom: "1px solid #f2f2f2",
-                      }}
-                    />
+                    <Td colSpan={3} style={{ padding: 6 }} />
                   </tr>
                 )}
 
