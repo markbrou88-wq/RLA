@@ -15,7 +15,7 @@ export function SeasonProvider({ children }) {
       const { data, error } = await supabase
         .from("seasons")
         .select("id, name, is_active, start_date")
-        .order("start_date");
+        .order("start_date", { ascending: false });
 
       if (!alive) return;
 
