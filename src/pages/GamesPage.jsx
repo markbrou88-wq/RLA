@@ -423,7 +423,7 @@ export default function GamesPage() {
                   )}
 
                   {isLoggedIn && (
-                    <button className="btn" onClick={() => navigate(`/roster/${slug}`)}>
+                    <button className="btn" onClick={() => navigate(`/games/${slug}/roster`)}>
                       {t("Roster")}
                     </button>
                   )}
