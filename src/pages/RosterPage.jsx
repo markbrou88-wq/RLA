@@ -127,7 +127,7 @@ export default function RosterPage() {
           <Link className="btn btn-grey" to={`/live/${slug}`}>
             Live
           </Link>
-          <Link className="btn btn-grey" to={`/games/${slug}`}>
+          <Link className="btn btn-grey" to={`/summary/${slug}`}>
             Boxscore
           </Link>
           <Link className="btn btn-grey" to="/games">
