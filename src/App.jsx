@@ -171,7 +171,8 @@ function AppInner() {
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/summary/:slug" element={<SummaryPage />} />
           <Route path="/live/:slug" element={<LivePage />} />
-          <Route path="/roster/:slug" element={<RosterPage />} />
+         <Route path="/games/:slug/roster" element={<RosterPage />} />
+
           <Route path="/teams/:id" element={<TeamPage />} />
           <Route path="/players/:id" element={<PlayerPage />} />
         </Routes>
