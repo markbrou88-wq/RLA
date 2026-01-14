@@ -496,3 +496,4 @@ const gamesByDay = React.useMemo(() => {
   ))}
 </div>
 )
+        }
