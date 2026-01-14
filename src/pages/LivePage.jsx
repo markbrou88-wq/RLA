@@ -974,7 +974,7 @@ useEffect(() => {
   return (
     <div className="container">
       <div className="button-group" style={{ marginBottom: 8 }}>
-        <Link className="btn btn-grey" to={`/games/${slug}/roster`}>
+        <Link className="btn btn-grey" to={`/roster/${r.slug}`}>
           Roster
         </Link>
         <Link className="btn btn-grey" to="/games">
