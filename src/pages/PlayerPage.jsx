@@ -380,7 +380,7 @@ function renderSkaterLog(skaterLog) {
                     {r.hs}–{r.as}
                   </td>
                   <td style={tdS}>
-                    <Link to={`/games/${r.slug}/boxscore`}>
+                    <Link to={`/summary/${r.slug}`}>
                       View
                     </Link>
                   </td>
@@ -439,7 +439,7 @@ function renderGoalieLog(goalieLog) {
                     <td style={tdS}>{r.decision || "—"}</td>
                     <td style={tdS}>{r.so ? 1 : 0}</td>
                     <td style={tdS}>
-                      <Link to={`/games/${r.slug}/boxscore`}>
+                      <Link to={`/summary/${r.slug}`}>
                         View
                       </Link>
                     </td>
