@@ -497,7 +497,7 @@ const gamesByDay = React.useMemo(() => {
 </div>
 
 
-                {/* Score + date + status */}
+               
                 <div className="gp-center">
                   <div className="gp-score">
                     {g.away_score} — {g.home_score}
