@@ -124,7 +124,7 @@ export default function RosterPage() {
     <div className="page">
       <div className="container roster-page">
         <div className="button-group" style={{ marginBottom: 12 }}>
-          <Link className="btn btn-grey" to={`/games/${slug}/live`}>
+          <Link className="btn btn-grey" to={`/live/${slug}`}>
             Live
           </Link>
           <Link className="btn btn-grey" to={`/games/${slug}`}>
