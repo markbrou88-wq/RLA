@@ -401,99 +401,112 @@ const gamesByDay = React.useMemo(() => {
           </button>
         </div>
       )}
-
       {/* Games list */}
       {loading ? (
         <div style={{ padding: 12 }}>{t("Loading…")}</div>
       ) : filtered.length === 0 ? (
-        <div style={{ padding: 12 }}>{t("No games match your filters.")}</div>
+        <div style={{ padding: 12 }}>
+          {t("No games match your filters.")}
+        </div>
       ) : (
-
-      <div className="gp-grid" style={{ gap: 24 }}>
-  {Object.entries(gamesByDay).map(([day, dayGames]) => (
-    <div key={day} className="gp-day-group">
-      {/* Day header */}
-      <div className="gp-day-header">
-        <span className="gp-day-icon">📅</span>
-        <span>{formatDayHeader(day)}</span>
-      </div>
-
-      {/* Games for that day */}
-      <div className="gp-grid" style={{ gap: 12 }}>
-        {dayGames.map((g) => {
-          const home = teamMap[g.home_team_id] || {};
-          const away = teamMap[g.away_team_id] || {};
-          const slug = g.slug || g.id;
-
-          return (
-            <div key={g.id} className="gp-grid gp-card card">
-              {/* Matchup */}
-              <div className="gp-match">
-                <TeamChip team={away} />
-                <span className="gp-sub">{t("at")}</span>
-                <TeamChip team={home} />
+        <div className="gp-grid" style={{ gap: 24 }}>
+          {Object.entries(gamesByDay).map(([day, dayGames]) => (
+            <div key={day} className="gp-day-group">
+              {/* Day header */}
+              <div className="gp-day-header">
+                <span className="gp-day-icon">📅</span>
+                <span>{formatDayHeader(day)}</span>
               </div>
 
-              {/* Score */}
-              <div className="gp-center">
-                <div className="gp-score">
-                  {g.away_score} — {g.home_score}
-                </div>
-                <div className="gp-sub">{formatGameDate(g.game_date)}</div>
-                <div className="gp-sub">{g.status}</div>
-              </div>
+              {/* Games for that day */}
+              <div className="gp-grid" style={{ gap: 12 }}>
+                {dayGames.map((g) => {
+                  const home = teamMap[g.home_team_id] || {};
+                  const away = teamMap[g.away_team_id] || {};
+                  const slug = g.slug || g.id;
 
-              {/* Actions */}
-              <div className="gp-card-actions">
-                {isLoggedIn && !isMobile && (
-                  <button className="btn" onClick={() => navigate(`/live/${slug}`)}>
-                    {t("Live")}
-                  </button>
-                )}
+                  return (
+                    <div key={g.id} className="gp-grid gp-card card">
+                      {/* Matchup */}
+                      <div className="gp-match">
+                        <TeamChip team={away} />
+                        <span className="gp-sub">{t("at")}</span>
+                        <TeamChip team={home} />
+                      </div>
 
-                {isLoggedIn && (
-                  <button
-                    className="btn"
-                    onClick={() => navigate(`/games/${slug}/roster`)}
-                  >
-                    {t("Roster")}
-                  </button>
-                )}
+                      {/* Score */}
+                      <div className="gp-center">
+                        <div className="gp-score">
+                          {g.away_score} — {g.home_score}
+                        </div>
+                        <div className="gp-sub">
+                          {formatGameDate(g.game_date)}
+                        </div>
+                        <div className="gp-sub">{g.status}</div>
+                      </div>
 
-                <button
-                  className="btn"
-                  onClick={() => navigate(`/summary/${slug}`)}
-                >
-                  {t("Boxscore")}
-                </button>
+                      {/* Actions */}
+                      <div className="gp-card-actions">
+                        {isLoggedIn && !isMobile && (
+                          <button
+                            className="btn"
+                            onClick={() => navigate(`/live/${slug}`)}
+                          >
+                            {t("Live")}
+                          </button>
+                        )}
 
-                {isLoggedIn && (
-                  <>
-                    <button
-                      className="btn"
-                      onClick={() =>
-                        updateStatus(g.id, g.status === "final" ? "scheduled" : "final")
-                      }
-                    >
-                      {g.status === "final" ? t("Open") : t("Mark as Final")}
-                    </button>
+                        {isLoggedIn && (
+                          <button
+                            className="btn"
+                            onClick={() =>
+                              navigate(`/games/${slug}/roster`)
+                            }
+                          >
+                            {t("Roster")}
+                          </button>
+                        )}
 
-                    <button
-                      className="btn"
-                      onClick={() => handleDelete(g.id)}
-                      style={{ background: "crimson" }}
-                    >
-                      {t("Delete")}
-                    </button>
-                  </>
-                )}
+                        <button
+                          className="btn"
+                          onClick={() => navigate(`/summary/${slug}`)}
+                        >
+                          {t("Boxscore")}
+                        </button>
+
+                        {isLoggedIn && (
+                          <>
+                            <button
+                              className="btn"
+                              onClick={() =>
+                                updateStatus(
+                                  g.id,
+                                  g.status === "final"
+                                    ? "scheduled"
+                                    : "final"
+                                )
+                              }
+                            >
+                              {g.status === "final"
+                                ? t("Open")
+                                : t("Mark as Final")}
+                            </button>
+
+                            <button
+                              className="btn"
+                              onClick={() => handleDelete(g.id)}
+                              style={{ background: "crimson" }}
+                            >
+                              {t("Delete")}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          );
-        })}
-      </div>
-    </div>
-  ))}
-</div>
-)
-        }
+          ))}
+        </div>
+      )}
