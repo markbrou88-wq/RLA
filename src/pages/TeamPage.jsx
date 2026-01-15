@@ -4,6 +4,7 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useSeason } from "../contexts/SeasonContext";
 import { useCategory } from "../contexts/CategoryContext";
+import { useNavigate } from "react-router-dom";
 
 /* ---------- Tiny sparkline (no deps) ---------- */
 function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" }) {
@@ -328,7 +329,12 @@ export default function TeamPage() {
   const summary = useTeamSummary(teamId, seasonId, categoryId);
   const { players, setPlayers, reload } = useRoster(teamId, seasonId, categoryId);
 
+const navigate = useNavigate();
 
+React.useEffect(() => {
+  // teamId no longer valid after season/category change
+  navigate("/", { replace: true });
+}, [seasonId, categoryId]);
   
   
 
