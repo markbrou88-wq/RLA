@@ -115,12 +115,21 @@ function useTeamSummary(teamId, seasonId, categoryId) {
         .select(
           "game_date,home_team_id,away_team_id,home_score,away_score,status"
         )
-        .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
-        .eq("season_id", seasonId)
-        .eq("category_id", categoryId)
+        // ✅ CRITICAL FIX: parenthesized OR
+        .or(
+          `and(home_team_id.eq.${Number(teamId)},season_id.eq.${Number(
+            seasonId
+          )},category_id.eq.${Number(categoryId)}),
+           and(away_team_id.eq.${Number(teamId)},season_id.eq.${Number(
+            seasonId
+          )},category_id.eq.${Number(categoryId)})`
+        )
         .order("game_date", { ascending: false });
 
-      if (error || cancelled) return;
+      if (error || cancelled) {
+        if (error) console.error("team summary fetch error", error);
+        return;
+      }
 
       const recent = [];
       const chart = [];
@@ -132,7 +141,9 @@ function useTeamSummary(teamId, seasonId, categoryId) {
         const tGF = isHome ? g.home_score : g.away_score;
         const tGA = isHome ? g.away_score : g.home_score;
 
-        if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
+        if (recent.length < 5) {
+          recent.push(tGF > tGA ? "W" : "L");
+        }
 
         if (chart.length < 10) {
           chart.push({
@@ -157,6 +168,7 @@ function useTeamSummary(teamId, seasonId, categoryId) {
 
   return summary;
 }
+
 
 
 /**
