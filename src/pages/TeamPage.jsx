@@ -328,9 +328,9 @@ const team = useTeamByContext(
 
  const teamId = team?.id;
   
-  const record = useTeamRecord(teamid, seasonId, categoryId);
-  const summary = useTeamSummary(teamid, seasonId, categoryId);
-  const { players, setPlayers, reload } = useRoster(teamid, seasonId, categoryId);
+  const record = useTeamRecord(teamId, seasonId, categoryId);
+  const summary = useTeamSummary(teamId, seasonId, categoryId);
+  const { players, setPlayers, reload } = useRoster(teamId, seasonId, categoryId);
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
   const statsMap = useStatsForPlayers(playerIds, seasonId, categoryId);
@@ -388,7 +388,7 @@ const team = useTeamByContext(
         const { data: usedRows, error: usedErr } = await supabase
           .from("team_players")
           .select("player_id")
-          .eq("team_id", Number(id))
+          .eq("team_id", Number(teamId))
           .eq("season_id", Number(seasonId))
           .eq("category_id", Number(categoryId))
           .eq("is_active", true);
@@ -444,7 +444,7 @@ const team = useTeamByContext(
     if (pErr) return alert(pErr.message);
 
     const payloadTeamPlayer = {
-      team_id: Number(id),
+      team_id: Number(teamId),
       player_id: Number(insertedPlayer.id),
       season_id: Number(seasonId),
       category_id: Number(categoryId),
@@ -471,7 +471,7 @@ const team = useTeamByContext(
     }
 
     const { error } = await supabase.from("team_players").insert({
-      team_id: Number(id),
+      team_id: Number(teamId),
       player_id: Number(selectedExisting),
       season_id: Number(seasonId),
       category_id: Number(categoryId),
@@ -530,7 +530,7 @@ const team = useTeamByContext(
       .update({
         number: row.__edit.number === "" ? null : Number(row.__edit.number),
       })
-      .eq("team_id", Number(id))
+      .eq("team_id", Number(teamId))
       .eq("player_id", Number(pid))
       .eq("season_id", Number(seasonId))
       .eq("category_id", Number(categoryId));
@@ -549,7 +549,7 @@ const team = useTeamByContext(
     const { error } = await supabase
       .from("team_players")
       .update({ is_active: false })
-      .eq("team_id", Number(id))
+      .eq("team_id", Number(teamId))
       .eq("player_id", Number(pid))
       .eq("season_id", Number(seasonId))
       .eq("category_id", Number(categoryId));
