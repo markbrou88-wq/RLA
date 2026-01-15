@@ -321,10 +321,12 @@ export default function TeamPage() {
   const { seasonId } = useSeason();
   const { categoryId } = useCategory();
 
-const { teamId: teamIdParam } = useParams();
-const teamId = Number(teamIdParam);
+  const teamId = Number(teamIdParam);
 
-const team = useTeamById(teamId, seasonId, categoryId);
+  const team = useTeamById(teamId, seasonId, categoryId);
+  const record = useTeamRecord(teamId, seasonId, categoryId);
+  const summary = useTeamSummary(teamId, seasonId, categoryId);
+  const { players, setPlayers, reload } = useRoster(teamId, seasonId, categoryId);
 
 
   
