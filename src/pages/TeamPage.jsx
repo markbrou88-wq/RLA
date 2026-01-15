@@ -37,25 +37,44 @@ function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" 
 }
 
 /* ---------- Data hooks ---------- */
-function useTeam(teamId) {
+function useTeamByContext(teamName, seasonId, categoryId) {
   const [team, setTeam] = React.useState(null);
+
   React.useEffect(() => {
-    let stop = false;
+    if (!teamName || !seasonId || !categoryId) {
+      setTeam(null);
+      return;
+    }
+
+    let cancelled = false;
+
     (async () => {
       const { data, error } = await supabase
         .from("teams")
         .select("id,name,short_name,logo_url")
-        .eq("id", teamId)
-        .single();
-      if (!stop) {
-        if (error) console.error(error);
-        setTeam(data);
+        .eq("name", teamName)
+        .eq("season_id", Number(seasonId))
+        .eq("category_id", Number(categoryId))
+        .maybeSingle(); // IMPORTANT
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error("team resolve error", error);
+        setTeam(null);
+      } else {
+        setTeam(data ?? null);
       }
     })();
-    return () => (stop = true);
-  }, [teamId]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [teamName, seasonId, categoryId]);
+
   return team;
 }
+
 
 function useTeamRecord(teamId, seasonId, categoryId) {
   const [record, setRecord] = React.useState(null);
@@ -297,14 +316,21 @@ function useResizableColumns(teamId, defaults) {
 
 /* ---------- Page ---------- */
 export default function TeamPage() {
-  const { id } = useParams();
+  const { name } = useParams();
   const { seasonId } = useSeason();
   const { categoryId } = useCategory();
 
-  const team = useTeam(id);
-  const record = useTeamRecord(id, seasonId, categoryId);
-  const summary = useTeamSummary(id, seasonId, categoryId);
-  const { players, setPlayers, reload } = useRoster(id, seasonId, categoryId);
+const team = useTeamByContext(
+  decodeURIComponent(name),
+  seasonId,
+  categoryId
+);
+
+ 
+  
+  const record = useTeamRecord(teamid, seasonId, categoryId);
+  const summary = useTeamSummary(teamid, seasonId, categoryId);
+  const { players, setPlayers, reload } = useRoster(teamid, seasonId, categoryId);
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
   const statsMap = useStatsForPlayers(playerIds, seasonId, categoryId);
@@ -582,7 +608,7 @@ export default function TeamPage() {
   );
 
   return (
-  <div key={`${id}-${seasonId}-${categoryId}`} className="team-page">
+  
       <div className="row gap">
         <Link to="/" className="btn ghost small">
           ← Back to Standings
