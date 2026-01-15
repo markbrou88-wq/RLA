@@ -326,7 +326,7 @@ const team = useTeamByContext(
   categoryId
 );
 
- 
+ const teamId = team?.id;
   
   const record = useTeamRecord(teamid, seasonId, categoryId);
   const summary = useTeamSummary(teamid, seasonId, categoryId);
@@ -335,7 +335,7 @@ const team = useTeamByContext(
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
   const statsMap = useStatsForPlayers(playerIds, seasonId, categoryId);
 
-  const { widths, startResize } = useResizableColumns(id, {
+  const { widths, startResize } = useResizableColumns(teamId, {
     player: 260,
     number: 70,
     pos: 70,
@@ -422,7 +422,7 @@ const team = useTeamByContext(
         setExistingPlayers([]);
       }
     })();
-  }, [adding, addMode, id, seasonId, categoryId]);
+  }, [adding, addMode, teamId, seasonId, categoryId]);
 
   async function addPlayer() {
     if (!newPlayer.name) return;
@@ -608,7 +608,7 @@ const team = useTeamByContext(
   );
 
   return (
-  
+  <div className="team-page">
       <div className="row gap">
         <Link to="/" className="btn ghost small">
           ← Back to Standings
