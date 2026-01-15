@@ -71,7 +71,7 @@ function useTeamSummary(teamId) {
         .select("id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot")
         .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
         .order("game_date", { ascending: false })
-        .limit(100);
+        
       if (error) return console.error(error);
 
       let gp = 0,
