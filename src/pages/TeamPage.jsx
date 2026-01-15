@@ -4,7 +4,6 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useSeason } from "../contexts/SeasonContext";
 import { useCategory } from "../contexts/CategoryContext";
-import { useNavigate } from "react-router-dom";
 
 /* ---------- Tiny sparkline (no deps) ---------- */
 function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" }) {
@@ -38,172 +37,80 @@ function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" 
 }
 
 /* ---------- Data hooks ---------- */
-function useTeamById(teamId, seasonId, categoryId) {
+function useTeam(teamId) {
   const [team, setTeam] = React.useState(null);
-
   React.useEffect(() => {
-    if (!teamId || !seasonId || !categoryId) {
-      setTeam(null);
-      return;
-    }
-
-    let cancelled = false;
-
+    let stop = false;
     (async () => {
       const { data, error } = await supabase
         .from("teams")
         .select("id,name,short_name,logo_url")
-        .eq("id", Number(teamId))
-        .eq("season_id", Number(seasonId))
-        .eq("category_id", Number(categoryId))
-        .maybeSingle();
-
-      if (cancelled) return;
-
-      if (error) {
-        console.error("team fetch error", error);
-        setTeam(null);
-      } else {
-        setTeam(data ?? null);
+        .eq("id", teamId)
+        .single();
+      if (!stop) {
+        if (error) console.error(error);
+        setTeam(data);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [teamId, seasonId, categoryId]);
-
+    return () => (stop = true);
+  }, [teamId]);
   return team;
 }
 
-
-
-function useTeamRecord(teamId, seasonId, categoryId) {
-  const [record, setRecord] = React.useState(null);
-
+function useTeamSummary(teamId) {
+  const [summary, setSummary] = React.useState({
+    record: { gp: 0, w: 0, l: 0, otl: 0, gf: 0, ga: 0 },
+    recent: [],
+    chart: [],
+  });
   React.useEffect(() => {
-    // reset immediately so UI doesn't show stale values
-    setRecord(null);
-
-    if (!teamId || !seasonId || !categoryId) return;
-
-    let cancelled = false;
-
+    let stop = false;
     (async () => {
-      const sid = Number(seasonId);
-      const cid = Number(categoryId);
-      const tid = Number(teamId);
-
-      const { data, error } = await supabase
-        .from("standings_current")
-        .select("gp,w,l,otl,gf,ga,diff,pts")
-        .eq("team_id", tid)
-        .eq("season_id", sid)
-        .eq("category_id", cid)
-        .maybeSingle(); // ✅ avoids hard error if row doesn't exist
-
-      if (cancelled) return;
-
-      if (error) {
-        console.error("team record fetch error", error);
-        setRecord(null);
-      } else {
-        setRecord(data ?? null);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [teamId, seasonId, categoryId]);
-
-  return record;
-}
-
-
-function useTeamSummary(teamId, seasonId, categoryId) {
-  const [summary, setSummary] = React.useState({ recent: [], chart: [] });
-
-  React.useEffect(() => {
-    // reset immediately on toggle
-    setSummary({ recent: [], chart: [] });
-
-    if (!teamId || !seasonId || !categoryId) return;
-
-    let cancelled = false;
-
-    (async () => {
-      const tid = Number(teamId);
-      const sid = Number(seasonId);
-      const cid = Number(categoryId);
-
-      // ✅ Query HOME games
-      const { data: homeGames, error: homeErr } = await supabase
+      const { data: games, error } = await supabase
         .from("games")
-        .select("game_date,home_team_id,away_team_id,home_score,away_score,status")
-        .eq("season_id", sid)
-        .eq("category_id", cid)
-        .eq("home_team_id", tid)
-        .order("game_date", { ascending: false });
+        .select("id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot")
+        .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+        .order("game_date", { ascending: false })
+        .limit(100);
+      if (error) return console.error(error);
 
-      // ✅ Query AWAY games
-      const { data: awayGames, error: awayErr } = await supabase
-        .from("games")
-        .select("game_date,home_team_id,away_team_id,home_score,away_score,status")
-        .eq("season_id", sid)
-        .eq("category_id", cid)
-        .eq("away_team_id", tid)
-        .order("game_date", { ascending: false });
-
-      if (cancelled) return;
-
-      if (homeErr) console.error("team summary home fetch error", homeErr);
-      if (awayErr) console.error("team summary away fetch error", awayErr);
-      if (homeErr || awayErr) return;
-
-      // merge + sort desc by date (works even if strings)
-      const games = [...(homeGames || []), ...(awayGames || [])].sort((a, b) =>
-        String(b.game_date || "").localeCompare(String(a.game_date || ""))
-      );
-
+      let gp = 0,
+        w = 0,
+        l = 0,
+        otl = 0,
+        gf = 0,
+        ga = 0;
       const recent = [];
       const chart = [];
-
       for (const g of games) {
-        if (g.status !== "final") continue;
-
-        const isHome = g.home_team_id === tid;
+        const isHome = g.home_team_id === Number(teamId);
         const tGF = isHome ? g.home_score : g.away_score;
         const tGA = isHome ? g.away_score : g.home_score;
-
-        if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
-
-        if (chart.length < 10) {
-          chart.push({
-            date: (g.game_date || "").slice(5, 10),
-            diff: (tGF ?? 0) - (tGA ?? 0),
-          });
+        if (g.status === "final") {
+          gp++;
+          gf += tGF || 0;
+          ga += tGA || 0;
+          if (tGF > tGA) w++;
+          else if (tGF < tGA) (g.went_ot ? otl++ : l++);
+          if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
+          if (chart.length < 10)
+            chart.push({
+              date: (g.game_date || "").slice(5, 10),
+              diff: (tGF || 0) - (tGA || 0),
+            });
         }
-
-        if (recent.length >= 5 && chart.length >= 10) break;
       }
-
-      setSummary({
-        recent: recent.reverse(),
-        chart: chart.reverse(),
-      });
+      if (!stop)
+        setSummary({
+          record: { gp, w, l, otl, gf, ga },
+          recent: recent.reverse(),
+          chart: chart.reverse(),
+        });
     })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [teamId, seasonId, categoryId]);
-
+    return () => (stop = true);
+  }, [teamId]);
   return summary;
 }
-
-
-
 
 /**
  * Roster from team_players scoped to season/category
@@ -318,30 +225,18 @@ function useResizableColumns(teamId, defaults) {
 
 /* ---------- Page ---------- */
 export default function TeamPage() {
-  const { teamId: teamIdParam } = useParams();
+  const { id } = useParams();
   const { seasonId } = useSeason();
   const { categoryId } = useCategory();
 
-  const teamId = Number(teamIdParam);
-
-  const team = useTeamById(teamId, seasonId, categoryId);
-  const record = useTeamRecord(teamId, seasonId, categoryId);
-  const summary = useTeamSummary(teamId, seasonId, categoryId);
-  const { players, setPlayers, reload } = useRoster(teamId, seasonId, categoryId);
-
-const navigate = useNavigate();
-
-React.useEffect(() => {
-  // teamId no longer valid after season/category change
-  navigate("/", { replace: true });
-}, [seasonId, categoryId]);
-  
-  
+  const team = useTeam(id);
+  const summary = useTeamSummary(id);
+  const { players, setPlayers, reload } = useRoster(id, seasonId, categoryId);
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
   const statsMap = useStatsForPlayers(playerIds, seasonId, categoryId);
 
-  const { widths, startResize } = useResizableColumns(teamId, {
+  const { widths, startResize } = useResizableColumns(id, {
     player: 260,
     number: 70,
     pos: 70,
@@ -394,7 +289,7 @@ React.useEffect(() => {
         const { data: usedRows, error: usedErr } = await supabase
           .from("team_players")
           .select("player_id")
-          .eq("team_id", Number(teamId))
+          .eq("team_id", Number(id))
           .eq("season_id", Number(seasonId))
           .eq("category_id", Number(categoryId))
           .eq("is_active", true);
@@ -428,7 +323,7 @@ React.useEffect(() => {
         setExistingPlayers([]);
       }
     })();
-  }, [adding, addMode, teamId, seasonId, categoryId]);
+  }, [adding, addMode, id, seasonId, categoryId]);
 
   async function addPlayer() {
     if (!newPlayer.name) return;
@@ -450,7 +345,7 @@ React.useEffect(() => {
     if (pErr) return alert(pErr.message);
 
     const payloadTeamPlayer = {
-      team_id: Number(teamId),
+      team_id: Number(id),
       player_id: Number(insertedPlayer.id),
       season_id: Number(seasonId),
       category_id: Number(categoryId),
@@ -477,7 +372,7 @@ React.useEffect(() => {
     }
 
     const { error } = await supabase.from("team_players").insert({
-      team_id: Number(teamId),
+      team_id: Number(id),
       player_id: Number(selectedExisting),
       season_id: Number(seasonId),
       category_id: Number(categoryId),
@@ -536,7 +431,7 @@ React.useEffect(() => {
       .update({
         number: row.__edit.number === "" ? null : Number(row.__edit.number),
       })
-      .eq("team_id", Number(teamId))
+      .eq("team_id", Number(id))
       .eq("player_id", Number(pid))
       .eq("season_id", Number(seasonId))
       .eq("category_id", Number(categoryId));
@@ -555,7 +450,7 @@ React.useEffect(() => {
     const { error } = await supabase
       .from("team_players")
       .update({ is_active: false })
-      .eq("team_id", Number(teamId))
+      .eq("team_id", Number(id))
       .eq("player_id", Number(pid))
       .eq("season_id", Number(seasonId))
       .eq("category_id", Number(categoryId));
@@ -614,7 +509,7 @@ React.useEffect(() => {
   );
 
   return (
-  <div className="team-page">
+    <div className="team-page">
       <div className="row gap">
         <Link to="/" className="btn ghost small">
           ← Back to Standings
@@ -633,17 +528,10 @@ React.useEffect(() => {
               {team?.name || "Team"}
             </div>
             <div className="muted">
-              {record ? (
-  <>
-    GP {record.gp} • W {record.w} • L {record.l} • OTL {record.otl}
-  </>
-) : (
-  <span className="muted">No games yet</span>
-)}
-
+              GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL {summary.record.otl}
             </div>
             <div className="muted">
-              {record && <>GF {record.gf} • GA {record.ga} • Diff {record.diff}</>}
+              GF {summary.record.gf} • GA {summary.record.ga} • Diff {summary.record.gf - summary.record.ga}
             </div>
             <div className="row gap xs" style={{ marginTop: 6 }}>
               {summary.recent.map((r, i) => (
