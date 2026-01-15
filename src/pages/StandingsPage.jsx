@@ -140,7 +140,8 @@ export default function StandingsPage() {
                 rows.map((r) => (
                   <tr key={r.team_id}>
                     <td style={{ textAlign: "left" }}>
-                      <Link to={`/teams/${r.team_id}`}>{r.name}</Link>
+                      <Link to={`/teams/${encodeURIComponent(r.name)}`}>{r.name}</Link>
+
                     </td>
                     <td>{r.gp}</td>
                     <td>{r.w}</td>
