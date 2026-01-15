@@ -63,31 +63,37 @@ function useTeamSummary(teamId, seasonId, categoryId) {
     recent: [],
     chart: [],
   });
+
   React.useEffect(() => {
-  // ⛔ DO NOT query until season & category are ready
-  if (!seasonId || !categoryId) {
+    // 🔴 Always reset immediately on context change
     setSummary({
       record: { gp: 0, w: 0, l: 0, otl: 0, gf: 0, ga: 0 },
       recent: [],
       chart: [],
     });
-    return;
-  }
 
-  let stop = false;
+    // ⛔ Do not fetch until context is ready
+    if (!teamId || !seasonId || !categoryId) {
+      return;
+    }
 
-  (async () => {
+    let cancelled = false;
 
+    (async () => {
       const { data: games, error } = await supabase
         .from("games")
-        .select("id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot")
-        .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+        .select(
+          "id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot"
+        )
+        .or(`home_team_id.eq.${Number(teamId)},away_team_id.eq.${Number(teamId)}`)
         .eq("season_id", Number(seasonId))
         .eq("category_id", Number(categoryId))
-        .order("game_date", { ascending: false })
+        .order("game_date", { ascending: false });
 
-        
-      if (error) return console.error(error);
+      if (error || cancelled) {
+        if (error) console.error(error);
+        return;
+      }
 
       let gp = 0,
         w = 0,
@@ -95,37 +101,51 @@ function useTeamSummary(teamId, seasonId, categoryId) {
         otl = 0,
         gf = 0,
         ga = 0;
+
       const recent = [];
       const chart = [];
-      for (const g of games) {
+
+      for (const g of games || []) {
+        if (String(g.status).toLowerCase() !== "final") continue;
+
         const isHome = g.home_team_id === Number(teamId);
         const tGF = isHome ? g.home_score : g.away_score;
         const tGA = isHome ? g.away_score : g.home_score;
-        if (g.status === "final") {
-          gp++;
-          gf += tGF || 0;
-          ga += tGA || 0;
-          if (tGF > tGA) w++;
-          else if (tGF < tGA) (g.went_ot ? otl++ : l++);
-          if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
-          if (chart.length < 10)
-            chart.push({
-              date: (g.game_date || "").slice(5, 10),
-              diff: (tGF || 0) - (tGA || 0),
-            });
+
+        gp++;
+        gf += tGF || 0;
+        ga += tGA || 0;
+
+        if (tGF > tGA) w++;
+        else g.went_ot ? otl++ : l++;
+
+        if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
+
+        if (chart.length < 10) {
+          chart.push({
+            date: (g.game_date || "").slice(5, 10),
+            diff: (tGF || 0) - (tGA || 0),
+          });
         }
       }
-      if (!stop)
+
+      if (!cancelled) {
         setSummary({
           record: { gp, w, l, otl, gf, ga },
           recent: recent.reverse(),
           chart: chart.reverse(),
         });
+      }
     })();
-    return () => (stop = true);
+
+    return () => {
+      cancelled = true;
+    };
   }, [teamId, seasonId, categoryId]);
+
   return summary;
 }
+
 
 /**
  * Roster from team_players scoped to season/category
