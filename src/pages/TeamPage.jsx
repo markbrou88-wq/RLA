@@ -37,11 +37,11 @@ function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" 
 }
 
 /* ---------- Data hooks ---------- */
-function useTeamByContext(teamName, seasonId, categoryId) {
+function useTeamById(teamId, seasonId, categoryId) {
   const [team, setTeam] = React.useState(null);
 
   React.useEffect(() => {
-    if (!teamName || !seasonId || !categoryId) {
+    if (!teamId || !seasonId || !categoryId) {
       setTeam(null);
       return;
     }
@@ -52,15 +52,15 @@ function useTeamByContext(teamName, seasonId, categoryId) {
       const { data, error } = await supabase
         .from("teams")
         .select("id,name,short_name,logo_url")
-        .eq("name", teamName)
+        .eq("id", Number(teamId))
         .eq("season_id", Number(seasonId))
         .eq("category_id", Number(categoryId))
-        .maybeSingle(); // IMPORTANT
+        .maybeSingle();
 
       if (cancelled) return;
 
       if (error) {
-        console.error("team resolve error", error);
+        console.error("team fetch error", error);
         setTeam(null);
       } else {
         setTeam(data ?? null);
@@ -70,10 +70,11 @@ function useTeamByContext(teamName, seasonId, categoryId) {
     return () => {
       cancelled = true;
     };
-  }, [teamName, seasonId, categoryId]);
+  }, [teamId, seasonId, categoryId]);
 
   return team;
 }
+
 
 
 function useTeamRecord(teamId, seasonId, categoryId) {
@@ -316,15 +317,14 @@ function useResizableColumns(teamId, defaults) {
 
 /* ---------- Page ---------- */
 export default function TeamPage() {
-  const { name } = useParams();
+  const { teamId: teamIdParam } = useParams();
   const { seasonId } = useSeason();
   const { categoryId } = useCategory();
 
-const team = useTeamByContext(
-  decodeURIComponent(name),
-  seasonId,
-  categoryId
-);
+const { teamId: teamIdParam } = useParams();
+const teamId = Number(teamIdParam);
+
+const team = useTeamById(teamId, seasonId, categoryId);
 
  const teamId = team?.id;
   
