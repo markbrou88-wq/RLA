@@ -57,7 +57,7 @@ function useTeam(teamId) {
   return team;
 }
 
-function useTeamSummary(teamId) {
+function useTeamSummary(teamId, seasonId, categoryId) {
   const [summary, setSummary] = React.useState({
     record: { gp: 0, w: 0, l: 0, otl: 0, gf: 0, ga: 0 },
     recent: [],
@@ -70,7 +70,10 @@ function useTeamSummary(teamId) {
         .from("games")
         .select("id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot")
         .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+        .eq("season_id", Number(seasonId))
+        .eq("category_id", Number(categoryId))
         .order("game_date", { ascending: false })
+
         
       if (error) return console.error(error);
 
@@ -108,7 +111,7 @@ function useTeamSummary(teamId) {
         });
     })();
     return () => (stop = true);
-  }, [teamId]);
+  }, [teamId, seasonId, categoryId]);
   return summary;
 }
 
@@ -230,7 +233,7 @@ export default function TeamPage() {
   const { categoryId } = useCategory();
 
   const team = useTeam(id);
-  const summary = useTeamSummary(id);
+  const summary = useTeamSummary(id, seasonId, categoryId);
   const { players, setPlayers, reload } = useRoster(id, seasonId, categoryId);
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
