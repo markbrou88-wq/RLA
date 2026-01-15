@@ -1745,18 +1745,4 @@ h1, h2 {
   }
 }
 
-.gp-day-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  padding: 8px 4px;
-  border-bottom: 2px solid #eee;
-  margin-bottom: 8px;
-  text-transform: capitalize;
-}
-
-.gp-day-icon {
-  opacity: 0.7;
-}
 
