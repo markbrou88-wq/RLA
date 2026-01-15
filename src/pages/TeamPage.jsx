@@ -544,7 +544,7 @@ export default function TeamPage() {
   );
 
   return (
-    <div className="team-page">
+  <div key={`${id}-${seasonId}-${categoryId}`} className="team-page">
       <div className="row gap">
         <Link to="/" className="btn ghost small">
           ← Back to Standings
