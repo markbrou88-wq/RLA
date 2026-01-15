@@ -64,8 +64,20 @@ function useTeamSummary(teamId, seasonId, categoryId) {
     chart: [],
   });
   React.useEffect(() => {
-    let stop = false;
-    (async () => {
+  // ⛔ DO NOT query until season & category are ready
+  if (!seasonId || !categoryId) {
+    setSummary({
+      record: { gp: 0, w: 0, l: 0, otl: 0, gf: 0, ga: 0 },
+      recent: [],
+      chart: [],
+    });
+    return;
+  }
+
+  let stop = false;
+
+  (async () => {
+
       const { data: games, error } = await supabase
         .from("games")
         .select("id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot")
