@@ -326,7 +326,7 @@ const teamId = Number(teamIdParam);
 
 const team = useTeamById(teamId, seasonId, categoryId);
 
- const teamId = team?.id;
+
   
   const record = useTeamRecord(teamId, seasonId, categoryId);
   const summary = useTeamSummary(teamId, seasonId, categoryId);
