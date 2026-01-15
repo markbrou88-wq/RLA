@@ -330,9 +330,7 @@ export default function TeamPage() {
 
 
   
-  const record = useTeamRecord(teamId, seasonId, categoryId);
-  const summary = useTeamSummary(teamId, seasonId, categoryId);
-  const { players, setPlayers, reload } = useRoster(teamId, seasonId, categoryId);
+  
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
   const statsMap = useStatsForPlayers(playerIds, seasonId, categoryId);
