@@ -95,6 +95,68 @@ function useTeamRecord(teamId, seasonId, categoryId) {
   return record;
 }
 
+function useTeamSummary(teamId, seasonId, categoryId) {
+  const [summary, setSummary] = React.useState({
+    recent: [],
+    chart: [],
+  });
+
+  React.useEffect(() => {
+    if (!teamId || !seasonId || !categoryId) {
+      setSummary({ recent: [], chart: [] });
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const { data: games, error } = await supabase
+        .from("games")
+        .select(
+          "game_date,home_team_id,away_team_id,home_score,away_score,status"
+        )
+        .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+        .eq("season_id", seasonId)
+        .eq("category_id", categoryId)
+        .order("game_date", { ascending: false });
+
+      if (error || cancelled) return;
+
+      const recent = [];
+      const chart = [];
+
+      for (const g of games || []) {
+        if (g.status !== "final") continue;
+
+        const isHome = g.home_team_id === Number(teamId);
+        const tGF = isHome ? g.home_score : g.away_score;
+        const tGA = isHome ? g.away_score : g.home_score;
+
+        if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
+
+        if (chart.length < 10) {
+          chart.push({
+            date: (g.game_date || "").slice(5, 10),
+            diff: (tGF ?? 0) - (tGA ?? 0),
+          });
+        }
+      }
+
+      if (!cancelled) {
+        setSummary({
+          recent: recent.reverse(),
+          chart: chart.reverse(),
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [teamId, seasonId, categoryId]);
+
+  return summary;
+}
 
 
 /**
@@ -216,6 +278,7 @@ export default function TeamPage() {
 
   const team = useTeam(id);
   const record = useTeamRecord(id, seasonId, categoryId);
+  const summary = useTeamSummary(id, seasonId, categoryId);
   const { players, setPlayers, reload } = useRoster(id, seasonId, categoryId);
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
