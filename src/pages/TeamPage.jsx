@@ -57,84 +57,33 @@ function useTeam(teamId) {
   return team;
 }
 
-function useTeamSummary(teamId, seasonId, categoryId) {
-  const [summary, setSummary] = React.useState({
-    record: { gp: 0, w: 0, l: 0, otl: 0, gf: 0, ga: 0 },
-    recent: [],
-    chart: [],
-  });
+function useTeamRecord(teamId, seasonId, categoryId) {
+  const [record, setRecord] = React.useState(null);
 
   React.useEffect(() => {
-    // 🔴 Always reset immediately on context change
-    setSummary({
-      record: { gp: 0, w: 0, l: 0, otl: 0, gf: 0, ga: 0 },
-      recent: [],
-      chart: [],
-    });
-
-    // ⛔ Do not fetch until context is ready
     if (!teamId || !seasonId || !categoryId) {
+      setRecord(null);
       return;
     }
 
     let cancelled = false;
 
     (async () => {
-      const { data: games, error } = await supabase
-        .from("games")
-        .select(
-          "id,game_date,home_team_id,away_team_id,home_score,away_score,status,went_ot"
-        )
-        .or(`home_team_id.eq.${Number(teamId)},away_team_id.eq.${Number(teamId)}`)
+      const { data, error } = await supabase
+        .from("standings_current")
+        .select("gp,w,l,otl,gf,ga,diff,pts")
+        .eq("team_id", Number(teamId))
         .eq("season_id", Number(seasonId))
         .eq("category_id", Number(categoryId))
-        .order("game_date", { ascending: false });
-
-      if (error || cancelled) {
-        if (error) console.error(error);
-        return;
-      }
-
-      let gp = 0,
-        w = 0,
-        l = 0,
-        otl = 0,
-        gf = 0,
-        ga = 0;
-
-      const recent = [];
-      const chart = [];
-
-      for (const g of games || []) {
-        if (String(g.status).toLowerCase() !== "final") continue;
-
-        const isHome = g.home_team_id === Number(teamId);
-        const tGF = isHome ? g.home_score : g.away_score;
-        const tGA = isHome ? g.away_score : g.home_score;
-
-        gp++;
-        gf += tGF || 0;
-        ga += tGA || 0;
-
-        if (tGF > tGA) w++;
-        else g.went_ot ? otl++ : l++;
-
-        if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
-
-        if (chart.length < 10) {
-          chart.push({
-            date: (g.game_date || "").slice(5, 10),
-            diff: (tGF || 0) - (tGA || 0),
-          });
-        }
-      }
+        .single();
 
       if (!cancelled) {
-        setSummary({
-          record: { gp, w, l, otl, gf, ga },
-          recent: recent.reverse(),
-          chart: chart.reverse(),
-        });
+        if (error) {
+          console.error("team record fetch error", error);
+          setRecord(null);
+        } else {
+          setRecord(data);
+        }
       }
     })();
 
@@ -143,8 +92,9 @@ function useTeamSummary(teamId, seasonId, categoryId) {
     };
   }, [teamId, seasonId, categoryId]);
 
-  return summary;
+  return record;
 }
+
 
 
 /**
@@ -265,7 +215,7 @@ export default function TeamPage() {
   const { categoryId } = useCategory();
 
   const team = useTeam(id);
-  const summary = useTeamSummary(id, seasonId, categoryId);
+  const record = useTeamRecord(id, seasonId, categoryId);
   const { players, setPlayers, reload } = useRoster(id, seasonId, categoryId);
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
@@ -563,10 +513,17 @@ export default function TeamPage() {
               {team?.name || "Team"}
             </div>
             <div className="muted">
-              GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL {summary.record.otl}
+              {record ? (
+  <>
+    GP {record.gp} • W {record.w} • L {record.l} • OTL {record.otl}
+  </>
+) : (
+  <span className="muted">No games yet</span>
+)}
+
             </div>
             <div className="muted">
-              GF {summary.record.gf} • GA {summary.record.ga} • Diff {summary.record.gf - summary.record.ga}
+              {record && <>GF {record.gf} • GA {record.ga} • Diff {record.diff}</>}
             </div>
             <div className="row gap xs" style={{ marginTop: 6 }}>
               {summary.recent.map((r, i) => (
