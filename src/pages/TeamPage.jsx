@@ -61,29 +61,33 @@ function useTeamRecord(teamId, seasonId, categoryId) {
   const [record, setRecord] = React.useState(null);
 
   React.useEffect(() => {
-    if (!teamId || !seasonId || !categoryId) {
-      setRecord(null);
-      return;
-    }
+    // reset immediately so UI doesn't show stale values
+    setRecord(null);
+
+    if (!teamId || !seasonId || !categoryId) return;
 
     let cancelled = false;
 
     (async () => {
+      const sid = Number(seasonId);
+      const cid = Number(categoryId);
+      const tid = Number(teamId);
+
       const { data, error } = await supabase
         .from("standings_current")
         .select("gp,w,l,otl,gf,ga,diff,pts")
-        .eq("team_id", Number(teamId))
-        .eq("season_id", Number(seasonId))
-        .eq("category_id", Number(categoryId))
-        .single();
+        .eq("team_id", tid)
+        .eq("season_id", sid)
+        .eq("category_id", cid)
+        .maybeSingle(); // ✅ avoids hard error if row doesn't exist
 
-      if (!cancelled) {
-        if (error) {
-          console.error("team record fetch error", error);
-          setRecord(null);
-        } else {
-          setRecord(data);
-        }
+      if (cancelled) return;
+
+      if (error) {
+        console.error("team record fetch error", error);
+        setRecord(null);
+      } else {
+        setRecord(data ?? null);
       }
     })();
 
@@ -95,55 +99,63 @@ function useTeamRecord(teamId, seasonId, categoryId) {
   return record;
 }
 
+
 function useTeamSummary(teamId, seasonId, categoryId) {
-  const [summary, setSummary] = React.useState({
-    recent: [],
-    chart: [],
-  });
+  const [summary, setSummary] = React.useState({ recent: [], chart: [] });
 
   React.useEffect(() => {
-    if (!teamId || !seasonId || !categoryId) {
-      setSummary({ recent: [], chart: [] });
-      return;
-    }
+    // reset immediately on toggle
+    setSummary({ recent: [], chart: [] });
+
+    if (!teamId || !seasonId || !categoryId) return;
 
     let cancelled = false;
 
     (async () => {
-      const { data: games, error } = await supabase
+      const tid = Number(teamId);
+      const sid = Number(seasonId);
+      const cid = Number(categoryId);
+
+      // ✅ Query HOME games
+      const { data: homeGames, error: homeErr } = await supabase
         .from("games")
-        .select(
-          "game_date,home_team_id,away_team_id,home_score,away_score,status"
-        )
-        // ✅ CRITICAL FIX: parenthesized OR
-        .or(
-          `and(home_team_id.eq.${Number(teamId)},season_id.eq.${Number(
-            seasonId
-          )},category_id.eq.${Number(categoryId)}),
-           and(away_team_id.eq.${Number(teamId)},season_id.eq.${Number(
-            seasonId
-          )},category_id.eq.${Number(categoryId)})`
-        )
+        .select("game_date,home_team_id,away_team_id,home_score,away_score,status")
+        .eq("season_id", sid)
+        .eq("category_id", cid)
+        .eq("home_team_id", tid)
         .order("game_date", { ascending: false });
 
-      if (error || cancelled) {
-        if (error) console.error("team summary fetch error", error);
-        return;
-      }
+      // ✅ Query AWAY games
+      const { data: awayGames, error: awayErr } = await supabase
+        .from("games")
+        .select("game_date,home_team_id,away_team_id,home_score,away_score,status")
+        .eq("season_id", sid)
+        .eq("category_id", cid)
+        .eq("away_team_id", tid)
+        .order("game_date", { ascending: false });
+
+      if (cancelled) return;
+
+      if (homeErr) console.error("team summary home fetch error", homeErr);
+      if (awayErr) console.error("team summary away fetch error", awayErr);
+      if (homeErr || awayErr) return;
+
+      // merge + sort desc by date (works even if strings)
+      const games = [...(homeGames || []), ...(awayGames || [])].sort((a, b) =>
+        String(b.game_date || "").localeCompare(String(a.game_date || ""))
+      );
 
       const recent = [];
       const chart = [];
 
-      for (const g of games || []) {
+      for (const g of games) {
         if (g.status !== "final") continue;
 
-        const isHome = g.home_team_id === Number(teamId);
+        const isHome = g.home_team_id === tid;
         const tGF = isHome ? g.home_score : g.away_score;
         const tGA = isHome ? g.away_score : g.home_score;
 
-        if (recent.length < 5) {
-          recent.push(tGF > tGA ? "W" : "L");
-        }
+        if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
 
         if (chart.length < 10) {
           chart.push({
@@ -151,14 +163,14 @@ function useTeamSummary(teamId, seasonId, categoryId) {
             diff: (tGF ?? 0) - (tGA ?? 0),
           });
         }
+
+        if (recent.length >= 5 && chart.length >= 10) break;
       }
 
-      if (!cancelled) {
-        setSummary({
-          recent: recent.reverse(),
-          chart: chart.reverse(),
-        });
-      }
+      setSummary({
+        recent: recent.reverse(),
+        chart: chart.reverse(),
+      });
     })();
 
     return () => {
@@ -168,6 +180,7 @@ function useTeamSummary(teamId, seasonId, categoryId) {
 
   return summary;
 }
+
 
 
 
