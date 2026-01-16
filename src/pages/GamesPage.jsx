@@ -69,19 +69,20 @@ function MonthSection({
 }}
             >
               {/* Matchup */}
-              <div className="gp-match" style={{ display: "flex", gap: 12 }}>
-                <TeamChip team={away} />
-                <span className="gp-sub">{t("at")}</span>
-                <TeamChip team={home} />
-              </div>
+              <div className="gp-match" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+  {/* Teams */}
+  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+    <TeamChip team={away} />
+    <span className="gp-sub">{t("at")}</span>
+    <TeamChip team={home} />
+  </div>
 
-             {/* Date / time + score */}
-<div className="gp-center" style={{ minWidth: 160 }}>
-  {/* DATE + TIME — MAIN INFO */}
+  {/* Date + time (LOCKED POSITION) */}
   <div
     style={{
-      fontSize: "1.1rem",
+      fontSize: "1.05rem",
       fontWeight: 700,
+      marginLeft: 40, // aligns nicely under team names
       lineHeight: 1.2,
     }}
   >
@@ -93,6 +94,12 @@ function MonthSection({
       minute: "2-digit",
     })}
   </div>
+</div>
+
+
+             {/* Date / time + score */}
+<div className="gp-center" style={{ minWidth: 160 }}>
+  
 
   {/* SCORE (secondary for upcoming games) */}
   <div
