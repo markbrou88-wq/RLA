@@ -14,6 +14,17 @@ function useMaybeI18n() {
   }
 }
 
+function groupByMonth(games) {
+  return games.reduce((acc, g) => {
+    const d = new Date(g.game_date);
+    const key = d.toLocaleString(undefined, { month: "long", year: "numeric" });
+
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(g);
+    return acc;
+  }, {});
+}
+
 function MonthSection({
   games,
   teamMap,
@@ -294,16 +305,7 @@ function toTime(value) {
   return Number.isNaN(t) ? 0 : t;
 }
 
-function groupByMonth(games) {
-  return games.reduce((acc, g) => {
-    const d = new Date(g.game_date);
-    const key = d.toLocaleString(undefined, { month: "long", year: "numeric" });
 
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(g);
-    return acc;
-  }, {});
-}
   
   
   async function handleCreate() {
@@ -546,7 +548,13 @@ function groupByMonth(games) {
         games={upcomingGames}
         teamMap={teamMap}
         highlightDay={nextGameDay}
-        {...{ isLoggedIn, isMobile, navigate, t, updateStatus, handleDelete, formatGameDate }}
+        isLoggedIn={isLoggedIn}
+        isMobile={isMobile}
+        navigate={navigate}
+        t={t}
+        updateStatus={updateStatus}
+        handleDelete={handleDelete}
+        formatGameDate={formatGameDate}
       />
     )}
 
@@ -554,16 +562,22 @@ function groupByMonth(games) {
       <MonthSection
         games={pastGames}
         teamMap={teamMap}
-        {...{ isLoggedIn, isMobile, navigate, t, updateStatus, handleDelete, formatGameDate }}
+        isLoggedIn={isLoggedIn}
+        isMobile={isMobile}
+        navigate={navigate}
+        t={t}
+        updateStatus={updateStatus}
+        handleDelete={handleDelete}
+        formatGameDate={formatGameDate}
       />
     )}
   </>
 )}
 
 
-   
-  </div>
-)}
+     </div>
+  );
+}
 
       
 
