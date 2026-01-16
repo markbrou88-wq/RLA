@@ -541,21 +541,24 @@ function toTime(value) {
   <>
 
     {/* Tabs */}
-<div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-  <button
-    className={`btn ${activeTab === "upcoming" ? "btn-primary" : ""}`}
-    onClick={() => setActiveTab("upcoming")}
-  >
-    {t("Upcoming")} ({upcomingGames.length})
-  </button>
+<div className="gp-tabs-sticky">
+  <div style={{ display: "flex", gap: 12 }}>
+    <button
+      className={`btn ${activeTab === "upcoming" ? "btn-primary" : ""}`}
+      onClick={() => setActiveTab("upcoming")}
+    >
+      {t("Upcoming")} ({upcomingGames.length})
+    </button>
 
-  <button
-    className={`btn ${activeTab === "past" ? "btn-primary" : ""}`}
-    onClick={() => setActiveTab("past")}
-  >
-    {t("Past")} ({pastGames.length})
-  </button>
+    <button
+      className={`btn ${activeTab === "past" ? "btn-primary" : ""}`}
+      onClick={() => setActiveTab("past")}
+    >
+      {t("Past")} ({pastGames.length})
+    </button>
+  </div>
 </div>
+
 
 
     {/* Tab content */}
