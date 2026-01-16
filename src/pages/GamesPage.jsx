@@ -134,6 +134,18 @@ export default function GamesPage() {
     return true;
   });
 
+  // ---> ADD THIS RIGHT AFTER "const filtered = ... });"
+const now = Date.now();
+
+const upcomingGames = filtered
+  .filter((g) => toTime(g.game_date) >= now)
+  .sort((a, b) => toTime(a.game_date) - toTime(b.game_date)); // soonest first
+
+const pastGames = filtered
+  .filter((g) => toTime(g.game_date) < now)
+  .sort((a, b) => toTime(b.game_date) - toTime(a.game_date)); // most recent past first
+
+
   async function handleDelete(id) {
     if (!window.confirm(t("Delete this game?"))) return;
     const { error } = await supabase.from("games").delete().eq("id", id);
@@ -163,6 +175,14 @@ export default function GamesPage() {
     });
   }
 
+// ---> ADD THIS RIGHT AFTER formatGameDate(...) { ... } ends
+function toTime(value) {
+  const d = new Date(value);
+  const t = d.getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+  
   async function handleCreate() {
     if (!newDate || !newHome || !newAway) {
       alert(t("Please fill date, home and away."));
@@ -374,14 +394,22 @@ export default function GamesPage() {
         </div>
       )}
 
-      {/* Games list */}
-      {loading ? (
-        <div style={{ padding: 12 }}>{t("Loading…")}</div>
-      ) : filtered.length === 0 ? (
-        <div style={{ padding: 12 }}>{t("No games match your filters.")}</div>
-      ) : (
+{/* Games list */}
+{loading ? (
+  <div style={{ padding: 12 }}>{t("Loading…")}</div>
+) : filtered.length === 0 ? (
+  <div style={{ padding: 12 }}>{t("No games match your filters.")}</div>
+) : (
+  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    {/* Upcoming */}
+    {upcomingGames.length > 0 && (
+      <div>
+        <div className="gp-sub" style={{ marginBottom: 8, fontWeight: 700 }}>
+          {t("Upcoming")}
+        </div>
+
         <div className="gp-grid" style={{ gap: 12 }}>
-          {filtered.map((g) => {
+          {upcomingGames.map((g) => {
             const home = teamMap[g.home_team_id] || {};
             const away = teamMap[g.away_team_id] || {};
             const statusLabel = g.status;
@@ -415,7 +443,6 @@ export default function GamesPage() {
 
                 {/* Actions */}
                 <div className="gp-card-actions">
-                  {/* ✅ FIX: routes must match App.jsx */}
                   {isLoggedIn && !isMobile && (
                     <button className="btn" onClick={() => navigate(`/live/${slug}`)}>
                       {t("Live")}
@@ -458,7 +485,99 @@ export default function GamesPage() {
             );
           })}
         </div>
-      )}
+      </div>
+    )}
+
+    {/* Past */}
+    {pastGames.length > 0 && (
+      <div>
+        <div className="gp-sub" style={{ marginBottom: 8, fontWeight: 700 }}>
+          {t("Past")}
+        </div>
+
+        <div className="gp-grid" style={{ gap: 12 }}>
+          {pastGames.map((g) => {
+            const home = teamMap[g.home_team_id] || {};
+            const away = teamMap[g.away_team_id] || {};
+            const statusLabel = g.status;
+            const slug = g.slug || g.id;
+
+            return (
+              <div key={g.id} className="gp-grid gp-card card">
+                {/* Matchup */}
+                <div
+                  className="gp-match"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    minWidth: 0,
+                  }}
+                >
+                  <TeamChip team={away} />
+                  <span className="gp-sub">{t("at")}</span>
+                  <TeamChip team={home} />
+                </div>
+
+                {/* Score + date + status */}
+                <div className="gp-center">
+                  <div className="gp-score">
+                    {g.away_score} — {g.home_score}
+                  </div>
+                  <div className="gp-sub">{formatGameDate(g.game_date)}</div>
+                  <div className="gp-sub">{statusLabel}</div>
+                </div>
+
+                {/* Actions */}
+                <div className="gp-card-actions">
+                  {isLoggedIn && !isMobile && (
+                    <button className="btn" onClick={() => navigate(`/live/${slug}`)}>
+                      {t("Live")}
+                    </button>
+                  )}
+
+                  {isLoggedIn && (
+                    <button className="btn" onClick={() => navigate(`/games/${slug}/roster`)}>
+                      {t("Roster")}
+                    </button>
+                  )}
+
+                  <button className="btn" onClick={() => navigate(`/summary/${slug}`)}>
+                    {t("Boxscore")}
+                  </button>
+
+                  {isLoggedIn && (
+                    <>
+                      {g.status === "final" ? (
+                        <button className="btn" onClick={() => updateStatus(g.id, "scheduled")}>
+                          {t("Open")}
+                        </button>
+                      ) : (
+                        <button className="btn" onClick={() => updateStatus(g.id, "final")}>
+                          {t("Mark as Final")}
+                        </button>
+                      )}
+
+                      <button
+                        className="btn"
+                        onClick={() => handleDelete(g.id)}
+                        style={{ background: "crimson" }}
+                      >
+                        {t("Delete")}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
+      
     </div>
   );
 }
