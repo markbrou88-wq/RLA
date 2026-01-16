@@ -59,11 +59,14 @@ function MonthSection({
             <div
               key={g.id}
               className="gp-grid gp-card card"
-              style={
-                isHighlighted
-                  ? { border: "2px solid #e53935", background: "#fff5f5" }
-                  : undefined
-              }
+              style={{
+  ...(isHighlighted
+    ? { border: "2px solid #e53935", background: "#fff5f5" }
+    : {}),
+  ...(highlightDay === undefined
+    ? { opacity: 0.7 }
+    : {}),
+}}
             >
               {/* Matchup */}
               <div className="gp-match" style={{ display: "flex", gap: 12 }}>
