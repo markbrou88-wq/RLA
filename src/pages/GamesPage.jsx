@@ -14,6 +14,109 @@ function useMaybeI18n() {
   }
 }
 
+function MonthSection({
+  games,
+  teamMap,
+  highlightDay,
+  isLoggedIn,
+  isMobile,
+  navigate,
+  t,
+  updateStatus,
+  handleDelete,
+  formatGameDate,
+}) {
+  const groups = groupByMonth(games);
+
+  return Object.entries(groups).map(([month, games]) => (
+    <div key={month} style={{ marginBottom: 24 }}>
+      <div className="gp-sub" style={{ fontWeight: 700, marginBottom: 8 }}>
+        {month}
+      </div>
+
+      <div className="gp-grid" style={{ gap: 12 }}>
+        {games.map((g) => {
+          const home = teamMap[g.home_team_id] || {};
+          const away = teamMap[g.away_team_id] || {};
+          const slug = g.slug || g.id;
+
+          const isHighlighted =
+            highlightDay &&
+            new Date(g.game_date).toDateString() === highlightDay;
+
+          return (
+            <div
+              key={g.id}
+              className="gp-grid gp-card card"
+              style={
+                isHighlighted
+                  ? { border: "2px solid #e53935", background: "#fff5f5" }
+                  : undefined
+              }
+            >
+              {/* Matchup */}
+              <div className="gp-match" style={{ display: "flex", gap: 12 }}>
+                <TeamChip team={away} />
+                <span className="gp-sub">{t("at")}</span>
+                <TeamChip team={home} />
+              </div>
+
+              {/* Score + date */}
+              <div className="gp-center">
+                <div className="gp-score">
+                  {g.away_score} — {g.home_score}
+                </div>
+                <div className="gp-sub">{formatGameDate(g.game_date)}</div>
+                <div className="gp-sub">{g.status}</div>
+              </div>
+
+              {/* Actions (unchanged) */}
+              <div className="gp-card-actions">
+                {isLoggedIn && !isMobile && (
+                  <button className="btn" onClick={() => navigate(`/live/${slug}`)}>
+                    {t("Live")}
+                  </button>
+                )}
+
+                {isLoggedIn && (
+                  <button className="btn" onClick={() => navigate(`/games/${slug}/roster`)}>
+                    {t("Roster")}
+                  </button>
+                )}
+
+                <button className="btn" onClick={() => navigate(`/summary/${slug}`)}>
+                  {t("Boxscore")}
+                </button>
+
+                {isLoggedIn && (
+                  <>
+                    <button
+                      className="btn"
+                      onClick={() =>
+                        updateStatus(g.id, g.status === "final" ? "scheduled" : "final")
+                      }
+                    >
+                      {g.status === "final" ? t("Open") : t("Mark as Final")}
+                    </button>
+
+                    <button
+                      className="btn"
+                      style={{ background: "crimson" }}
+                      onClick={() => handleDelete(g.id)}
+                    >
+                      {t("Delete")}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ));
+}
+
 export default function GamesPage() {
   const { t } = useMaybeI18n();
   const navigate = useNavigate();
@@ -567,107 +670,6 @@ function TeamChip({ team }) {
   );
 }
 
-function MonthSection({
-  games,
-  teamMap,
-  highlightDay,
-  isLoggedIn,
-  isMobile,
-  navigate,
-  t,
-  updateStatus,
-  handleDelete,
-  formatGameDate,
-}) {
-  const groups = groupByMonth(games);
 
-  return Object.entries(groups).map(([month, games]) => (
-    <div key={month} style={{ marginBottom: 24 }}>
-      <div className="gp-sub" style={{ fontWeight: 700, marginBottom: 8 }}>
-        {month}
-      </div>
-
-      <div className="gp-grid" style={{ gap: 12 }}>
-        {games.map((g) => {
-          const home = teamMap[g.home_team_id] || {};
-          const away = teamMap[g.away_team_id] || {};
-          const slug = g.slug || g.id;
-
-          const isHighlighted =
-            highlightDay &&
-            new Date(g.game_date).toDateString() === highlightDay;
-
-          return (
-            <div
-              key={g.id}
-              className="gp-grid gp-card card"
-              style={
-                isHighlighted
-                  ? { border: "2px solid #e53935", background: "#fff5f5" }
-                  : undefined
-              }
-            >
-              {/* Matchup */}
-              <div className="gp-match" style={{ display: "flex", gap: 12 }}>
-                <TeamChip team={away} />
-                <span className="gp-sub">{t("at")}</span>
-                <TeamChip team={home} />
-              </div>
-
-              {/* Score + date */}
-              <div className="gp-center">
-                <div className="gp-score">
-                  {g.away_score} — {g.home_score}
-                </div>
-                <div className="gp-sub">{formatGameDate(g.game_date)}</div>
-                <div className="gp-sub">{g.status}</div>
-              </div>
-
-              {/* Actions (unchanged) */}
-              <div className="gp-card-actions">
-                {isLoggedIn && !isMobile && (
-                  <button className="btn" onClick={() => navigate(`/live/${slug}`)}>
-                    {t("Live")}
-                  </button>
-                )}
-
-                {isLoggedIn && (
-                  <button className="btn" onClick={() => navigate(`/games/${slug}/roster`)}>
-                    {t("Roster")}
-                  </button>
-                )}
-
-                <button className="btn" onClick={() => navigate(`/summary/${slug}`)}>
-                  {t("Boxscore")}
-                </button>
-
-                {isLoggedIn && (
-                  <>
-                    <button
-                      className="btn"
-                      onClick={() =>
-                        updateStatus(g.id, g.status === "final" ? "scheduled" : "final")
-                      }
-                    >
-                      {g.status === "final" ? t("Open") : t("Mark as Final")}
-                    </button>
-
-                    <button
-                      className="btn"
-                      style={{ background: "crimson" }}
-                      onClick={() => handleDelete(g.id)}
-                    >
-                      {t("Delete")}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  ));
-}
 
       
