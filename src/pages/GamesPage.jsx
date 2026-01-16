@@ -556,20 +556,36 @@ function toTime(value) {
 
 
     {/* Tab content */}
-    {activeTab === "upcoming" && (
-      <MonthSection
-        games={upcomingGames}
-        teamMap={teamMap}
-        highlightDay={nextGameDay}
-        isLoggedIn={isLoggedIn}
-        isMobile={isMobile}
-        navigate={navigate}
-        t={t}
-        updateStatus={updateStatus}
-        handleDelete={handleDelete}
-        formatGameDate={formatGameDate}
-      />
+   {activeTab === "upcoming" && (
+  <>
+    {nextGameDay && (
+      <div
+        className="gp-sub"
+        style={{ marginBottom: 12, fontWeight: 600 }}
+      >
+        📅 {t("Next games")}: {nextGameDay} (
+        {upcomingGames.filter(
+          (g) => new Date(g.game_date).toDateString() === nextGameDay
+        ).length}
+        )
+      </div>
     )}
+
+    <MonthSection
+      games={upcomingGames}
+      teamMap={teamMap}
+      highlightDay={nextGameDay}
+      isLoggedIn={isLoggedIn}
+      isMobile={isMobile}
+      navigate={navigate}
+      t={t}
+      updateStatus={updateStatus}
+      handleDelete={handleDelete}
+      formatGameDate={formatGameDate}
+    />
+  </>
+)}
+
 
     {activeTab === "past" && (
       <MonthSection
