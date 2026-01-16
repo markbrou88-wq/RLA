@@ -526,21 +526,24 @@ function toTime(value) {
   <div style={{ padding: 12 }}>{t("No games match your filters.")}</div>
 ) : (
   <>
+
     {/* Tabs */}
-    <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-      <button
-        className={`btn ${activeTab === "upcoming" ? "btn-primary" : ""}`}
-        onClick={() => setActiveTab("upcoming")}
-      >
-        {t("Upcoming")}
-      </button>
-      <button
-        className={`btn ${activeTab === "past" ? "btn-primary" : ""}`}
-        onClick={() => setActiveTab("past")}
-      >
-        {t("Past")}
-      </button>
-    </div>
+<div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+  <button
+    className={`btn ${activeTab === "upcoming" ? "btn-primary" : ""}`}
+    onClick={() => setActiveTab("upcoming")}
+  >
+    {t("Upcoming")} ({upcomingGames.length})
+  </button>
+
+  <button
+    className={`btn ${activeTab === "past" ? "btn-primary" : ""}`}
+    onClick={() => setActiveTab("past")}
+  >
+    {t("Past")} ({pastGames.length})
+  </button>
+</div>
+
 
     {/* Tab content */}
     {activeTab === "upcoming" && (
