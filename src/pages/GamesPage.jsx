@@ -41,6 +41,9 @@ export default function GamesPage() {
   // is user logged in?
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
 
+  const [activeTab, setActiveTab] = React.useState("upcoming"); // "upcoming" | "past"
+
+
   // detect mobile viewport
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -141,6 +144,12 @@ const upcomingGames = filtered
   .filter((g) => toTime(g.game_date) >= now)
   .sort((a, b) => toTime(a.game_date) - toTime(b.game_date)); // soonest first
 
+  // Next game day (all games on the earliest upcoming date)
+const nextGameDay = upcomingGames.length
+  ? new Date(upcomingGames[0].game_date).toDateString()
+  : null;
+
+
 const pastGames = filtered
   .filter((g) => toTime(g.game_date) < now)
   .sort((a, b) => toTime(b.game_date) - toTime(a.game_date)); // most recent past first
@@ -182,6 +191,17 @@ function toTime(value) {
   return Number.isNaN(t) ? 0 : t;
 }
 
+function groupByMonth(games) {
+  return games.reduce((acc, g) => {
+    const d = new Date(g.game_date);
+    const key = d.toLocaleString(undefined, { month: "long", year: "numeric" });
+
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(g);
+    return acc;
+  }, {});
+}
+  
   
   async function handleCreate() {
     if (!newDate || !newHome || !newAway) {
@@ -400,93 +420,43 @@ function toTime(value) {
 ) : filtered.length === 0 ? (
   <div style={{ padding: 12 }}>{t("No games match your filters.")}</div>
 ) : (
-  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-    {/* Upcoming */}
-    {upcomingGames.length > 0 && (
-      <div>
-        <div className="gp-sub" style={{ marginBottom: 8, fontWeight: 700 }}>
-          {t("Upcoming")}
-        </div>
+  <>
+    {/* Tabs */}
+    <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+      <button
+        className={`btn ${activeTab === "upcoming" ? "btn-primary" : ""}`}
+        onClick={() => setActiveTab("upcoming")}
+      >
+        {t("Upcoming")}
+      </button>
+      <button
+        className={`btn ${activeTab === "past" ? "btn-primary" : ""}`}
+        onClick={() => setActiveTab("past")}
+      >
+        {t("Past")}
+      </button>
+    </div>
 
-        <div className="gp-grid" style={{ gap: 12 }}>
-          {upcomingGames.map((g) => {
-            const home = teamMap[g.home_team_id] || {};
-            const away = teamMap[g.away_team_id] || {};
-            const statusLabel = g.status;
-            const slug = g.slug || g.id;
-
-            return (
-              <div key={g.id} className="gp-grid gp-card card">
-                {/* Matchup */}
-                <div
-                  className="gp-match"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    minWidth: 0,
-                  }}
-                >
-                  <TeamChip team={away} />
-                  <span className="gp-sub">{t("at")}</span>
-                  <TeamChip team={home} />
-                </div>
-
-                {/* Score + date + status */}
-                <div className="gp-center">
-                  <div className="gp-score">
-                    {g.away_score} — {g.home_score}
-                  </div>
-                  <div className="gp-sub">{formatGameDate(g.game_date)}</div>
-                  <div className="gp-sub">{statusLabel}</div>
-                </div>
-
-                {/* Actions */}
-                <div className="gp-card-actions">
-                  {isLoggedIn && !isMobile && (
-                    <button className="btn" onClick={() => navigate(`/live/${slug}`)}>
-                      {t("Live")}
-                    </button>
-                  )}
-
-                  {isLoggedIn && (
-                    <button className="btn" onClick={() => navigate(`/games/${slug}/roster`)}>
-                      {t("Roster")}
-                    </button>
-                  )}
-
-                  <button className="btn" onClick={() => navigate(`/summary/${slug}`)}>
-                    {t("Boxscore")}
-                  </button>
-
-                  {isLoggedIn && (
-                    <>
-                      {g.status === "final" ? (
-                        <button className="btn" onClick={() => updateStatus(g.id, "scheduled")}>
-                          {t("Open")}
-                        </button>
-                      ) : (
-                        <button className="btn" onClick={() => updateStatus(g.id, "final")}>
-                          {t("Mark as Final")}
-                        </button>
-                      )}
-
-                      <button
-                        className="btn"
-                        onClick={() => handleDelete(g.id)}
-                        style={{ background: "crimson" }}
-                      >
-                        {t("Delete")}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+    {/* Tab content */}
+    {activeTab === "upcoming" && (
+      <MonthSection
+        games={upcomingGames}
+        teamMap={teamMap}
+        highlightDay={nextGameDay}
+        {...{ isLoggedIn, isMobile, navigate, t, updateStatus, handleDelete, formatGameDate }}
+      />
     )}
+
+    {activeTab === "past" && (
+      <MonthSection
+        games={pastGames}
+        teamMap={teamMap}
+        {...{ isLoggedIn, isMobile, navigate, t, updateStatus, handleDelete, formatGameDate }}
+      />
+    )}
+  </>
+)}
+
 
     {/* Past */}
     {pastGames.length > 0 && (
@@ -598,3 +568,108 @@ function TeamChip({ team }) {
     </div>
   );
 }
+
+function MonthSection({
+  games,
+  teamMap,
+  highlightDay,
+  isLoggedIn,
+  isMobile,
+  navigate,
+  t,
+  updateStatus,
+  handleDelete,
+  formatGameDate,
+}) {
+  const groups = groupByMonth(games);
+
+  return Object.entries(groups).map(([month, games]) => (
+    <div key={month} style={{ marginBottom: 24 }}>
+      <div className="gp-sub" style={{ fontWeight: 700, marginBottom: 8 }}>
+        {month}
+      </div>
+
+      <div className="gp-grid" style={{ gap: 12 }}>
+        {games.map((g) => {
+          const home = teamMap[g.home_team_id] || {};
+          const away = teamMap[g.away_team_id] || {};
+          const slug = g.slug || g.id;
+
+          const isHighlighted =
+            highlightDay &&
+            new Date(g.game_date).toDateString() === highlightDay;
+
+          return (
+            <div
+              key={g.id}
+              className="gp-grid gp-card card"
+              style={
+                isHighlighted
+                  ? { border: "2px solid #e53935", background: "#fff5f5" }
+                  : undefined
+              }
+            >
+              {/* Matchup */}
+              <div className="gp-match" style={{ display: "flex", gap: 12 }}>
+                <TeamChip team={away} />
+                <span className="gp-sub">{t("at")}</span>
+                <TeamChip team={home} />
+              </div>
+
+              {/* Score + date */}
+              <div className="gp-center">
+                <div className="gp-score">
+                  {g.away_score} — {g.home_score}
+                </div>
+                <div className="gp-sub">{formatGameDate(g.game_date)}</div>
+                <div className="gp-sub">{g.status}</div>
+              </div>
+
+              {/* Actions (unchanged) */}
+              <div className="gp-card-actions">
+                {isLoggedIn && !isMobile && (
+                  <button className="btn" onClick={() => navigate(`/live/${slug}`)}>
+                    {t("Live")}
+                  </button>
+                )}
+
+                {isLoggedIn && (
+                  <button className="btn" onClick={() => navigate(`/games/${slug}/roster`)}>
+                    {t("Roster")}
+                  </button>
+                )}
+
+                <button className="btn" onClick={() => navigate(`/summary/${slug}`)}>
+                  {t("Boxscore")}
+                </button>
+
+                {isLoggedIn && (
+                  <>
+                    <button
+                      className="btn"
+                      onClick={() =>
+                        updateStatus(g.id, g.status === "final" ? "scheduled" : "final")
+                      }
+                    >
+                      {g.status === "final" ? t("Open") : t("Mark as Final")}
+                    </button>
+
+                    <button
+                      className="btn"
+                      style={{ background: "crimson" }}
+                      onClick={() => handleDelete(g.id)}
+                    >
+                      {t("Delete")}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ));
+}
+
+      
