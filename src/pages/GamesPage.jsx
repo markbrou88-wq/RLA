@@ -548,9 +548,7 @@ function groupByMonth(games) {
 )}
 
       
-    </div>
-  );
-}
+
 
 function TeamChip({ team }) {
   return (
