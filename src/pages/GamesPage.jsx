@@ -75,14 +75,37 @@ function MonthSection({
                 <TeamChip team={home} />
               </div>
 
-              {/* Score + date */}
-              <div className="gp-center">
-                <div className="gp-score">
-                  {g.away_score} — {g.home_score}
-                </div>
-                <div className="gp-sub">{formatGameDate(g.game_date)}</div>
-                <div className="gp-sub">{g.status}</div>
-              </div>
+             {/* Date / time + score */}
+<div className="gp-center" style={{ minWidth: 160 }}>
+  {/* DATE + TIME — MAIN INFO */}
+  <div
+    style={{
+      fontSize: "1.1rem",
+      fontWeight: 700,
+      lineHeight: 1.2,
+    }}
+  >
+    {new Date(g.game_date).toLocaleString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })}
+  </div>
+
+  {/* SCORE (secondary for upcoming games) */}
+  <div
+    className="gp-score"
+    style={{ fontSize: "0.95rem", opacity: 0.8 }}
+  >
+    {g.away_score} — {g.home_score}
+  </div>
+
+  {/* STATUS */}
+  <div className="gp-sub">{g.status}</div>
+</div>
+
 
               {/* Actions (unchanged) */}
               <div className="gp-card-actions">
