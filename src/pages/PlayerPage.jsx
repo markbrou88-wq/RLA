@@ -253,10 +253,14 @@ export default function PlayerPage() {
           />
         )}
         <div>
-          <h2 style={{ margin: 0 }}>
-            {headerNumber ? `#${headerNumber} ` : ""}
-            {player.name}
-          </h2>
+        <h2 style={{ margin: 0, fontSize: 26 }}>
+  {headerNumber && (
+    <span style={{ opacity: 0.6, marginRight: 6 }}>
+      #{headerNumber}
+    </span>
+  )}
+  {player.name}
+</h2>
           <div style={{ color: "#666", marginTop: 4 }}>
             {player.position || "-"}{" "}
             {headerTeam?.name ? `• ${headerTeam.name}` : ""}
