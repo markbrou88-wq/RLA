@@ -141,6 +141,8 @@ function AppInner() {
   return (
     <div className="app-shell">
       {/* BLACK HEADER */}
+      {/* ===== STICKY HEADER (FREEZES EVERYTHING ABOVE CONTENT) ===== */}
+  <div className="app-header">
       <header className="site-header">
         <div className="site-header-inner">
           <div className="site-header-left">
@@ -164,7 +166,7 @@ function AppInner() {
       {/* CONTENT */}
       <div className="app-content">
         <AuthBar />
-
+</div>
         <Routes>
           <Route path="/" element={<StandingsPage />} />
           <Route path="/games" element={<GamesPage />} />
