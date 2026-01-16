@@ -275,7 +275,11 @@ export default function PlayerPage() {
           <SummaryBox label="GP" value={career.gp} />
           <SummaryBox label="G" value={career.g} />
           <SummaryBox label="A" value={career.a} />
-          <SummaryBox label="PTS" value={career.pts} />
+          <SummaryBox
+  label="PTS"
+  value={career.pts}
+  highlight
+/>
         </div>
       </section>
 
@@ -329,19 +333,28 @@ export default function PlayerPage() {
 
 /* ---------- helpers ---------- */
 
-function SummaryBox({ label, value }) {
+function SummaryBox({ label, value, highlight }) {
   return (
     <div
       style={{
         flex: 1,
         padding: 12,
-        border: "1px solid #eee",
+        border: highlight ? "2px solid #e53935" : "1px solid #eee",
         borderRadius: 10,
         textAlign: "center",
+        background: highlight ? "#fff5f5" : "transparent",
       }}
     >
       <div style={{ fontSize: 12, color: "#666" }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700 }}>{value}</div>
+      <div
+        style={{
+          fontSize: 22,
+          fontWeight: 700,
+          color: highlight ? "#e53935" : "inherit",
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
