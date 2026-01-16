@@ -385,17 +385,22 @@ function renderSkaterLog(skaterLog) {
             ) : (
               skaterLog.map((r) => (
                 <tr key={`sk-${r.game_id}`}>
-                  <td style={tdS}>
-                    {r.date ? r.date.toLocaleDateString() : "—"}
-                  </td>
+                 <td style={{ ...tdS, fontWeight: 600 }}>
+  {r.date
+    ? r.date.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      })
+    : "—"}
+</td>
                   <td style={tdS}>
                     {r.away} @ {r.home}
                   </td>
                   <td style={tdS}>{r.g}</td>
                   <td style={tdS}>{r.a}</td>
-                  <td style={tdS}>
-                    {r.hs}–{r.as}
-                  </td>
+                  <td style={{ ...tdS, fontWeight: 700 }}>
+  {r.hs}–{r.as}
+</td>
                   <td style={tdS}>
                     <Link to={`/summary/${r.slug}`}>
                       View
