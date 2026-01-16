@@ -268,6 +268,16 @@ const pastGames = filtered
   .filter((g) => toTime(g.game_date) < now)
   .sort((a, b) => toTime(b.game_date) - toTime(a.game_date)); // most recent past first
 
+  React.useEffect(() => {
+  if (activeTab === "upcoming" && upcomingGames.length === 0 && pastGames.length > 0) {
+    setActiveTab("past");
+  }
+
+  if (activeTab === "past" && pastGames.length === 0 && upcomingGames.length > 0) {
+    setActiveTab("upcoming");
+  }
+}, [activeTab, upcomingGames.length, pastGames.length]);
+
 
   async function handleDelete(id) {
     if (!window.confirm(t("Delete this game?"))) return;
