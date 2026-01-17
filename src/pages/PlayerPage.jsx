@@ -390,7 +390,7 @@ function renderSkaterLog(skaterLog) {
               </tr>
             ) : (
       
-skaterLog.map((r) => {
+
   skaterLog.map((r) => {
   const isWin =
     (r.away === "" && r.hs > r.as) || // safety fallback
