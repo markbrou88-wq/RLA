@@ -330,7 +330,7 @@ export default function PlayerPage() {
       </section>
 
       {/* Logs unchanged */}
-      {!isGoalie && renderSkaterLog(skaterLog)}
+   {!isGoalie && <SkaterLog skaterLog={skaterLog} />}
       {isGoalie && renderGoalieLog(goalieLog)}
     </div>
   );
@@ -364,7 +364,7 @@ function SummaryBox({ label, value, highlight }) {
   );
 }
 
-function renderSkaterLog(skaterLog) {
+function SkaterLog({ skaterLog }) {
   const [openSeasons, setOpenSeasons] = React.useState(() => {
   const seasons = [...new Set(skaterLog.map(g => g.season_name))];
   return seasons.reduce((acc, s, i) => {
@@ -450,7 +450,7 @@ function renderSkaterLog(skaterLog) {
             </table>
             </div>
 )}
-          </div>
+        
         </div>
       ))}
     </section>
