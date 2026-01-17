@@ -150,7 +150,7 @@ export default function PlayerPage() {
             const home = tMap.get(gm?.home_team_id);
             const away = tMap.get(gm?.away_team_id);
             const ga = gaByGame.get(r.game_id) || { g: 0, a: 0 };
-            return {
+            
              return {
   game_id: r.game_id,
   season_id: gm?.season_id,
