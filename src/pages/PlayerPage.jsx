@@ -308,16 +308,22 @@ export default function PlayerPage() {
                 </tr>
               ) : (
                 seasonStats.map((r, i) => (
-                  <tr key={i}>
-                    <td style={tdS}>{r.season_name}</td>
-                    <td style={tdS}>{r.category_name}</td>
-                    <td style={tdS}>{r.team}</td>
-                    <td style={tdS}>{r.gp}</td>
-                    <td style={tdS}>{r.g}</td>
-                    <td style={tdS}>{r.a}</td>
-                    <td style={tdS}>{r.pts}</td>
-                  </tr>
-                ))
+  <tr
+    key={i}
+    style={{
+      background: i === 0 ? "#fafafa" : "transparent",
+      fontWeight: i === 0 ? 600 : "normal",
+    }}
+  >
+    <td style={tdS}>{r.season_name}</td>
+    <td style={tdS}>{r.category_name}</td>
+    <td style={tdS}>{r.team}</td>
+    <td style={tdS}>{r.gp}</td>
+    <td style={tdS}>{r.g}</td>
+    <td style={tdS}>{r.a}</td>
+    <td style={tdS}>{r.pts}</td>
+  </tr>
+))
               )}
             </tbody>
           </table>
