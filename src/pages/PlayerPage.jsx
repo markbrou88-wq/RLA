@@ -129,10 +129,11 @@ export default function PlayerPage() {
           .eq("player_id", pid)
           .eq("dressed", true);
 
-        const { data: evs } = await supabase
-          .from("events")
-          .select("game_id, event, player_id")
-          .eq("player_id", pid);
+      const { data: evs } = await supabase
+  .from("events")
+  .select("game_id, event, player_id, team_id")
+  .eq("player_id", pid);
+
 
         const gaByGame = new Map();
         (evs || []).forEach((e) => {
@@ -141,6 +142,15 @@ export default function PlayerPage() {
           if (e.event === "assist") row.a++;
           gaByGame.set(e.game_id, row);
         });
+
+        const teamByGame = new Map();
+
+(evs || []).forEach((e) => {
+  if (!teamByGame.has(e.game_id)) {
+    teamByGame.set(e.game_id, e.team_id);
+  }
+});
+
 
         builtSkaterLog = (rosterRows || [])
           .map((r) => {
@@ -152,7 +162,8 @@ export default function PlayerPage() {
 
             return {
   game_id: r.game_id,
-  playerTeamId: r.team_id, // ✅ ADD THIS
+ playerTeamId: teamByGame.get(r.game_id),
+
   date,
   slug: gm?.slug || r.game_id,
   home: home?.short_name || home?.name || "",
