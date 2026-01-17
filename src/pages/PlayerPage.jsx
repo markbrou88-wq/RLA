@@ -396,13 +396,19 @@ function renderSkaterLog(skaterLog) {
       
 
   skaterLog.map((r) => {
-  const isWin =
-  (r.playerTeamId === r.homeTeamId && r.hs > r.as) ||
-  (r.playerTeamId === r.awayTeamId && r.as > r.hs);
+  const playerGoals =
+  r.playerTeamId === r.homeTeamId ? r.hs :
+  r.playerTeamId === r.awayTeamId ? r.as :
+  null;
 
-const isLoss =
-  (r.playerTeamId === r.homeTeamId && r.hs < r.as) ||
-  (r.playerTeamId === r.awayTeamId && r.as < r.hs);
+const oppGoals =
+  r.playerTeamId === r.homeTeamId ? r.as :
+  r.playerTeamId === r.awayTeamId ? r.hs :
+  null;
+
+const isWin = playerGoals != null && playerGoals > oppGoals;
+const isLoss = playerGoals != null && playerGoals < oppGoals;
+
 
 
   return (
