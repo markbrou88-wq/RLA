@@ -129,11 +129,10 @@ export default function PlayerPage() {
           .eq("player_id", pid)
           .eq("dressed", true);
 
-      const { data: evs } = await supabase
-  .from("events")
-  .select("game_id, event, player_id, team_id")
-  .eq("player_id", pid);
-
+        const { data: evs } = await supabase
+          .from("events")
+          .select("game_id, event, player_id")
+          .eq("player_id", pid);
 
         const gaByGame = new Map();
         (evs || []).forEach((e) => {
@@ -143,46 +142,30 @@ export default function PlayerPage() {
           gaByGame.set(e.game_id, row);
         });
 
-        const teamByGame = new Map();
-
-(evs || []).forEach((e) => {
-  if (!teamByGame.has(e.game_id)) {
-    teamByGame.set(e.game_id, e.team_id);
-  }
-});
-
-
         builtSkaterLog = (rosterRows || [])
-  .map((r) => {
-    const gm = gMap.get(r.game_id);
-    if (!gm) return null;
-
-    const date = gm.game_date ? new Date(gm.game_date) : null;
-    const home = tMap.get(gm.home_team_id);
-    const away = tMap.get(gm.away_team_id);
-    const ga = gaByGame.get(r.game_id) || { g: 0, a: 0 };
-
-    return {
-      game_id: r.game_id,
-      playerTeamId: r.team_id, // ✅ ONLY SOURCE
-      date,
-      slug: gm.slug || r.game_id,
-      home: home?.short_name || home?.name || "",
-      away: away?.short_name || away?.name || "",
-      g: ga.g,
-      a: ga.a,
-      hs: gm.home_score ?? 0,
-      as: gm.away_score ?? 0,
-      homeTeamId: gm.home_team_id,
-      awayTeamId: gm.away_team_id,
-    };
-  })
-  .filter(Boolean)
-  .sort(
-    (a, b) =>
-      (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0)
-  );
-
+          .map((r) => {
+            const gm = gMap.get(r.game_id);
+            const date = gm?.game_date ? new Date(gm.game_date) : null;
+            const home = tMap.get(gm?.home_team_id);
+            const away = tMap.get(gm?.away_team_id);
+            const ga = gaByGame.get(r.game_id) || { g: 0, a: 0 };
+            return {
+              game_id: r.game_id,
+              date,
+              slug: gm?.slug || r.game_id,
+              home: home?.short_name || home?.name || "",
+              away: away?.short_name || away?.name || "",
+              g: ga.g,
+              a: ga.a,
+              hs: gm?.home_score ?? 0,
+              as: gm?.away_score ?? 0,
+            };
+          })
+          .sort(
+            (a, b) =>
+              (b.date?.getTime?.() || 0) -
+              (a.date?.getTime?.() || 0)
+          );
       }
 
       /* ---------- GOALIE LOG ---------- */
@@ -325,22 +308,16 @@ export default function PlayerPage() {
                 </tr>
               ) : (
                 seasonStats.map((r, i) => (
-  <tr
-    key={i}
-    style={{
-      background: i === 0 ? "#fafafa" : "transparent",
-      fontWeight: i === 0 ? 600 : "normal",
-    }}
-  >
-    <td style={tdS}>{r.season_name}</td>
-    <td style={tdS}>{r.category_name}</td>
-    <td style={tdS}>{r.team}</td>
-    <td style={tdS}>{r.gp}</td>
-    <td style={tdS}>{r.g}</td>
-    <td style={tdS}>{r.a}</td>
-    <td style={tdS}>{r.pts}</td>
-  </tr>
-))
+                  <tr key={i}>
+                    <td style={tdS}>{r.season_name}</td>
+                    <td style={tdS}>{r.category_name}</td>
+                    <td style={tdS}>{r.team}</td>
+                    <td style={tdS}>{r.gp}</td>
+                    <td style={tdS}>{r.g}</td>
+                    <td style={tdS}>{r.a}</td>
+                    <td style={tdS}>{r.pts}</td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -406,37 +383,8 @@ function renderSkaterLog(skaterLog) {
                 </td>
               </tr>
             ) : (
-      
-
-  skaterLog.map((r) => {
-  const playerGoals =
-  r.playerTeamId === r.homeTeamId ? r.hs :
-  r.playerTeamId === r.awayTeamId ? r.as :
-  null;
-
-const oppGoals =
-  r.playerTeamId === r.homeTeamId ? r.as :
-  r.playerTeamId === r.awayTeamId ? r.hs :
-  null;
-
-const isWin = playerGoals != null && playerGoals > oppGoals;
-const isLoss = playerGoals != null && playerGoals < oppGoals;
-
-
-
-  return (
-    <tr
-      key={`sk-${r.game_id}`}
-      style={{
-  background: isWin
-    ? "#f6fff8"      // light green
-    : isLoss
-    ? "#fff5f5"      // light red
-    : "transparent", // ties / no score
-}}
-
-    >
-      
+              skaterLog.map((r) => (
+                <tr key={`sk-${r.game_id}`}>
                  <td style={{ ...tdS, fontWeight: 600 }}>
   {r.date
     ? r.date.toLocaleDateString(undefined, {
@@ -458,9 +406,8 @@ const isLoss = playerGoals != null && playerGoals < oppGoals;
                       View
                     </Link>
                   </td>
-               </tr>
-              );
-            })
+                </tr>
+              ))
             )}
           </tbody>
         </table>
