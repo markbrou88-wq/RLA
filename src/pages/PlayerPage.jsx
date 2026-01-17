@@ -425,8 +425,9 @@ function renderSkaterLog(skaterLog) {
                       View
                     </Link>
                   </td>
-                </tr>
-              ))
+               </tr>
+              );
+            })
             )}
           </tbody>
         </table>
