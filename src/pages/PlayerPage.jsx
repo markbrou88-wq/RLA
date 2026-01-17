@@ -162,7 +162,8 @@ export default function PlayerPage() {
 
             return {
   game_id: r.game_id,
- playerTeamId: teamByGame.get(r.game_id),
+playerTeamId:
+  teamByGame.get(r.game_id) ?? r.team_id,
 
   date,
   slug: gm?.slug || r.game_id,
