@@ -389,7 +389,9 @@ function renderSkaterLog(skaterLog) {
                 </td>
               </tr>
             ) : (
+      
 skaterLog.map((r) => {
+  skaterLog.map((r) => {
   const isWin =
     (r.away === "" && r.hs > r.as) || // safety fallback
     (r.hs > r.as);
@@ -401,7 +403,6 @@ skaterLog.map((r) => {
         background: isWin ? "#f6fff8" : "transparent",
       }}
     >
-
       
                  <td style={{ ...tdS, fontWeight: 600 }}>
   {r.date
