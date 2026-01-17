@@ -365,6 +365,20 @@ function SummaryBox({ label, value, highlight }) {
 }
 
 function renderSkaterLog(skaterLog) {
+  const [openSeasons, setOpenSeasons] = React.useState(() => {
+  const seasons = [...new Set(skaterLog.map(g => g.season_name))];
+  return seasons.reduce((acc, s, i) => {
+    acc[s] = i === 0; // only most recent open
+    return acc;
+  }, {});
+});
+  const toggleSeason = (season) => {
+  setOpenSeasons(prev => ({
+    ...prev,
+    [season]: !prev[season],
+  }));
+};
+
   // group by season name
   const bySeason = skaterLog.reduce((acc, g) => {
     const key = g.season_name || "Other";
@@ -379,8 +393,23 @@ function renderSkaterLog(skaterLog) {
 
       {Object.entries(bySeason).map(([seasonName, games]) => (
         <div key={seasonName} style={{ marginTop: 16 }}>
-          <h4 style={{ margin: "12px 0" }}>{seasonName}</h4>
-
+         <h4
+  onClick={() => toggleSeason(seasonName)}
+  style={{
+    margin: "12px 0",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    userSelect: "none",
+  }}
+>
+  <span style={{ fontSize: 14 }}>
+    {openSeasons[seasonName] ? "▼" : "▶"}
+  </span>
+  {seasonName}
+</h4>
+{openSeasons[seasonName] && (
           <div style={tblWrap}>
             <table style={logTbl}>
               <thead style={theadS}>
@@ -419,6 +448,8 @@ function renderSkaterLog(skaterLog) {
                 ))}
               </tbody>
             </table>
+            </div>
+)}
           </div>
         </div>
       ))}
