@@ -389,8 +389,20 @@ function renderSkaterLog(skaterLog) {
                 </td>
               </tr>
             ) : (
-              skaterLog.map((r) => (
-                <tr key={`sk-${r.game_id}`}>
+skaterLog.map((r) => {
+  const isWin =
+    (r.away === "" && r.hs > r.as) || // safety fallback
+    (r.hs > r.as);
+
+  return (
+    <tr
+      key={`sk-${r.game_id}`}
+      style={{
+        background: isWin ? "#f6fff8" : "transparent",
+      }}
+    >
+
+      
                  <td style={{ ...tdS, fontWeight: 600 }}>
   {r.date
     ? r.date.toLocaleDateString(undefined, {
