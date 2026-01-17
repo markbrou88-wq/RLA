@@ -164,7 +164,7 @@ export default function PlayerPage() {
   homeTeamId: gm?.home_team_id,
   awayTeamId: gm?.away_team_id,
 };
-
+})
           .sort(
             (a, b) =>
               (b.date?.getTime?.() || 0) -
