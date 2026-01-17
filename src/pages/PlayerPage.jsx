@@ -111,10 +111,11 @@ export default function PlayerPage() {
       const [{ data: teams }, { data: games }] = await Promise.all([
         supabase.from("teams").select("id, name, short_name"),
         supabase
-          .from("games")
-          .select(
-            "id, game_date, home_team_id, away_team_id, slug, home_score, away_score"
-          ),
+        .from("games")
+.select(
+  "id, game_date, season_id, home_team_id, away_team_id, slug, home_score, away_score"
+)
+ ,
       ]);
 
       const tMap = new Map((teams || []).map((x) => [x.id, x]));
@@ -150,16 +151,20 @@ export default function PlayerPage() {
             const away = tMap.get(gm?.away_team_id);
             const ga = gaByGame.get(r.game_id) || { g: 0, a: 0 };
             return {
-              game_id: r.game_id,
-              date,
-              slug: gm?.slug || r.game_id,
-              home: home?.short_name || home?.name || "",
-              away: away?.short_name || away?.name || "",
-              g: ga.g,
-              a: ga.a,
-              hs: gm?.home_score ?? 0,
-              as: gm?.away_score ?? 0,
-            };
+             return {
+  game_id: r.game_id,
+  season_id: gm?.season_id,
+  season_name: seasonMap.get(gm?.season_id) || "Other",
+  date,
+  slug: gm?.slug || r.game_id,
+  home: home?.short_name || home?.name || "",
+  away: away?.short_name || away?.name || "",
+  g: ga.g,
+  a: ga.a,
+  hs: gm?.home_score ?? 0,
+  as: gm?.away_score ?? 0,
+};
+
           })
           .sort(
             (a, b) =>
@@ -360,61 +365,67 @@ function SummaryBox({ label, value, highlight }) {
 }
 
 function renderSkaterLog(skaterLog) {
+  // group by season name
+  const bySeason = skaterLog.reduce((acc, g) => {
+    const key = g.season_name || "Other";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(g);
+    return acc;
+  }, {});
+
   return (
     <section style={{ marginTop: 18 }}>
       <h3>Game log (Skater)</h3>
-      <div style={tblWrap}>
-        <table style={logTbl}>
-          <thead style={theadS}>
-            <tr>
-              <th style={thS}>Date</th>
-              <th style={thS}>Matchup</th>
-              <th style={thS}>G</th>
-              <th style={thS}>A</th>
-              <th style={thS}>Score</th>
-              <th style={thS}>Boxscore</th>
-            </tr>
-          </thead>
-          <tbody>
-            {skaterLog.length === 0 ? (
-              <tr>
-                <td style={tdS} colSpan={6}>
-                  No games yet.
-                </td>
-              </tr>
-            ) : (
-              skaterLog.map((r) => (
-                <tr key={`sk-${r.game_id}`}>
-                 <td style={{ ...tdS, fontWeight: 600 }}>
-  {r.date
-    ? r.date.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      })
-    : "—"}
-</td>
-                  <td style={tdS}>
-                    {r.away} @ {r.home}
-                  </td>
-                  <td style={tdS}>{r.g}</td>
-                  <td style={tdS}>{r.a}</td>
-                  <td style={{ ...tdS, fontWeight: 700 }}>
-  {r.hs}–{r.as}
-</td>
-                  <td style={tdS}>
-                    <Link to={`/summary/${r.slug}`}>
-                      View
-                    </Link>
-                  </td>
+
+      {Object.entries(bySeason).map(([seasonName, games]) => (
+        <div key={seasonName} style={{ marginTop: 16 }}>
+          <h4 style={{ margin: "12px 0" }}>{seasonName}</h4>
+
+          <div style={tblWrap}>
+            <table style={logTbl}>
+              <thead style={theadS}>
+                <tr>
+                  <th style={thS}>Date</th>
+                  <th style={thS}>Matchup</th>
+                  <th style={thS}>G</th>
+                  <th style={thS}>A</th>
+                  <th style={thS}>Score</th>
+                  <th style={thS}>Boxscore</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {games.map((r) => (
+                  <tr key={`sk-${r.game_id}`}>
+                    <td style={{ ...tdS, fontWeight: 600 }}>
+                      {r.date
+                        ? r.date.toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                          })
+                        : "—"}
+                    </td>
+                    <td style={tdS}>
+                      {r.away} @ {r.home}
+                    </td>
+                    <td style={tdS}>{r.g}</td>
+                    <td style={tdS}>{r.a}</td>
+                    <td style={{ ...tdS, fontWeight: 700 }}>
+                      {r.hs}–{r.as}
+                    </td>
+                    <td style={tdS}>
+                      <Link to={`/summary/${r.slug}`}>View</Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
     </section>
   );
 }
+
 
 function renderGoalieLog(goalieLog) {
   return (
