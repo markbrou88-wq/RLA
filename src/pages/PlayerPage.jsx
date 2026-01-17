@@ -153,35 +153,36 @@ export default function PlayerPage() {
 
 
         builtSkaterLog = (rosterRows || [])
-          .map((r) => {
-            const gm = gMap.get(r.game_id);
-            const date = gm?.game_date ? new Date(gm.game_date) : null;
-            const home = tMap.get(gm?.home_team_id);
-            const away = tMap.get(gm?.away_team_id);
-            const ga = gaByGame.get(r.game_id) || { g: 0, a: 0 };
+  .map((r) => {
+    const gm = gMap.get(r.game_id);
+    if (!gm) return null;
 
-            return {
-  game_id: r.game_id,
-playerTeamId:
-  teamByGame.get(r.game_id) ?? r.team_id,
+    const date = gm.game_date ? new Date(gm.game_date) : null;
+    const home = tMap.get(gm.home_team_id);
+    const away = tMap.get(gm.away_team_id);
+    const ga = gaByGame.get(r.game_id) || { g: 0, a: 0 };
 
-  date,
-  slug: gm?.slug || r.game_id,
-  home: home?.short_name || home?.name || "",
-  away: away?.short_name || away?.name || "",
-  g: ga.g,
-  a: ga.a,
-  hs: gm?.home_score ?? 0,
-  as: gm?.away_score ?? 0,
-  homeTeamId: gm?.home_team_id,
-  awayTeamId: gm?.away_team_id,
-};
-})
-          .sort(
-            (a, b) =>
-              (b.date?.getTime?.() || 0) -
-              (a.date?.getTime?.() || 0)
-          );
+    return {
+      game_id: r.game_id,
+      playerTeamId: r.team_id, // ✅ ONLY SOURCE
+      date,
+      slug: gm.slug || r.game_id,
+      home: home?.short_name || home?.name || "",
+      away: away?.short_name || away?.name || "",
+      g: ga.g,
+      a: ga.a,
+      hs: gm.home_score ?? 0,
+      as: gm.away_score ?? 0,
+      homeTeamId: gm.home_team_id,
+      awayTeamId: gm.away_team_id,
+    };
+  })
+  .filter(Boolean)
+  .sort(
+    (a, b) =>
+      (b.date?.getTime?.() || 0) - (a.date?.getTime?.() || 0)
+  );
+
       }
 
       /* ---------- GOALIE LOG ---------- */
