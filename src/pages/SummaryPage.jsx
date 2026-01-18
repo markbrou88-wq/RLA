@@ -35,6 +35,16 @@ export default function SummaryPage() {
 
   const [openPeriods, setOpenPeriods] = React.useState({});
 
+  const [showShotsByPeriod, setShowShotsByPeriod] = React.useState({});
+
+  const toggleShots = (period) => {
+  setShowShotsByPeriod((prev) => ({
+    ...prev,
+    [period]: !prev[period],
+  }));
+};
+
+
   const togglePeriod = (period) => {
   setOpenPeriods((prev) => ({
     ...prev,
@@ -91,6 +101,11 @@ export default function SummaryPage() {
         .eq("season_id", g.season_id)
         .eq("category_id", g.category_id)
         .in("team_id", [g.home_team_id, g.away_team_id]);
+
+      const shotCount = periodRows.filter(
+  (r) => r.single && r.single.event === "shot"
+).length;
+
 
       const numberMap = new Map(
         (teamPlayers || []).map((tp) => [
@@ -331,26 +346,54 @@ rows.forEach((r) => {
       <tbody>
   {Object.entries(rowsByPeriod).map(([period, periodRows]) => (
     <React.Fragment key={`p-${period}`}>
+      
       {/* Period header row */}
 
       <tr
   onClick={() => togglePeriod(period)}
   style={{ cursor: "pointer" }}
 >
-  <Td
-    colSpan={5}
-    style={{
-      background: "#fafafa",
-      fontWeight: 700,
-      borderTop: "2px solid #eee",
-      userSelect: "none",
-    }}
-  >
+
+<Td
+  colSpan={5}
+  style={{
+    background: "#fafafa",
+    fontWeight: 700,
+    borderTop: "2px solid #eee",
+    userSelect: "none",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  }}
+>
+  <span>
     <span style={{ marginRight: 6 }}>
       {openPeriods[period] ? "▼" : "▶"}
     </span>
     {t("Period")} {period}
-  </Td>
+  </span>
+
+  {shotCount > 0 && (
+    <span
+      onClick={(e) => {
+        e.stopPropagation(); // 👈 important
+        toggleShots(period);
+      }}
+      style={{
+        fontSize: 12,
+        color: "#666",
+        cursor: "pointer",
+        fontWeight: 500,
+      }}
+    >
+      {showShotsByPeriod[period]
+        ? t("Hide shots")
+        : `${t("Show shots")} (${shotCount})`}
+    </span>
+  )}
+</Td>
+
+        
 </tr>
 
 
@@ -361,6 +404,14 @@ rows.forEach((r) => {
       const teamLabel =
         r.goal.teams?.short_name || r.goal.teams?.name || "";
 
+    
+     const isShot = e.event === "shot";
+
+if (isShot && !showShotsByPeriod[period]) {
+  return null;
+}
+ 
+      
       const aTxt = r.assists
         .map((a) =>
           a.players?.id ? (
