@@ -427,23 +427,52 @@ rows.forEach((r) => {
     const e = r.single;
     const teamLabel = e.teams?.short_name || e.teams?.name || "";
 
-    return (
-      <tr key={`o-${period}-${i}`}>
-        <Td>{e.period}</Td>
-        <Td>{e.time_mmss}</Td>
-        <Td>{teamLabel}</Td>
-        <Td>{String(e.event || "").toUpperCase()}</Td>
-        <Td>
-          {e.players?.id ? (
-            <Link to={`/players/${e.players.id}`}>
-              {e.players.name}
-            </Link>
-          ) : (
-            e.players?.name ?? "—"
-          )}
-        </Td>
-      </tr>
-    );
+const isShot = e.event === "shot";
+
+return (
+  <tr
+    key={`o-${period}-${i}`}
+    style={{
+      color: isShot ? "#9aa0a6" : undefined,
+      fontSize: isShot ? 12 : 13,
+      borderBottom: isShot ? "1px solid #f5f5f5" : undefined,
+    }}
+  >
+    <Td style={{ padding: isShot ? "4px 10px" : undefined }}>
+      {e.period}
+    </Td>
+    <Td style={{ padding: isShot ? "4px 10px" : undefined }}>
+      {e.time_mmss}
+    </Td>
+    <Td style={{ padding: isShot ? "4px 10px" : undefined }}>
+      {teamLabel}
+    </Td>
+    <Td
+      style={{
+        padding: isShot ? "4px 10px" : undefined,
+        fontWeight: isShot ? 500 : 600,
+        letterSpacing: isShot ? 0.5 : undefined,
+      }}
+    >
+      {String(e.event || "").toUpperCase()}
+    </Td>
+    <Td style={{ padding: isShot ? "4px 10px" : undefined }}>
+      {e.players?.id ? (
+        <Link
+          to={`/players/${e.players.id}`}
+          style={{ color: isShot ? "#8b8f94" : undefined }}
+        >
+          {e.players.name}
+        </Link>
+      ) : (
+        e.players?.name ?? "—"
+      )}
+    </Td>
+  </tr>
+);
+
+
+    
   })}
 
       
