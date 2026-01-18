@@ -355,96 +355,98 @@ rows.forEach((r) => {
 
 
       {/* Period events */}
-      {openPeriods[period] &&
-      {periodRows.map((r, i) => {
-        if (r.goal) {
-          const teamLabel =
-            r.goal.teams?.short_name || r.goal.teams?.name || "";
+{openPeriods[period] &&
+  periodRows.map((r, i) => {
+    if (r.goal) {
+      const teamLabel =
+        r.goal.teams?.short_name || r.goal.teams?.name || "";
 
-          const aTxt = r.assists
-            .map((a) =>
-              a.players?.id ? (
-                <Link key={`a${a.id}`} to={`/players/${a.players.id}`}>
-                  {a.players.name}
-                </Link>
-              ) : (
-                a.players?.name ?? "—"
-              )
-            )
-            .reduce(
-              (acc, node, idx) => (idx ? [...acc, ", ", node] : [node]),
-              []
-            );
-
-          return (
-          <tr
-  key={`g-${period}-${i}`}
-  style={{
-    background: "#f1fbf4", // light green
-    fontWeight: 600,
-  }}
->
-              <Td>{r.goal.period}</Td>
-              <Td>{r.goal.time_mmss}</Td>
-              <Td>{teamLabel}</Td>
-              <Td>GOAL</Td>
-              <Td>
-                <b>
-                  {r.goal.players?.id ? (
-                    <Link to={`/players/${r.goal.players.id}`}>
-                      {r.goal.players.name}
-                    </Link>
-                  ) : (
-                    r.goal.players?.name ?? "—"
-                  )}
-                </b>
-               {aTxt.length > 0 && (
-  <>
-    <span style={{ color: "#666" }}> (A: {aTxt})</span>
-
-    {runningScore[r.goal.id] && (
-      <div style={{ marginTop: 4, fontSize: 12, color: "#444" }}>
-        Score:{" "}
-        <b>
-          {awayTeam?.short_name || awayTeam?.name}{" "}
-          {runningScore[r.goal.id].away}
-        </b>{" "}
-        –{" "}
-        <b>
-          {runningScore[r.goal.id].home}{" "}
-          {homeTeam?.short_name || homeTeam?.name}
-        </b>
-      </div>
-    )}
-  </>
-)}
-
-              </Td>
-            </tr>
-          );
-        }
-
-        const e = r.single;
-        const teamLabel = e.teams?.short_name || e.teams?.name || "";
-
-        return (
-          <tr key={`o-${period}-${i}`}>
-            <Td>{e.period}</Td>
-            <Td>{e.time_mmss}</Td>
-            <Td>{teamLabel}</Td>
-            <Td>{String(e.event || "").toUpperCase()}</Td>
-            <Td>
-              {e.players?.id ? (
-                <Link to={`/players/${e.players.id}`}>
-                  {e.players.name}
-                </Link>
-              ) : (
-                e.players?.name ?? "—"
-              )}
-            </Td>
-          </tr>
+      const aTxt = r.assists
+        .map((a) =>
+          a.players?.id ? (
+            <Link key={`a${a.id}`} to={`/players/${a.players.id}`}>
+              {a.players.name}
+            </Link>
+          ) : (
+            a.players?.name ?? "—"
+          )
+        )
+        .reduce(
+          (acc, node, idx) => (idx ? [...acc, ", ", node] : [node]),
+          []
         );
-      })}
+
+      return (
+        <tr
+          key={`g-${period}-${i}`}
+          style={{
+            background: "#f1fbf4",
+            fontWeight: 600,
+          }}
+        >
+          <Td>{r.goal.period}</Td>
+          <Td>{r.goal.time_mmss}</Td>
+          <Td>{teamLabel}</Td>
+          <Td>GOAL</Td>
+          <Td>
+            <b>
+              {r.goal.players?.id ? (
+                <Link to={`/players/${r.goal.players.id}`}>
+                  {r.goal.players.name}
+                </Link>
+              ) : (
+                r.goal.players?.name ?? "—"
+              )}
+            </b>
+
+            {aTxt.length > 0 && (
+              <>
+                <span style={{ color: "#666" }}> (A: {aTxt})</span>
+
+                {runningScore[r.goal.id] && (
+                  <div style={{ marginTop: 4, fontSize: 12, color: "#444" }}>
+                    Score:{" "}
+                    <b>
+                      {awayTeam?.short_name || awayTeam?.name}{" "}
+                      {runningScore[r.goal.id].away}
+                    </b>{" "}
+                    –{" "}
+                    <b>
+                      {runningScore[r.goal.id].home}{" "}
+                      {homeTeam?.short_name || homeTeam?.name}
+                    </b>
+                  </div>
+                )}
+              </>
+            )}
+          </Td>
+        </tr>
+      );
+    }
+
+    const e = r.single;
+    const teamLabel = e.teams?.short_name || e.teams?.name || "";
+
+    return (
+      <tr key={`o-${period}-${i}`}>
+        <Td>{e.period}</Td>
+        <Td>{e.time_mmss}</Td>
+        <Td>{teamLabel}</Td>
+        <Td>{String(e.event || "").toUpperCase()}</Td>
+        <Td>
+          {e.players?.id ? (
+            <Link to={`/players/${e.players.id}`}>
+              {e.players.name}
+            </Link>
+          ) : (
+            e.players?.name ?? "—"
+          )}
+        </Td>
+      </tr>
+    );
+  })}
+
+      
     </React.Fragment>
   ))}
 </tbody>
