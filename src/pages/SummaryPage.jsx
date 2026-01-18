@@ -224,12 +224,15 @@ export default function SummaryPage() {
   }`;
 
 // Group events by period (1, 2, 3, OT, etc.)
-const rowsByPeriod = rows.reduce((acc, r) => {
-  const period = r.goal ? r.goal.period : r.single.period;
-  if (!acc[period]) acc[period] = [];
-  acc[period].push(r);
-  return acc;
-}, {});
+const rowsByPeriod = React.useMemo(() => {
+  return rows.reduce((acc, r) => {
+    const period = r.goal ? r.goal.period : r.single.period;
+    if (!acc[period]) acc[period] = [];
+    acc[period].push(r);
+    return acc;
+  }, {});
+}, [rows]);
+
 
   // Open most recent period by default
 React.useEffect(() => {
