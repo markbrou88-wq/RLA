@@ -1777,5 +1777,16 @@ html, body {
   overflow-x: hidden;
 }
 
+@media (max-width: 480px) {
+  .summary-events-table th:nth-child(1),
+  .summary-events-table td:nth-child(1) {
+    width: 36px;
+  }
+
+  .summary-events-table th:nth-child(2),
+  .summary-events-table td:nth-child(2) {
+    width: 52px;
+  }
+}
 
 
