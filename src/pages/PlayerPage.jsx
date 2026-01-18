@@ -59,61 +59,30 @@ export default function PlayerPage() {
       const catMap = new Map((cats || []).map((c) => [c.id, c.name]));
 
       /* ---------- SEASON STATS ---------- */
-      let stats = [];
-let careerTotals = { gp: 0, g: 0, a: 0, pts: 0 };
+      const { data: statRows } = await supabase
+        .from("leaders_current")
+        .select("season_id, category_id, team, gp, g, a, pts")
+        .eq("player_id", pid)
+        .order("season_id", { ascending: false })
+        .order("category_id", { ascending: false });
 
-if (!isGoalie) {
-  // =========================
-  // SKATERS → leaders_current
-  // =========================
-  const { data: statRows } = await supabase
-    .from("leaders_current")
-    .select("season_id, category_id, team, gp, g, a, pts")
-    .eq("player_id", pid)
-    .order("season_id", { ascending: false })
-    .order("category_id", { ascending: false });
+      const stats =
+        (statRows || []).map((r) => ({
+          ...r,
+          season_name: seasonMap.get(r.season_id) || r.season_id,
+          category_name: catMap.get(r.category_id) || r.category_id,
+        })) || [];
 
-  stats =
-    (statRows || []).map((r) => ({
-      ...r,
-      season_name: seasonMap.get(r.season_id) || r.season_id,
-      category_name: catMap.get(r.category_id) || r.category_id,
-    })) || [];
-
-  careerTotals = stats.reduce(
-    (acc, r) => {
-      acc.gp += r.gp || 0;
-      acc.g += r.g || 0;
-      acc.a += r.a || 0;
-      acc.pts += r.pts || 0;
-      return acc;
-    },
-    { gp: 0, g: 0, a: 0, pts: 0 }
-  );
-} else {
-  // =========================
-  // GOALIES → goalie_stats_current
-  // =========================
-  const { data: gStats } = await supabase
-    .from("goalie_stats_current")
-    .select("season_id, category_id, team, gp")
-    .eq("player_id", pid);
-
-  stats =
-    (gStats || []).map((r) => ({
-      season_name: seasonMap.get(r.season_id) || r.season_id,
-      category_name: catMap.get(r.category_id) || r.category_id,
-      team: r.team,
-      gp: r.gp,
-      g: 0,
-      a: 0,
-      pts: 0,
-    }));
-
-  careerTotals.gp = stats.reduce((sum, r) => sum + (r.gp || 0), 0);
-}
-
-
+      const careerTotals = stats.reduce(
+        (acc, r) => {
+          acc.gp += r.gp || 0;
+          acc.g += r.g || 0;
+          acc.a += r.a || 0;
+          acc.pts += r.pts || 0;
+          return acc;
+        },
+        { gp: 0, g: 0, a: 0, pts: 0 }
+      );
 
       /* ---------- HEADER TEAM + NUMBER ---------- */
       let teamRow = null;
