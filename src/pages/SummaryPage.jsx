@@ -102,9 +102,7 @@ export default function SummaryPage() {
         .eq("category_id", g.category_id)
         .in("team_id", [g.home_team_id, g.away_team_id]);
 
-      const shotCount = periodRows.filter(
-  (r) => r.single && r.single.event === "shot"
-).length;
+    
 
 
       const numberMap = new Map(
@@ -347,6 +345,11 @@ rows.forEach((r) => {
   {Object.entries(rowsByPeriod).map(([period, periodRows]) => (
     <React.Fragment key={`p-${period}`}>
       
+   const shotCount = periodRows.filter(
+  (r) => r.single && r.single.event === "shot"
+).length;
+
+      
       {/* Period header row */}
 
       <tr
@@ -398,20 +401,15 @@ rows.forEach((r) => {
 
 
       {/* Period events */}
+
 {openPeriods[period] &&
   periodRows.map((r, i) => {
+
+    /* ---------- GOALS (always visible) ---------- */
     if (r.goal) {
       const teamLabel =
         r.goal.teams?.short_name || r.goal.teams?.name || "";
 
-    
-     const isShot = e.event === "shot";
-
-if (isShot && !showShotsByPeriod[period]) {
-  return null;
-}
- 
-      
       const aTxt = r.assists
         .map((a) =>
           a.players?.id ? (
@@ -430,10 +428,7 @@ if (isShot && !showShotsByPeriod[period]) {
       return (
         <tr
           key={`g-${period}-${i}`}
-          style={{
-            background: "#f1fbf4",
-            fontWeight: 600,
-          }}
+          style={{ background: "#f1fbf4", fontWeight: 600 }}
         >
           <Td>{r.goal.period}</Td>
           <Td>{r.goal.time_mmss}</Td>
@@ -455,7 +450,7 @@ if (isShot && !showShotsByPeriod[period]) {
                 <span style={{ color: "#666" }}> (A: {aTxt})</span>
 
                 {runningScore[r.goal.id] && (
-                  <div style={{ marginTop: 4, fontSize: 12, color: "#444" }}>
+                  <div style={{ marginTop: 4, fontSize: 12 }}>
                     Score:{" "}
                     <b>
                       {awayTeam?.short_name || awayTeam?.name}{" "}
@@ -475,56 +470,45 @@ if (isShot && !showShotsByPeriod[period]) {
       );
     }
 
+    /* ---------- NON-GOAL EVENTS ---------- */
     const e = r.single;
+    const isShot = e.event === "shot";
+
+    // ⛔ hide shots unless toggled
+    if (isShot && !showShotsByPeriod[period]) {
+      return null;
+    }
+
     const teamLabel = e.teams?.short_name || e.teams?.name || "";
 
-const isShot = e.event === "shot";
-
-return (
-  <tr
-    key={`o-${period}-${i}`}
-    style={{
-      color: isShot ? "#9aa0a6" : undefined,
-      fontSize: isShot ? 12 : 13,
-      borderBottom: isShot ? "1px solid #f5f5f5" : undefined,
-    }}
-  >
-    <Td style={{ padding: isShot ? "4px 10px" : undefined }}>
-      {e.period}
-    </Td>
-    <Td style={{ padding: isShot ? "4px 10px" : undefined }}>
-      {e.time_mmss}
-    </Td>
-    <Td style={{ padding: isShot ? "4px 10px" : undefined }}>
-      {teamLabel}
-    </Td>
-    <Td
-      style={{
-        padding: isShot ? "4px 10px" : undefined,
-        fontWeight: isShot ? 500 : 600,
-        letterSpacing: isShot ? 0.5 : undefined,
-      }}
-    >
-      {String(e.event || "").toUpperCase()}
-    </Td>
-    <Td style={{ padding: isShot ? "4px 10px" : undefined }}>
-      {e.players?.id ? (
-        <Link
-          to={`/players/${e.players.id}`}
-          style={{ color: isShot ? "#8b8f94" : undefined }}
-        >
-          {e.players.name}
-        </Link>
-      ) : (
-        e.players?.name ?? "—"
-      )}
-    </Td>
-  </tr>
-);
-
-
-    
+    return (
+      <tr
+        key={`o-${period}-${i}`}
+        style={{
+          color: isShot ? "#9aa0a6" : undefined,
+          fontSize: isShot ? 12 : 13,
+        }}
+      >
+        <Td>{e.period}</Td>
+        <Td>{e.time_mmss}</Td>
+        <Td>{teamLabel}</Td>
+        <Td>{String(e.event || "").toUpperCase()}</Td>
+        <Td>
+          {e.players?.id ? (
+            <Link
+              to={`/players/${e.players.id}`}
+              style={{ color: isShot ? "#8b8f94" : undefined }}
+            >
+              {e.players.name}
+            </Link>
+          ) : (
+            e.players?.name ?? "—"
+          )}
+        </Td>
+      </tr>
+    );
   })}
+      
 
       
     </React.Fragment>
