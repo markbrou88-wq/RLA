@@ -457,26 +457,27 @@ rows.forEach((r) => {
               )}
             </b>
 
-            {aTxt.length > 0 && (
-              <>
-                <span style={{ color: "#666" }}> (A: {aTxt})</span>
+{aTxt.length > 0 && (
+  <span style={{ color: "#666" }}> (A: {aTxt})</span>
+)}
 
-                {runningScore[r.goal.id] && (
-                  <div style={{ marginTop: 4, fontSize: 12 }}>
-                    Score:{" "}
-                    <b>
-                      {awayTeam?.short_name || awayTeam?.name}{" "}
-                      {runningScore[r.goal.id].away}
-                    </b>{" "}
-                    –{" "}
-                    <b>
-                      {runningScore[r.goal.id].home}{" "}
-                      {homeTeam?.short_name || homeTeam?.name}
-                    </b>
-                  </div>
-                )}
-              </>
-            )}
+{runningScore[r.goal.id] && (
+  <div style={{ marginTop: 4, fontSize: 12 }}>
+    Score:{" "}
+    <b>
+      {awayTeam?.short_name || awayTeam?.name}{" "}
+      {runningScore[r.goal.id].away}
+    </b>{" "}
+    –{" "}
+    <b>
+      {runningScore[r.goal.id].home}{" "}
+      {homeTeam?.short_name || homeTeam?.name}
+    </b>
+  </div>
+)}
+
+
+            
           </Td>
         </tr>
       );
