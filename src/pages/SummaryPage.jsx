@@ -364,49 +364,47 @@ rows.forEach((r) => {
     fontWeight: 700,
     borderTop: "2px solid #eee",
     userSelect: "none",
-
-    /* 👇 key changes */
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "6px 10px",     // 👈 thinner row
-    lineHeight: "1.2",       // 👈 tighter text
-    whiteSpace: "nowrap",    // 👈 absolute no wrap
+    padding: "6px 10px",
   }}
 >
-
-        
-  <span>
-    <span style={{ marginRight: 6 }}>
-      {openPeriods[period] ? "▼" : "▶"}
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      lineHeight: "1.2",
+      whiteSpace: "nowrap",
+    }}
+  >
+    <span>
+      <span style={{ marginRight: 6 }}>
+        {openPeriods[period] ? "▼" : "▶"}
+      </span>
+      {t("Period")} {period}
     </span>
-    {t("Period")} {period}
-  </span>
 
-  {shotCount > 0 && (
-
-<span
-  onClick={(e) => {
-    e.stopPropagation(); // 👈 important
-    toggleShots(period);
-  }}
-  style={{
-    fontSize: 12,
-    color: "#666",
-    cursor: "pointer",
-    fontWeight: 500,
-    whiteSpace: "nowrap",      // 👈 keeps it on ONE line
-    marginLeft: 12,            // 👈 visual breathing room
-  }}
->
-  {showShotsByPeriod[period]
-    ? t("Hide shots")
-    : `${t("Show shots")} (${shotCount})`}
-</span>
-
-  
-  )}
+    {shotCount > 0 && (
+      <span
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleShots(period);
+        }}
+        style={{
+          fontSize: 12,
+          color: "#666",
+          cursor: "pointer",
+          fontWeight: 500,
+          marginLeft: 12,
+        }}
+      >
+        {showShotsByPeriod[period]
+          ? t("Hide shots")
+          : `${t("Show shots")} (${shotCount})`}
+      </span>
+    )}
+  </div>
 </Td>
+
 
         
 </tr>
@@ -462,19 +460,22 @@ rows.forEach((r) => {
 )}
 
 {runningScore[r.goal.id] && (
-  <div style={{ marginTop: 4, fontSize: 12 }}>
-    Score:{" "}
-    <b>
-      {awayTeam?.short_name || awayTeam?.name}{" "}
-      {runningScore[r.goal.id].away}
-    </b>{" "}
-    –{" "}
-    <b>
-      {runningScore[r.goal.id].home}{" "}
-      {homeTeam?.short_name || homeTeam?.name}
-    </b>
+  <div
+    style={{
+      marginTop: 2,
+      fontSize: 12,
+      color: "#333",
+      fontWeight: 500,
+    }}
+  >
+    {awayTeam?.short_name || awayTeam?.name}{" "}
+    {runningScore[r.goal.id].away}
+    {" – "}
+    {runningScore[r.goal.id].home}{" "}
+    {homeTeam?.short_name || homeTeam?.name}
   </div>
 )}
+
 
 
             
