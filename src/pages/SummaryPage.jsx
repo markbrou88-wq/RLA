@@ -342,15 +342,15 @@ rows.forEach((r) => {
               </thead>
 
       <tbody>
-  {Object.entries(rowsByPeriod).map(([period, periodRows]) => (
-    <React.Fragment key={`p-${period}`}>
-      
-   const shotCount = periodRows.filter(
-  (r) => r.single && r.single.event === "shot"
-).length;
 
-      
-      {/* Period header row */}
+        {Object.entries(rowsByPeriod).map(([period, periodRows]) => {
+  const shotCount = periodRows.filter(
+    (r) => r.single && r.single.event === "shot"
+  ).length;
+
+  return (
+    <React.Fragment key={`p-${period}`}>
+
 
       <tr
   onClick={() => togglePeriod(period)}
