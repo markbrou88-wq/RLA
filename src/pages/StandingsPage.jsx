@@ -103,8 +103,9 @@ export default function StandingsPage() {
 
       {/* ===== Standings Tab ===== */}
       {tab === "standings" && (
-        <div className="card">
-          <table className="table">
+      <div className="card">
+  <div className="table-scroll">
+    <table className="table standings-table">
             <thead>
               <tr>
                 <th style={{ textAlign: "left" }}>Team</th>
@@ -157,6 +158,7 @@ export default function StandingsPage() {
                 ))}
             </tbody>
           </table>
+        </div>
         </div>
       )}
 
