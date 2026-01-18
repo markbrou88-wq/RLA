@@ -183,19 +183,30 @@ export default function SummaryPage() {
         return bt.localeCompare(at);
       });
 
-      if (!cancelled) {
-        setGame(g);
-        setHomeTeam(home || null);
-        setAwayTeam(away || null);
-        setHomeRecord(recHome || null);
-        setAwayRecord(recAway || null);
-        setLineupHome(homeLU);
-        setLineupAway(awayLU);
-        setHomeGoalieRec(homeGoalieRecData);
-        setAwayGoalieRec(awayGoalieRecData);
-        setRows(grouped || []);
-        setLoading(false);
-      }
+if (!cancelled) {
+  setGame(g);
+  setHomeTeam(home || null);
+  setAwayTeam(away || null);
+  setHomeRecord(recHome || null);
+  setAwayRecord(recAway || null);
+  setLineupHome(homeLU);
+  setLineupAway(awayLU);
+  setHomeGoalieRec(homeGoalieRecData);
+  setAwayGoalieRec(awayGoalieRecData);
+  setRows(grouped || []);
+
+  // ✅ open only the most recent period by default
+  const periods = [...new Set(
+    (grouped || []).map(r => r.goal ? r.goal.period : r.single.period)
+  )].sort((a, b) => b - a);
+
+  const initialOpen = {};
+  if (periods.length) initialOpen[periods[0]] = true;
+  setOpenPeriods(initialOpen);
+
+  setLoading(false);
+}
+      
     })();
 
     return () => {
@@ -234,22 +245,7 @@ const rowsByPeriod = React.useMemo(() => {
 }, [rows]);
 
 
-  // Open most recent period by default
-React.useEffect(() => {
-  const periods = Object.keys(rowsByPeriod)
-    .map(Number)
-    .sort((a, b) => b - a);
-
-  if (periods.length > 0) {
-    setOpenPeriods((prev) => {
-      if (Object.keys(prev).length) return prev; // don't overwrite
-      return periods.reduce((acc, p, i) => {
-        acc[p] = i === 0; // only newest open
-        return acc;
-      }, {});
-    });
-  }
-}, [rowsByPeriod]);
+ 
 
 
 // Compute running score as goals occur
