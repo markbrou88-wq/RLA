@@ -28,7 +28,8 @@ export default function SummaryPage() {
   const [lineupHome, setLineupHome] = React.useState({ skaters: [], goalies: [] });
   const [lineupAway, setLineupAway] = React.useState({ skaters: [], goalies: [] });
 
-  const [goalieRecs, setGoalieRecs] = React.useState({});
+  const [homeGoalieRec, setHomeGoalieRec] = React.useState(null);
+  const [awayGoalieRec, setAwayGoalieRec] = React.useState(null);
 
   const [rows, setRows] = React.useState([]);
 
@@ -121,8 +122,7 @@ export default function SummaryPage() {
           players!inner(id, name, position)
         `
         )
-        .eq("game_id", g.id)
-      .eq("dressed", true);
+        .eq("game_id", g.id);
 
       const split = (rows, teamId) => {
         const entries = (rows || [])
@@ -159,14 +159,10 @@ export default function SummaryPage() {
         return { w, l, ot, so };
       };
 
-     const allGoalies = [...homeLU.goalies, ...awayLU.goalies];
-
-const goalieEntries = await Promise.all(
-  allGoalies.map(async (g) => [g.id, await getGoalieRec(g)])
-);
-
-const goalieRecMap = Object.fromEntries(goalieEntries);
-
+      const [homeGoalieRecData, awayGoalieRecData] = await Promise.all([
+        getGoalieRec(homeLU.goalies[0]),
+        getGoalieRec(awayLU.goalies[0]),
+      ]);
 
       // Events
       const { data: ev } = await supabase
@@ -208,7 +204,8 @@ if (!cancelled) {
   setAwayRecord(recAway || null);
   setLineupHome(homeLU);
   setLineupAway(awayLU);
-  setGoalieRecs(goalieRecMap);
+  setHomeGoalieRec(homeGoalieRecData);
+  setAwayGoalieRec(awayGoalieRecData);
   setRows(grouped || []);
 
   // ✅ open only the most recent period by default
@@ -313,7 +310,7 @@ rows.forEach((r) => {
             team={awayTeam}
             record={awayRecord}
             lineup={lineupAway}
-            goalieRecs={goalieRecs}
+            goalieRec={awayGoalieRec}
           />
         </div>
         <div className="summary-team-column">
@@ -321,7 +318,7 @@ rows.forEach((r) => {
             team={homeTeam}
             record={homeRecord}
             lineup={lineupHome}
-            goalieRecs={goalieRecs}
+            goalieRec={homeGoalieRec}
             alignRight
           />
         </div>
@@ -541,8 +538,7 @@ rows.forEach((r) => {
   );
 }
 
-function LineupCard({ team, record, lineup, goalieRecs, alignRight = false }) {
-
+function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
   const recText =
     record &&
     (record.w !== undefined ||
@@ -609,13 +605,13 @@ function LineupCard({ team, record, lineup, goalieRecs, alignRight = false }) {
                   </tr>
                 )}
 
-             {lineup.goalies.map((p) => (
-  <RosterRow
-    key={`g-${p.id}`}
-    p={p}
-    goalieRec={goalieRecs?.[p.id] || null}
-  />
-))}
+                {lineup.goalies.map((p, idx) => (
+                  <RosterRow
+                    key={`g-${p.id}`}
+                    p={p}
+                    goalieRec={idx === 0 ? goalieRec : null}
+                  />
+                ))}
               </>
             )}
           </tbody>
