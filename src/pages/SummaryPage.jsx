@@ -212,6 +212,15 @@ export default function SummaryPage() {
     homeTeam?.short_name || homeTeam?.name || "—"
   }`;
 
+// Group events by period (1, 2, 3, OT, etc.)
+const rowsByPeriod = rows.reduce((acc, r) => {
+  const period = r.goal ? r.goal.period : r.single.period;
+  if (!acc[period]) acc[period] = [];
+  acc[period].push(r);
+  return acc;
+}, {});
+
+  
   const getNum = (teamId, playerId) =>
     rows && game
       ? null
