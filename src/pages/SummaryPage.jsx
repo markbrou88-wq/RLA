@@ -364,11 +364,18 @@ rows.forEach((r) => {
     fontWeight: 700,
     borderTop: "2px solid #eee",
     userSelect: "none",
+
+    /* 👇 key changes */
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    padding: "6px 10px",     // 👈 thinner row
+    lineHeight: "1.2",       // 👈 tighter text
+    whiteSpace: "nowrap",    // 👈 absolute no wrap
   }}
 >
+
+        
   <span>
     <span style={{ marginRight: 6 }}>
       {openPeriods[period] ? "▼" : "▶"}
