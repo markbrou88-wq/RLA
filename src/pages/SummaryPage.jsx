@@ -220,6 +220,24 @@ const rowsByPeriod = rows.reduce((acc, r) => {
   return acc;
 }, {});
 
+// Compute running score as goals occur
+const runningScore = {};
+let awayGoals = 0;
+let homeGoals = 0;
+
+rows.forEach((r) => {
+  if (r.goal) {
+    if (r.goal.team_id === game.away_team_id) awayGoals++;
+    if (r.goal.team_id === game.home_team_id) homeGoals++;
+
+    runningScore[r.goal.id] = {
+      away: awayGoals,
+      home: homeGoals,
+    };
+  }
+});
+
+  
   
   const getNum = (teamId, playerId) =>
     rows && game
@@ -320,7 +338,13 @@ const rowsByPeriod = rows.reduce((acc, r) => {
             );
 
           return (
-            <tr key={`g-${period}-${i}`}>
+          <tr
+  key={`g-${period}-${i}`}
+  style={{
+    background: "#f1fbf4", // light green
+    fontWeight: 600,
+  }}
+>
               <Td>{r.goal.period}</Td>
               <Td>{r.goal.time_mmss}</Td>
               <Td>{teamLabel}</Td>
@@ -337,6 +361,22 @@ const rowsByPeriod = rows.reduce((acc, r) => {
                 </b>
                 {aTxt.length > 0 && (
                   <span style={{ color: "#666" }}> (A: {aTxt})</span>
+
+  {runningScore[r.goal.id] && (
+  <div style={{ marginTop: 4, fontSize: 12, color: "#444" }}>
+    Score:{" "}
+    <b>
+      {awayTeam?.short_name || awayTeam?.name}{" "}
+      {runningScore[r.goal.id].away}
+    </b>{" "}
+    –{" "}
+    <b>
+      {runningScore[r.goal.id].home}{" "}
+      {homeTeam?.short_name || homeTeam?.name}
+    </b>
+  </div>
+)}
+
                 )}
               </Td>
             </tr>
