@@ -122,6 +122,7 @@ export default function SummaryPage() {
         `
         )
         .eq("game_id", g.id);
+      .eq("dressed", true);
 
       const split = (rows, teamId) => {
         const entries = (rows || [])
