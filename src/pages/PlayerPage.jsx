@@ -54,34 +54,7 @@ export default function PlayerPage() {
       const isGoalie =
         String(pRow.position || "").trim().toUpperCase() === "G";
 
-      let goalieSeasonStats = [];
 
-if (isGoalie) {
-  const { data } = await supabase
-    .from("goalie_stats_current")
-    .select(
-      `
-      season_id,
-      category_id,
-      team,
-      gp,
-      sv_pct,
-      gaa,
-      wins,
-      losses,
-      otl
-      `
-    )
-    .eq("player_id", pid)
-    .order("season_id", { ascending: false });
-
-  goalieSeasonStats =
-    (data || []).map((r) => ({
-      ...r,
-      season_name: seasonMap.get(r.season_id) || r.season_id,
-      category_name: catMap.get(r.category_id) || r.category_id,
-    }));
-}
 
 
       /* ---------- GOALIE CAREER TOTALS ---------- */
@@ -145,6 +118,33 @@ if (isGoalie) {
 
       const seasonMap = new Map((seasons || []).map((s) => [s.id, s.name]));
       const catMap = new Map((cats || []).map((c) => [c.id, c.name]));
+
+      let goalieSeasonStatsLocal = [];
+
+if (isGoalie) {
+  const { data } = await supabase
+    .from("goalie_stats_current")
+    .select(`
+      season_id,
+      category_id,
+      team,
+      gp,
+      sv_pct,
+      gaa,
+      wins,
+      losses,
+      otl
+    `)
+    .eq("player_id", pid)
+    .order("season_id", { ascending: false });
+
+  goalieSeasonStatsLocal = (data || []).map((r) => ({
+    ...r,
+    season_name: seasonMap.get(r.season_id) || r.season_id,
+    category_name: catMap.get(r.category_id) || r.category_id,
+  }));
+}
+
 
       /* ---------- SEASON STATS ---------- */
       const { data: statRows } = await supabase
