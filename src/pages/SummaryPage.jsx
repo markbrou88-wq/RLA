@@ -512,7 +512,8 @@ rows.forEach((r) => {
 
       
     </React.Fragment>
-  ))}
+  );
+})}
 </tbody>
         
             </table>
