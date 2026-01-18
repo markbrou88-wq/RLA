@@ -33,6 +33,17 @@ export default function SummaryPage() {
 
   const [rows, setRows] = React.useState([]);
 
+  const [openPeriods, setOpenPeriods] = React.useState({});
+
+  const togglePeriod = (period) => {
+  setOpenPeriods((prev) => ({
+    ...prev,
+    [period]: !prev[period],
+  }));
+};
+
+
+
   React.useEffect(() => {
     let cancelled = false;
 
@@ -220,6 +231,24 @@ const rowsByPeriod = rows.reduce((acc, r) => {
   return acc;
 }, {});
 
+  // Open most recent period by default
+React.useEffect(() => {
+  const periods = Object.keys(rowsByPeriod)
+    .map(Number)
+    .sort((a, b) => b - a);
+
+  if (periods.length > 0) {
+    setOpenPeriods((prev) => {
+      if (Object.keys(prev).length) return prev; // don't overwrite
+      return periods.reduce((acc, p, i) => {
+        acc[p] = i === 0; // only newest open
+        return acc;
+      }, {});
+    });
+  }
+}, [rowsByPeriod]);
+
+
 // Compute running score as goals occur
 const runningScore = {};
 let awayGoals = 0;
@@ -303,20 +332,30 @@ rows.forEach((r) => {
   {Object.entries(rowsByPeriod).map(([period, periodRows]) => (
     <React.Fragment key={`p-${period}`}>
       {/* Period header row */}
-      <tr>
-        <Td
-          colSpan={5}
-          style={{
-            background: "#fafafa",
-            fontWeight: 700,
-            borderTop: "2px solid #eee",
-          }}
-        >
-          {t("Period")} {period}
-        </Td>
-      </tr>
+
+      <tr
+  onClick={() => togglePeriod(period)}
+  style={{ cursor: "pointer" }}
+>
+  <Td
+    colSpan={5}
+    style={{
+      background: "#fafafa",
+      fontWeight: 700,
+      borderTop: "2px solid #eee",
+      userSelect: "none",
+    }}
+  >
+    <span style={{ marginRight: 6 }}>
+      {openPeriods[period] ? "▼" : "▶"}
+    </span>
+    {t("Period")} {period}
+  </Td>
+</tr>
+
 
       {/* Period events */}
+      {openPeriods[period] &&
       {periodRows.map((r, i) => {
         if (r.goal) {
           const teamLabel =
