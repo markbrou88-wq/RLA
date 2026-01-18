@@ -214,6 +214,15 @@ if (!cancelled) {
     };
   }, [slug]);
 
+  const rowsByPeriod = React.useMemo(() => {
+  return rows.reduce((acc, r) => {
+    const period = r.goal ? r.goal.period : r.single.period;
+    if (!acc[period]) acc[period] = [];
+    acc[period].push(r);
+    return acc;
+  }, {});
+}, [rows]);
+
   if (loading)
     return (
       <div className="container" style={{ padding: 16 }}>
@@ -234,15 +243,7 @@ if (!cancelled) {
     homeTeam?.short_name || homeTeam?.name || "—"
   }`;
 
-// Group events by period (1, 2, 3, OT, etc.)
-const rowsByPeriod = React.useMemo(() => {
-  return rows.reduce((acc, r) => {
-    const period = r.goal ? r.goal.period : r.single.period;
-    if (!acc[period]) acc[period] = [];
-    acc[period].push(r);
-    return acc;
-  }, {});
-}, [rows]);
+
 
 
  
