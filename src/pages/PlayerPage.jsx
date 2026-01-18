@@ -25,6 +25,8 @@ export default function PlayerPage() {
 
   const [goalieCareer, setGoalieCareer] = React.useState(null);
 
+  const [goalieSeasonStats, setGoalieSeasonStats] = React.useState([]);
+
 
   const [skaterLog, setSkaterLog] = React.useState([]);
   const [goalieLog, setGoalieLog] = React.useState([]);
@@ -51,6 +53,36 @@ export default function PlayerPage() {
 
       const isGoalie =
         String(pRow.position || "").trim().toUpperCase() === "G";
+
+      let goalieSeasonStats = [];
+
+if (isGoalie) {
+  const { data } = await supabase
+    .from("goalie_stats_current")
+    .select(
+      `
+      season_id,
+      category_id,
+      team,
+      gp,
+      sv_pct,
+      gaa,
+      wins,
+      losses,
+      otl
+      `
+    )
+    .eq("player_id", pid)
+    .order("season_id", { ascending: false });
+
+  goalieSeasonStats =
+    (data || []).map((r) => ({
+      ...r,
+      season_name: seasonMap.get(r.season_id) || r.season_id,
+      category_name: catMap.get(r.category_id) || r.category_id,
+    }));
+}
+
 
       /* ---------- GOALIE CAREER TOTALS ---------- */
 let goalieCareerTotals = null;
@@ -284,6 +316,8 @@ if (isGoalie) {
         setGoalieLog(builtGoalieLog);
         setLoading(false);
         setGoalieCareer(goalieCareerTotals);
+        setGoalieSeasonStats(goalieSeasonStatsLocal);
+
       }
     }
 
@@ -366,49 +400,78 @@ if (isGoalie) {
 
 
       {/* Season Stats */}
-      <section style={{ marginTop: 18 }}>
-        <h3>Stats by season & category</h3>
-        <div style={tblWrap}>
-          <table style={logTbl}>
-            <thead style={theadS}>
-              <tr>
-                <th style={thS}>Season</th>
-                <th style={thS}>Category</th>
-                <th style={thS}>Team</th>
-                <th style={thS}>GP</th>
-                <th style={thS}>G</th>
-                <th style={thS}>A</th>
-                <th style={thS}>PTS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {seasonStats.length === 0 ? (
-                <tr>
-                  <td style={tdS} colSpan={7}>
-                    No stats yet.
-                  </td>
-                </tr>
-              ) : (
-                seasonStats.map((r, i) => (
-                  <tr key={i}>
-                    <td style={tdS}>{r.season_name}</td>
-                    <td style={tdS}>{r.category_name}</td>
-                    <td style={tdS}>{r.team}</td>
-                    <td style={tdS}>{r.gp}</td>
-                    <td style={tdS}>{r.g}</td>
-                    <td style={tdS}>{r.a}</td>
-                    <td style={tdS}>{r.pts}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+     <section style={{ marginTop: 18 }}>
+  <h3>Stats by season & category</h3>
+
+  <div style={tblWrap}>
+    {!isGoalie ? (
+      /* ================= SKATERS ================= */
+      <table style={logTbl}>
+        <thead style={theadS}>
+          <tr>
+            <th style={thS}>Season</th>
+            <th style={thS}>Category</th>
+            <th style={thS}>Team</th>
+            <th style={thS}>GP</th>
+            <th style={thS}>G</th>
+            <th style={thS}>A</th>
+            <th style={thS}>PTS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {seasonStats.map((r, i) => (
+            <tr key={i}>
+              <td style={tdS}>{r.season_name}</td>
+              <td style={tdS}>{r.category_name}</td>
+              <td style={tdS}>{r.team}</td>
+              <td style={tdS}>{r.gp}</td>
+              <td style={tdS}>{r.g}</td>
+              <td style={tdS}>{r.a}</td>
+              <td style={tdS}>{r.pts}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    ) : (
+      /* ================= GOALIES ================= */
+      <table style={logTbl}>
+        <thead style={theadS}>
+          <tr>
+            <th style={thS}>Season</th>
+            <th style={thS}>Category</th>
+            <th style={thS}>Team</th>
+            <th style={thS}>GP</th>
+            <th style={thS}>SV%</th>
+            <th style={thS}>GAA</th>
+            <th style={thS}>W-L-OTL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {goalieSeasonStats.map((r, i) => (
+            <tr key={i}>
+              <td style={tdS}>{r.season_name}</td>
+              <td style={tdS}>{r.category_name}</td>
+              <td style={tdS}>{r.team}</td>
+              <td style={tdS}>{r.gp}</td>
+              <td style={tdS}>
+                {r.sv_pct != null ? `${r.sv_pct}%` : "—"}
+              </td>
+              <td style={tdS}>{r.gaa ?? "—"}</td>
+              <td style={tdS}>
+                {`${r.wins ?? 0}-${r.losses ?? 0}-${r.otl ?? 0}`}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</section>
+
 
       {/* Logs unchanged */}
    {!isGoalie && <SkaterLog skaterLog={skaterLog} />}
-      {isGoalie && renderGoalieLog(goalieLog)}
+     {isGoalie && <GoalieLog goalieLog={goalieLog} />}
     </div>
   );
 }
@@ -533,6 +596,43 @@ function SkaterLog({ skaterLog }) {
     </section>
   );
 }
+
+function GoalieLog({ goalieLog }) {
+  const bySeason = goalieLog.reduce((acc, g) => {
+    const key = g.season_name || "Other";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(g);
+    return acc;
+  }, {});
+
+  const [open, setOpen] = React.useState(() => {
+    const seasons = Object.keys(bySeason);
+    return seasons.reduce((a, s, i) => {
+      a[s] = i === 0;
+      return a;
+    }, {});
+  });
+
+  return (
+    <section style={{ marginTop: 18 }}>
+      <h3>Game log (Goalie)</h3>
+
+      {Object.entries(bySeason).map(([season, games]) => (
+        <div key={season}>
+          <h4
+            onClick={() => setOpen(o => ({ ...o, [season]: !o[season] }))}
+            style={{ cursor: "pointer", userSelect: "none" }}
+          >
+            {open[season] ? "▼" : "▶"} {season}
+          </h4>
+
+          {open[season] && renderGoalieLog(games)}
+        </div>
+      ))}
+    </section>
+  );
+}
+
 
 
 function renderGoalieLog(goalieLog) {
