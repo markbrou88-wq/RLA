@@ -23,6 +23,9 @@ export default function PlayerPage() {
   const [seasonStats, setSeasonStats] = React.useState([]);
   const [career, setCareer] = React.useState({ gp: 0, g: 0, a: 0, pts: 0 });
 
+  const [goalieCareer, setGoalieCareer] = React.useState(null);
+
+
   const [skaterLog, setSkaterLog] = React.useState([]);
   const [goalieLog, setGoalieLog] = React.useState([]);
 
@@ -48,6 +51,59 @@ export default function PlayerPage() {
 
       const isGoalie =
         String(pRow.position || "").trim().toUpperCase() === "G";
+
+      /* ---------- GOALIE CAREER TOTALS ---------- */
+let goalieCareerTotals = null;
+
+if (isGoalie) {
+  const { data: gCareer } = await supabase
+    .from("goalie_stats_current")
+    .select(
+      `
+      gp,
+      sa,
+      ga,
+      sv_pct,
+      gaa,
+      wins,
+      losses,
+      otl,
+      so,
+      toi_seconds
+      `
+    )
+    .eq("player_id", pid);
+
+  if (gCareer && gCareer.length > 0) {
+    goalieCareerTotals = gCareer.reduce(
+      (acc, r) => {
+        acc.gp += r.gp || 0;
+        acc.sa += r.sa || 0;
+        acc.ga += r.ga || 0;
+        acc.w += r.wins || 0;
+        acc.l += r.losses || 0;
+        acc.otl += r.otl || 0;
+        acc.so += r.so || 0;
+        acc.toi += r.toi_seconds || 0;
+        return acc;
+      },
+      { gp: 0, sa: 0, ga: 0, w: 0, l: 0, otl: 0, so: 0, toi: 0 }
+    );
+
+    goalieCareerTotals.sv_pct =
+      goalieCareerTotals.sa > 0
+        ? Math.round((1 - goalieCareerTotals.ga / goalieCareerTotals.sa) * 1000) / 10
+        : null;
+
+    goalieCareerTotals.gaa =
+      goalieCareerTotals.toi > 0
+        ? Math.round(
+            (goalieCareerTotals.ga / (goalieCareerTotals.toi / 60)) * 100
+          ) / 100
+        : null;
+  }
+}
+
 
       /* ---------- LOOKUPS ---------- */
       const [{ data: seasons }, { data: cats }] = await Promise.all([
@@ -227,6 +283,7 @@ export default function PlayerPage() {
         setSkaterLog(builtSkaterLog);
         setGoalieLog(builtGoalieLog);
         setLoading(false);
+        setGoalieCareer(goalieCareerTotals);
       }
     }
 
@@ -274,19 +331,39 @@ export default function PlayerPage() {
       </div>
 
       {/* Career Summary */}
+
       <section style={{ marginTop: 16 }}>
-        <h3>Career Totals</h3>
-        <div style={summaryRow}>
-          <SummaryBox label="GP" value={career.gp} />
-          <SummaryBox label="G" value={career.g} />
-          <SummaryBox label="A" value={career.a} />
-          <SummaryBox
-  label="PTS"
-  value={career.pts}
-  highlight
-/>
-        </div>
-      </section>
+  <h3>Career Totals</h3>
+
+  {!isGoalie ? (
+    /* ---------- SKATERS (unchanged) ---------- */
+    <div style={summaryRow}>
+      <SummaryBox label="GP" value={career.gp} />
+      <SummaryBox label="G" value={career.g} />
+      <SummaryBox label="A" value={career.a} />
+      <SummaryBox label="PTS" value={career.pts} highlight />
+    </div>
+  ) : (
+    /* ---------- GOALIES ---------- */
+    <div style={summaryRow}>
+      <SummaryBox label="GP" value={goalieCareer?.gp ?? 0} />
+      <SummaryBox
+        label="SV%"
+        value={goalieCareer?.sv_pct != null ? `${goalieCareer.sv_pct}%` : "—"}
+      />
+      <SummaryBox
+        label="GAA"
+        value={goalieCareer?.gaa != null ? goalieCareer.gaa : "—"}
+      />
+      <SummaryBox
+        label="W-L-OTL"
+        value={`${goalieCareer?.w ?? 0}-${goalieCareer?.l ?? 0}-${goalieCareer?.otl ?? 0}`}
+        highlight
+      />
+    </div>
+  )}
+</section>
+
 
       {/* Season Stats */}
       <section style={{ marginTop: 18 }}>
