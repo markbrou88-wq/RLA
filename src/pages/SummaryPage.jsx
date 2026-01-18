@@ -280,99 +280,94 @@ const rowsByPeriod = rows.reduce((acc, r) => {
                   <Th>{t("PLAYER / ASSISTS")}</Th>
                 </tr>
               </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  if (r.goal) {
-                    const numGoal =
-                      r.goal.player_id != null
-                        ? r.goal.team_id != null
-                          ? undefined
-                          : undefined
-                        : undefined;
 
-                    const aTxt = r.assists
-                      .map((a) => {
-                        const num =
-                          a.team_id && a.player_id
-                            ? undefined
-                            : undefined;
-                        return a.players?.id ? (
-                          <Link key={`a${a.id}`} to={`/players/${a.players.id}`}>
-                            #{num ?? "—"} {a.players.name ?? "—"}
-                          </Link>
-                        ) : (
-                          `#${num ?? "—"} ${a.players?.name ?? "—"}`
-                        );
-                      })
-                      .reduce(
-                        (acc, node, idx) => (idx ? [...acc, ", ", node] : [node]),
-                        []
-                      );
+      <tbody>
+  {Object.entries(rowsByPeriod).map(([period, periodRows]) => (
+    <React.Fragment key={`p-${period}`}>
+      {/* Period header row */}
+      <tr>
+        <Td
+          colSpan={5}
+          style={{
+            background: "#fafafa",
+            fontWeight: 700,
+            borderTop: "2px solid #eee",
+          }}
+        >
+          {t("Period")} {period}
+        </Td>
+      </tr>
 
-                    const teamLabel =
-                      r.goal.teams?.short_name || r.goal.teams?.name || "";
-                    const goalNum =
-                      r.goal.team_id && r.goal.player_id
-                        ? undefined
-                        : undefined;
+      {/* Period events */}
+      {periodRows.map((r, i) => {
+        if (r.goal) {
+          const teamLabel =
+            r.goal.teams?.short_name || r.goal.teams?.name || "";
 
-                    return (
-                      <tr key={`g${i}`}>
-                        <Td>{r.goal.period}</Td>
-                        <Td>{r.goal.time_mmss}</Td>
-                        <Td>{teamLabel}</Td>
-                        <Td>GOAL</Td>
-                        <Td>
-                          <b>
-                            {r.goal.players?.id ? (
-                              <Link to={`/players/${r.goal.players.id}`}>
-                                #{goalNum ?? "—"}{" "}
-                                {r.goal.players.name ?? "—"}
-                              </Link>
-                            ) : (
-                              <>
-                                #{goalNum ?? "—"}{" "}
-                                {r.goal.players?.name ?? "—"}
-                              </>
-                            )}
-                          </b>
-                          {aTxt && (
-                            <span style={{ color: "#666" }}> (A: {aTxt})</span>
-                          )}
-                        </Td>
-                      </tr>
-                    );
-                  }
+          const aTxt = r.assists
+            .map((a) =>
+              a.players?.id ? (
+                <Link key={`a${a.id}`} to={`/players/${a.players.id}`}>
+                  {a.players.name}
+                </Link>
+              ) : (
+                a.players?.name ?? "—"
+              )
+            )
+            .reduce(
+              (acc, node, idx) => (idx ? [...acc, ", ", node] : [node]),
+              []
+            );
 
-                  const e = r.single;
-                  const teamLabel =
-                    e.teams?.short_name || e.teams?.name || "";
-                  const num =
-                    e.team_id && e.player_id
-                      ? undefined
-                      : undefined;
+          return (
+            <tr key={`g-${period}-${i}`}>
+              <Td>{r.goal.period}</Td>
+              <Td>{r.goal.time_mmss}</Td>
+              <Td>{teamLabel}</Td>
+              <Td>GOAL</Td>
+              <Td>
+                <b>
+                  {r.goal.players?.id ? (
+                    <Link to={`/players/${r.goal.players.id}`}>
+                      {r.goal.players.name}
+                    </Link>
+                  ) : (
+                    r.goal.players?.name ?? "—"
+                  )}
+                </b>
+                {aTxt.length > 0 && (
+                  <span style={{ color: "#666" }}> (A: {aTxt})</span>
+                )}
+              </Td>
+            </tr>
+          );
+        }
 
-                  return (
-                    <tr key={`o${e.id}`}>
-                      <Td>{e.period}</Td>
-                      <Td>{e.time_mmss}</Td>
-                      <Td>{teamLabel}</Td>
-                      <Td>{String(e.event || "").toUpperCase()}</Td>
-                      <Td>
-                        {e.players?.id ? (
-                          <Link to={`/players/${e.players.id}`}>
-                            #{num ?? "—"} {e.players.name ?? "—"}
-                          </Link>
-                        ) : (
-                          <>
-                            #{num ?? "—"} {e.players?.name ?? "—"}
-                          </>
-                        )}
-                      </Td>
-                    </tr>
-                  );
-                })}
-              </tbody>
+        const e = r.single;
+        const teamLabel = e.teams?.short_name || e.teams?.name || "";
+
+        return (
+          <tr key={`o-${period}-${i}`}>
+            <Td>{e.period}</Td>
+            <Td>{e.time_mmss}</Td>
+            <Td>{teamLabel}</Td>
+            <Td>{String(e.event || "").toUpperCase()}</Td>
+            <Td>
+              {e.players?.id ? (
+                <Link to={`/players/${e.players.id}`}>
+                  {e.players.name}
+                </Link>
+              ) : (
+                e.players?.name ?? "—"
+              )}
+            </Td>
+          </tr>
+        );
+      })}
+    </React.Fragment>
+  ))}
+</tbody>
+        
             </table>
           </div>
         )}
