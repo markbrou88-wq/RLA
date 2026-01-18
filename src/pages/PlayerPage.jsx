@@ -288,17 +288,22 @@ if (isGoalie) {
               ? gm?.away_team_id
               : gm?.home_team_id;
           const opp = tMap.get(oppId);
-          return {
-            game_id: r.game_id,
-            date,
-            slug: gm?.slug || r.game_id,
-            opponent: opp?.short_name || opp?.name || "",
-            sa: overlay?.shots_against ?? 0,
-            ga: overlay?.goals_against ?? 0,
-            toi: overlay?.minutes_seconds ?? 0,
-            decision: overlay?.decision || "",
-            so: overlay?.shutout ? 1 : 0,
-          };
+
+return {
+  game_id: r.game_id,
+  season_id: gm?.season_id,
+  season_name: seasonMap.get(gm?.season_id) || "Other",
+  date,
+  slug: gm?.slug || r.game_id,
+  opponent: opp?.short_name || opp?.name || "",
+  sa: overlay?.shots_against ?? 0,
+  ga: overlay?.goals_against ?? 0,
+  toi: overlay?.minutes_seconds ?? 0,
+  decision: overlay?.decision || "",
+  so: overlay?.shutout ? 1 : 0,
+};
+
+          
         })
         .sort(
           (a, b) =>
@@ -605,28 +610,45 @@ function GoalieLog({ goalieLog }) {
     return acc;
   }, {});
 
-  const [open, setOpen] = React.useState(() => {
+  const [openSeasons, setOpenSeasons] = React.useState(() => {
     const seasons = Object.keys(bySeason);
-    return seasons.reduce((a, s, i) => {
-      a[s] = i === 0;
-      return a;
+    return seasons.reduce((acc, s, i) => {
+      acc[s] = i === 0; // open most recent only
+      return acc;
     }, {});
   });
+
+  const toggleSeason = (season) => {
+    setOpenSeasons((prev) => ({
+      ...prev,
+      [season]: !prev[season],
+    }));
+  };
 
   return (
     <section style={{ marginTop: 18 }}>
       <h3>Game log (Goalie)</h3>
 
-      {Object.entries(bySeason).map(([season, games]) => (
-        <div key={season}>
+      {Object.entries(bySeason).map(([seasonName, games]) => (
+        <div key={seasonName} style={{ marginTop: 16 }}>
           <h4
-            onClick={() => setOpen(o => ({ ...o, [season]: !o[season] }))}
-            style={{ cursor: "pointer", userSelect: "none" }}
+            onClick={() => toggleSeason(seasonName)}
+            style={{
+              margin: "12px 0",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              userSelect: "none",
+            }}
           >
-            {open[season] ? "▼" : "▶"} {season}
+            <span style={{ fontSize: 14 }}>
+              {openSeasons[seasonName] ? "▼" : "▶"}
+            </span>
+            {seasonName}
           </h4>
 
-          {open[season] && renderGoalieLog(games)}
+          {openSeasons[seasonName] && renderGoalieLog(games)}
         </div>
       ))}
     </section>
@@ -638,7 +660,7 @@ function GoalieLog({ goalieLog }) {
 function renderGoalieLog(goalieLog) {
   return (
     <section style={{ marginTop: 18 }}>
-      <h3>Game log (Goalie)</h3>
+     
       <div style={tblWrap}>
         <table style={logTbl}>
           <thead style={theadS}>
