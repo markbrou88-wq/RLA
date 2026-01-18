@@ -377,22 +377,27 @@ rows.forEach((r) => {
   </span>
 
   {shotCount > 0 && (
-    <span
-      onClick={(e) => {
-        e.stopPropagation(); // 👈 important
-        toggleShots(period);
-      }}
-      style={{
-        fontSize: 12,
-        color: "#666",
-        cursor: "pointer",
-        fontWeight: 500,
-      }}
-    >
-      {showShotsByPeriod[period]
-        ? t("Hide shots")
-        : `${t("Show shots")} (${shotCount})`}
-    </span>
+
+<span
+  onClick={(e) => {
+    e.stopPropagation(); // 👈 important
+    toggleShots(period);
+  }}
+  style={{
+    fontSize: 12,
+    color: "#666",
+    cursor: "pointer",
+    fontWeight: 500,
+    whiteSpace: "nowrap",      // 👈 keeps it on ONE line
+    marginLeft: 12,            // 👈 visual breathing room
+  }}
+>
+  {showShotsByPeriod[period]
+    ? t("Hide shots")
+    : `${t("Show shots")} (${shotCount})`}
+</span>
+
+  
   )}
 </Td>
 
