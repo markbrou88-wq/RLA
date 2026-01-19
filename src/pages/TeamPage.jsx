@@ -596,17 +596,27 @@ const trend10 = summary.chart.reduce(
               {summary.recent.length === 0 && <span className="muted">No final games yet</span>}
             </div>
 
-<div className="row gap sm muted" style={{ marginTop: 8 }}>
-  <span>⚡ Attaque: {avgGF} BP / match</span>
-  <span>🛡️ Défense: {avgGA} BA / match</span>
-  <span>
-    📈 Tendance (10):{" "}
+<div className="muted" style={{ marginTop: 10 }}>
+  <div className="row gap xs">
+    <span>⚡ Attaque :</span>
+    <strong>{avgGF} BP / match</strong>
+  </div>
+
+  <div className="row gap xs">
+    <span>🛡️ Défense :</span>
+    <strong>{avgGA} BA / match</strong>
+  </div>
+
+  <div className="row gap xs">
+    <span>📈 Tendance (10) :</span>
     <strong style={{ color: trend10 >= 0 ? "#2563eb" : "#dc2626" }}>
       {trend10 >= 0 ? "+" : ""}
       {trend10}
     </strong>
-  </span>
+  </div>
 </div>
+
+            
 
             
           </div>
