@@ -60,27 +60,38 @@ const pathFor = (key) =>
       
       {/* GF */}
       <path d={pathFor("gf")} stroke={colorGF} fill="none" strokeWidth="3" />
-      {xs.map((x, i) => (
-        <circle
-          key={`gf-${i}`}
-          cx={xScale(x)}
-          cy={yScale(points[i].gf)}
-          r="3.5"
-          fill={colorGF}
-        />
-      ))}
+
+      {xs.map((x, i) => {
+  const isLast = i === xs.length - 1;
+  return (
+    <circle
+      key={`gf-${i}`}
+      cx={xScale(x)}
+      cy={yScale(points[i].gf)}
+      r={isLast ? 5 : 3.5}
+      fill={colorGF}
+    />
+  );
+})}
+
 
       {/* GA */}
       <path d={pathFor("ga")} stroke={colorGA} fill="none" strokeWidth="3" />
-      {xs.map((x, i) => (
-        <circle
-          key={`ga-${i}`}
-          cx={xScale(x)}
-          cy={yScale(points[i].ga)}
-          r="3.5"
-          fill={colorGA}
-        />
-      ))}
+
+
+      {xs.map((x, i) => {
+  const isLast = i === xs.length - 1;
+  return (
+    <circle
+      key={`ga-${i}`}
+      cx={xScale(x)}
+      cy={yScale(points[i].ga)}
+      r={isLast ? 5 : 3.5}
+      fill={colorGA}
+    />
+  );
+})}
+
 
       {/* Last game diff label */}
 <text
