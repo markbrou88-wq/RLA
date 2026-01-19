@@ -33,7 +33,7 @@ function SparklineGFGA({
   const pathFor = (key) =>
 
     const last = points[points.length - 1];
-const lastDiff = (last?.gf ?? 0) - (last?.ga ?? 0);
+const lastDiff = last.gf - last.ga;
     
     xs
       .map((x, i) =>
