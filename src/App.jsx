@@ -152,7 +152,7 @@ function AppInner() {
           </div>
 
           <div className="auth-bar-right">
-            <LanguageToggle />
+          {/* <LanguageToggle /> */}
             <ThemeToggle />
           </div>
         </div>
