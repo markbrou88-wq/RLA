@@ -291,20 +291,7 @@ export default function TeamPage() {
       if (mounted) setUser(s?.user ?? null);
     });
    
-    const avgGF =
-  summary.record.gp > 0
-    ? (summary.record.gf / summary.record.gp).toFixed(1)
-    : "0.0";
-
-const avgGA =
-  summary.record.gp > 0
-    ? (summary.record.ga / summary.record.gp).toFixed(1)
-    : "0.0";
-
-const trend10 = summary.chart.reduce(
-  (sum, g) => sum + (g.gf - g.ga),
-  0
-);
+    
 
     
     return () => {
@@ -547,6 +534,24 @@ const trend10 = summary.chart.reduce(
     }
   };
 
+// ----- Derived team metrics (safe for render) -----
+const avgGF =
+  summary.record.gp > 0
+    ? (summary.record.gf / summary.record.gp).toFixed(1)
+    : "0.0";
+
+const avgGA =
+  summary.record.gp > 0
+    ? (summary.record.ga / summary.record.gp).toFixed(1)
+    : "0.0";
+
+const trend10 = summary.chart.reduce(
+  (sum, g) => sum + ((g.gf ?? 0) - (g.ga ?? 0)),
+  0
+);
+
+
+  
   const Th = ({ col, label, sortKeyFor }) => (
     <div className="td th-resizable" style={{ width: widths[col], minWidth: widths[col], maxWidth: widths[col] }}>
       <button className="th-btn" onClick={() => clickSort(sortKeyFor ?? col)} title="Click to sort">
