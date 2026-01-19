@@ -31,14 +31,32 @@ function SparklineGFGA({
     height - pad - (y / maxY) * (height - pad * 2);
 
   const pathFor = (key) =>
+
+    const last = points[points.length - 1];
+const lastDiff = (last?.gf ?? 0) - (last?.ga ?? 0);
+    
     xs
       .map((x, i) =>
         `${i ? "L" : "M"} ${xScale(x)} ${yScale(points[i][key])}`
       )
       .join(" ");
 
+
+
+  
   return (
     <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+
+{/* Baseline */}
+<line
+  x1={pad}
+  y1={yScale(0)}
+  x2={width - pad}
+  y2={yScale(0)}
+  stroke="#e5e7eb"
+/>
+
+      
       {/* GF */}
       <path d={pathFor("gf")} stroke={colorGF} fill="none" strokeWidth="3" />
       {xs.map((x, i) => (
@@ -62,6 +80,20 @@ function SparklineGFGA({
           fill={colorGA}
         />
       ))}
+
+      {/* Last game diff label */}
+<text
+  x={xScale(xs.length - 1) + 6}
+  y={yScale(last.gf)}
+  fontSize="12"
+  fontWeight="600"
+  fill={lastDiff >= 0 ? colorGF : colorGA}
+>
+  {lastDiff >= 0 ? "+" : ""}
+  {lastDiff}
+</text>
+
+      
     </svg>
   );
 }
