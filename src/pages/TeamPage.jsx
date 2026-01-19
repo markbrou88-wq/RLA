@@ -6,35 +6,66 @@ import { useSeason } from "../contexts/SeasonContext";
 import { useCategory } from "../contexts/CategoryContext";
 
 /* ---------- Tiny sparkline (no deps) ---------- */
-function Sparkline({ points = [], width = 600, height = 160, stroke = "#3b82f6" }) {
-  if (!points.length) return <div className="muted">No final games yet</div>;
+
+function SparklineGFGA({
+  points = [],
+  width = 600,
+  height = 160,
+  colorGF = "#2563eb", // blue
+  colorGA = "#dc2626", // red
+}) {
+  if (!points.length) return <div className="muted">Aucun match final</div>;
+
   const pad = 8;
   const xs = points.map((_, i) => i);
-  const minX = 0;
   const maxX = xs.length - 1 || 1;
-  const vals = points.map((p) => p.diff ?? 0);
-  const minY = Math.min(...vals, 0);
-  const maxY = Math.max(...vals, 0);
-  const xScale = (x) => pad + ((x - minX) / (maxX - minX || 1)) * (width - pad * 2);
-  const yScale = (y) => {
-    const rng = maxY - minY || 1;
-    const t = (y - minY) / rng;
-    return height - pad - t * (height - pad * 2);
-  };
-  const zeroY = yScale(0);
-  const path = xs
-    .map((x, i) => `${i ? "L" : "M"} ${xScale(x)} ${yScale(points[i].diff ?? 0)}`)
-    .join(" ");
+
+  const values = points.flatMap(p => [p.gf, p.ga]);
+  const minY = 0;
+  const maxY = Math.max(...values, 1);
+
+  const xScale = (x) =>
+    pad + (x / maxX) * (width - pad * 2);
+
+  const yScale = (y) =>
+    height - pad - (y / maxY) * (height - pad * 2);
+
+  const pathFor = (key) =>
+    xs
+      .map((x, i) =>
+        `${i ? "L" : "M"} ${xScale(x)} ${yScale(points[i][key])}`
+      )
+      .join(" ");
+
   return (
-    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} role="img">
-      <line x1={pad} y1={zeroY} x2={width - pad} y2={zeroY} stroke="#e5e7eb" />
-      <path d={path} stroke={stroke} fill="none" strokeWidth="3" />
+    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+      {/* GF */}
+      <path d={pathFor("gf")} stroke={colorGF} fill="none" strokeWidth="3" />
       {xs.map((x, i) => (
-        <circle key={i} cx={xScale(x)} cy={yScale(points[i].diff ?? 0)} r="3.5" fill={stroke} />
+        <circle
+          key={`gf-${i}`}
+          cx={xScale(x)}
+          cy={yScale(points[i].gf)}
+          r="3.5"
+          fill={colorGF}
+        />
+      ))}
+
+      {/* GA */}
+      <path d={pathFor("ga")} stroke={colorGA} fill="none" strokeWidth="3" />
+      {xs.map((x, i) => (
+        <circle
+          key={`ga-${i}`}
+          cx={xScale(x)}
+          cy={yScale(points[i].ga)}
+          r="3.5"
+          fill={colorGA}
+        />
       ))}
     </svg>
   );
 }
+
 
 /* ---------- Data hooks ---------- */
 function useTeam(teamId) {
@@ -545,13 +576,22 @@ export default function TeamPage() {
           </div>
         </div>
 
+
         <div className="card" style={{ flex: 1, minWidth: 320 }}>
-          <div className="card-title">Goal Difference (last 10)</div>
-          <div style={{ width: "100%", height: 160 }}>
-            <Sparkline points={summary.chart} />
-          </div>
-        </div>
-      </div>
+  <div className="card-title">
+    Buts marqués vs buts accordés (10 derniers)
+  </div>
+
+  <div className="row gap xs muted" style={{ marginBottom: 6 }}>
+    <span>🔵 Marqués</span>
+    <span>🔴 Accordés</span>
+  </div>
+
+  <div style={{ width: "100%", height: 160 }}>
+    <SparklineGFGA points={summary.chart} />
+  </div>
+</div>
+
 
       {/* Add player bar */}
       <div className="row space-between align-center" style={{ marginTop: 16, marginBottom: 8 }}>
