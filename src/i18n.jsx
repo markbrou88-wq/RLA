@@ -90,6 +90,32 @@ const translations = {
     "Games Played": "Parties jouées",
     "Save%": "Pourcentage d’arrêts",
     "GAA": "Moyenne de buts alloués",
+
+    // Navigation / headers
+  "Season": "Saison",
+  "Category": "Catégorie",
+  "Back to Games": "Retour aux matchs",
+  "Back to Stats": "Retour aux statistiques",
+
+  // Player / stats pages
+  "Career Totals": "Totaux en carrière",
+  "Stats by season & category": "Statistiques par saison et catégorie",
+  "Game log (Skater)": "Journal des matchs (Joueur)",
+  "Game log (Goalie)": "Journal des matchs (Gardien)",
+
+  // Tables
+  "GP": "PJ",
+  "W-L-OTL": "V-D-DP",
+  "SV%": "ARR%",
+  "TOI": "Temps de jeu",
+  "Decision": "Décision",
+  "Opponent": "Adversaire",
+  "No events yet.": "Aucun événement pour le moment.",
+
+  // Status
+  "Loading…": "Chargement…",
+  "Game not found.": "Match introuvable.",
+    
   },
 };
 
@@ -106,7 +132,7 @@ export function I18nProvider({ children }) {
       const saved = localStorage.getItem("lang");
       if (saved === "en" || saved === "fr") return saved;
     } catch {}
-    return "en";
+    return "fr";
   };
 
   const [lang, setLang] = React.useState(getInitial);
