@@ -30,16 +30,17 @@ function SparklineGFGA({
   const yScale = (y) =>
     height - pad - (y / maxY) * (height - pad * 2);
 
-  const pathFor = (key) =>
 
-    const last = points[points.length - 1];
-const lastDiff = last.gf - last.ga;
-    
-    xs
-      .map((x, i) =>
-        `${i ? "L" : "M"} ${xScale(x)} ${yScale(points[i][key])}`
-      )
-      .join(" ");
+// last game info (SAFE)
+const last = points[points.length - 1];
+const lastDiff = (last?.gf ?? 0) - (last?.ga ?? 0);
+
+const pathFor = (key) =>
+  xs
+    .map((x, i) =>
+      `${i ? "L" : "M"} ${xScale(x)} ${yScale(points[i][key])}`
+    )
+    .join(" ");
 
 
 
