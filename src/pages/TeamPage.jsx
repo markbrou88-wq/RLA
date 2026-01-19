@@ -95,9 +95,10 @@ function useTeamSummary(teamId) {
           if (recent.length < 5) recent.push(tGF > tGA ? "W" : "L");
           if (chart.length < 10)
             chart.push({
-              date: (g.game_date || "").slice(5, 10),
-              diff: (tGF || 0) - (tGA || 0),
-            });
+    date: (g.game_date || "").slice(5, 10),
+    gf: tGF || 0,
+    ga: tGA || 0,
+  });
         }
       }
       if (!stop)
