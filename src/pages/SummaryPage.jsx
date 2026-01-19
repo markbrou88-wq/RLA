@@ -122,7 +122,8 @@ export default function SummaryPage() {
           players!inner(id, name, position)
         `
         )
-        .eq("game_id", g.id);
+        .eq("game_id", g.id)
+      .eq("dressed", true);
 
       const split = (rows, teamId) => {
         const entries = (rows || [])
