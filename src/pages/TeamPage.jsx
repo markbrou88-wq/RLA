@@ -290,6 +290,23 @@ export default function TeamPage() {
     const { data: authListener } = supabase.auth.onAuthStateChange((_e, s) => {
       if (mounted) setUser(s?.user ?? null);
     });
+   
+    const avgGF =
+  summary.record.gp > 0
+    ? (summary.record.gf / summary.record.gp).toFixed(1)
+    : "0.0";
+
+const avgGA =
+  summary.record.gp > 0
+    ? (summary.record.ga / summary.record.gp).toFixed(1)
+    : "0.0";
+
+const trend10 = summary.chart.reduce(
+  (sum, g) => sum + (g.gf - g.ga),
+  0
+);
+
+    
     return () => {
       mounted = false;
       authListener?.subscription?.unsubscribe?.();
@@ -573,6 +590,20 @@ export default function TeamPage() {
               ))}
               {summary.recent.length === 0 && <span className="muted">No final games yet</span>}
             </div>
+
+<div className="row gap sm muted" style={{ marginTop: 8 }}>
+  <span>⚡ Attaque: {avgGF} BP / match</span>
+  <span>🛡️ Défense: {avgGA} BA / match</span>
+  <span>
+    📈 Tendance (10):{" "}
+    <strong style={{ color: trend10 >= 0 ? "#2563eb" : "#dc2626" }}>
+      {trend10 >= 0 ? "+" : ""}
+      {trend10}
+    </strong>
+  </span>
+</div>
+
+            
           </div>
         </div>
 
