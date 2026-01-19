@@ -591,7 +591,7 @@ export default function TeamPage() {
     <SparklineGFGA points={summary.chart} />
   </div>
 </div>
-
+</div>
 
       {/* Add player bar */}
       <div className="row space-between align-center" style={{ marginTop: 16, marginBottom: 8 }}>
