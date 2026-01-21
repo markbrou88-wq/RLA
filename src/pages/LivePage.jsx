@@ -974,14 +974,18 @@ useEffect(() => {
   return (
     <div className="container">
       <div className="button-group" style={{ marginBottom: 8 }}>
-      <Link className="btn btn-grey" to={`/games/${slug}/roster`}>
-  Roster
-</Link>
+  <Link className="btn btn-blue" to={`/live-quick/${slug}`}>
+    ⚡ Quick Mode
+  </Link>
 
-        <Link className="btn btn-grey" to="/games">
-          Back to Games
-        </Link>
-      </div>
+  <Link className="btn btn-grey" to={`/games/${slug}/roster`}>
+    Roster
+  </Link>
+
+  <Link className="btn btn-grey" to="/games">
+    Back to Games
+  </Link>
+</div>
 
       {/* header: scores + clock + shots */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "center" }}>
