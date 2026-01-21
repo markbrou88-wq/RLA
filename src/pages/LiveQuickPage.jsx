@@ -1,11 +1,11 @@
-// LiveQuickPage.jsx — Fast click-based live stats entry (no rink)
-// Safe scaffold: reuses LivePage logic, removes drag & drop
+// LiveQuickPage.jsx — Click-based live stats entry (no rink)
+// Builds on LivePage logic, optimized for speed
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
-/* ---------- helpers (copied from LivePage) ---------- */
+/* ---------- helpers ---------- */
 const pad2 = (n) => String(n).padStart(2, "0");
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
@@ -25,7 +25,6 @@ const mmssToMs = (s) => {
 export default function LiveQuickPage() {
   const { slug } = useParams();
 
-  /* ---------- core state ---------- */
   const [game, setGame] = useState(null);
   const [home, setHome] = useState(null);
   const [away, setAway] = useState(null);
@@ -39,7 +38,6 @@ export default function LiveQuickPage() {
   const [awayShots, setAwayShots] = useState(0);
 
   const [period, setPeriod] = useState(1);
-  const [lenMin, setLenMin] = useState(15);
   const [clock, setClock] = useState("15:00");
   const [running, setRunning] = useState(false);
 
@@ -49,9 +47,8 @@ export default function LiveQuickPage() {
 
   const [rows, setRows] = useState([]);
 
-  /* ---------- quick click modal ---------- */
+  /* ---------- quick picker ---------- */
   const [quickPick, setQuickPick] = useState(null);
-  // { player, team_id }
 
   /* ---------- goal modal ---------- */
   const [goalPick, setGoalPick] = useState(null);
@@ -71,12 +68,7 @@ export default function LiveQuickPage() {
     let dead = false;
 
     (async () => {
-      const { data: g } = await supabase
-        .from("games")
-        .select("*")
-        .eq("slug", slug)
-        .single();
-
+      const { data: g } = await supabase.from("games").select("*").eq("slug", slug).single();
       if (!g || dead) return;
 
       const [{ data: ht }, { data: at }] = await Promise.all([
@@ -84,19 +76,13 @@ export default function LiveQuickPage() {
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
       ]);
 
-      if (dead) return;
-
       setGame(g);
       setHome(ht);
       setAway(at);
-
       setHomeShots(g.home_shots || 0);
       setAwayShots(g.away_shots || 0);
-      setPeriod(1);
-      setLenMin(g.period_seconds ? g.period_seconds / 60 : 15);
-      setClock(msToMMSS((g.period_seconds || 900)));
+      setClock("15:00");
 
-      // --- load dressed rosters ---
       const loadDressed = async (teamId) => {
         const { data } = await supabase
           .from("game_rosters")
@@ -128,7 +114,7 @@ export default function LiveQuickPage() {
     const { data } = await supabase
       .from("events")
       .select(`
-        id, game_id, team_id, player_id, period, time_mmss, event,
+        id, team_id, player_id, period, time_mmss, event,
         players(id,name), teams(short_name)
       `)
       .eq("game_id", gameId)
@@ -151,10 +137,6 @@ export default function LiveQuickPage() {
       lastTs.current = now;
       remainingMs.current = Math.max(0, remainingMs.current - d);
       setClock(msToMMSS(remainingMs.current));
-      if (remainingMs.current <= 0) {
-        clearInterval(tickTimer.current);
-        setRunning(false);
-      }
     }, 200);
   }
 
@@ -181,12 +163,11 @@ export default function LiveQuickPage() {
     setShotTime(clock);
   }
 
-  /* ---------- UI ---------- */
   if (!game || !home || !away) return null;
 
   return (
     <div className="container">
-      <div className="button-group" style={{ marginBottom: 8 }}>
+      <div className="button-group">
         <Link className="btn btn-grey" to="/games">Back to Games</Link>
       </div>
 
@@ -201,6 +182,12 @@ export default function LiveQuickPage() {
         <ScoreBlock team={home} score={game.home_score || 0} />
       </div>
 
+      {/* goalies */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 12 }}>
+        <GoalieSelect team={away} players={awayDressed} value={goalieOnIce[away.id]} onChange={(v) => setGoalieOnIce((m) => ({ ...m, [away.id]: v }))} />
+        <GoalieSelect team={home} players={homeDressed} value={goalieOnIce[home.id]} onChange={(v) => setGoalieOnIce((m) => ({ ...m, [home.id]: v }))} />
+      </div>
+
       {/* players */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
         <PlayerGrid title={away.short_name} players={awayDressed} onPick={(p) => openQuick(p, away.id)} />
@@ -212,15 +199,13 @@ export default function LiveQuickPage() {
         <Modal>
           <div className="card" style={{ width: 360 }}>
             <strong>#{quickPick.player.number} {quickPick.player.name}</strong>
-            <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-              <button className="btn btn-blue" onClick={() => {
-                openGoalFor(quickPick.player.id, quickPick.team_id);
-                setQuickPick(null);
-              }}>Goal</button>
-              <button className="btn btn-grey" onClick={() => {
-                openShotFor(quickPick.player.id, quickPick.team_id);
-                setQuickPick(null);
-              }}>Shot</button>
+            <div className="row gap" style={{ marginTop: 12 }}>
+              <button className="btn btn-blue" onClick={() => { openGoalFor(quickPick.player.id, quickPick.team_id); setQuickPick(null); }}>
+                Goal
+              </button>
+              <button className="btn btn-grey" onClick={() => { openShotFor(quickPick.player.id, quickPick.team_id); setQuickPick(null); }}>
+                Shot
+              </button>
               <button className="btn btn-grey" onClick={() => setQuickPick(null)}>Cancel</button>
             </div>
           </div>
@@ -243,6 +228,20 @@ function PlayerGrid({ title, players, onPick }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function GoalieSelect({ team, players, value, onChange }) {
+  return (
+    <div className="card">
+      <div className="muted">{team.short_name} Goalie</div>
+      <select className="input" value={value || ""} onChange={(e) => onChange(Number(e.target.value) || null)}>
+        <option value="">—</option>
+        {players.filter((p) => p.position === "G").map((g) => (
+          <option key={g.id} value={g.id}>#{g.number} {g.name}</option>
+        ))}
+      </select>
     </div>
   );
 }
