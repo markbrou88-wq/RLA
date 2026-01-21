@@ -117,10 +117,22 @@ function MonthSection({
               {/* Actions (unchanged) */}
               <div className="gp-card-actions">
                 {isLoggedIn && !isMobile && (
-                  <button className="btn" onClick={() => navigate(`/live/${slug}`)}>
-                    {t("Live")}
-                  </button>
-                )}
+  <>
+    <button
+      className="btn"
+      onClick={() => navigate(`/live/${slug}`)}
+    >
+      🏒 {t("Live")}
+    </button>
+
+    <button
+      className="btn btn-grey"
+      onClick={() => navigate(`/live-quick/${slug}`)}
+    >
+      ⚡ {t("Quick")}
+    </button>
+  </>
+)}
 
                 {isLoggedIn && (
                   <button className="btn" onClick={() => navigate(`/games/${slug}/roster`)}>
