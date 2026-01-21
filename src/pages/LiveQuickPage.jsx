@@ -31,7 +31,19 @@ async function persistGoalie(gameId, teamId, playerId) {
   }
 }
 
+async function loadDressedRoster(gameId, teamId) {
+  const { data } = await supabase
+    .from("game_rosters")
+    .select("players:player_id(id,name,position), number")
+    .eq("game_id", gameId)
+    .eq("team_id", teamId)
+    .eq("is_dressed", true);
 
+  return (data || [])
+    .map((r) => ({ ...r.players, number: r.number }))
+    .filter(Boolean)
+    .sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
+}
 
 /* ---------- helpers ---------- */
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -124,19 +136,7 @@ setGoalieOnIce(goalieMap);
       setAwayShots(g.away_shots || 0);
       setClock("15:00");
 
-      async function loadDressedRoster(gameId, teamId) {
-  const { data } = await supabase
-    .from("game_rosters")
-    .select("players:player_id(id,name,position), number")
-    .eq("game_id", gameId)
-    .eq("team_id", teamId)
-    .eq("is_dressed", true);
-
-  return (data || [])
-    .map((r) => ({ ...r.players, number: r.number }))
-    .filter(Boolean)
-    .sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
-}
+     
 
      setHomeDressed(await loadDressedRoster(g.id, g.home_team_id));
 setAwayDressed(await loadDressedRoster(g.id, g.away_team_id));
@@ -277,16 +277,26 @@ useEffect(() => {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 12 }}>
 
         
-        <GoalieSelect team={away} players={awayDressed} value={goalieOnIce[away.id]} onChange={(v) => onChange={async (v) => {
-  setGoalieOnIce((m) => ({ ...m, [away.id]: v }));
-  await persistGoalie(game.id, away.id, v);
-}} />
+     <GoalieSelect
+  team={away}
+  players={awayDressed}
+  value={goalieOnIce[away.id]}
+  onChange={async (v) => {
+    setGoalieOnIce((m) => ({ ...m, [away.id]: v }));
+    await persistGoalie(game.id, away.id, v);
+  }}
+/>
 
         
-        <GoalieSelect team={home} players={homeDressed} value={goalieOnIce[home.id]} onChange={async (v) => {
-  setGoalieOnIce((m) => ({ ...m, [home.id]: v }));
-  await persistGoalie(game.id, home.id, v);
-}} />
+     <GoalieSelect
+  team={home}
+  players={homeDressed}
+  value={goalieOnIce[home.id]}
+  onChange={async (v) => {
+    setGoalieOnIce((m) => ({ ...m, [home.id]: v }));
+    await persistGoalie(game.id, home.id, v);
+  }}
+/>
       </div>
 
       {/* players */}
