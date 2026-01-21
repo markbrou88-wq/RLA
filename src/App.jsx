@@ -13,6 +13,7 @@ import GamesPage from "./pages/GamesPage";
 import StatsPage from "./pages/StatsPage";
 import SummaryPage from "./pages/SummaryPage";
 import LivePage from "./pages/LivePage";
+import LiveQuickPage from "./pages/LiveQuickPage";
 import RosterPage from "./pages/RosterPage";
 import TeamPage from "./pages/TeamPage";
 import PlayerPage from "./pages/PlayerPage";
@@ -171,6 +172,8 @@ function AppInner() {
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/summary/:slug" element={<SummaryPage />} />
           <Route path="/live/:slug" element={<LivePage />} />
+          <Route path="/live-quick/:slug" element={<LiveQuickPage />} />
+
          <Route path="/games/:slug/roster" element={<RosterPage />} />
 
           <Route path="/teams/:id" element={<TeamPage />} />
