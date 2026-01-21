@@ -5,6 +5,34 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
+async function persistGoalie(gameId, teamId, playerId) {
+  const { data: existing } = await supabase
+    .from("game_goalies")
+    .select("id")
+    .eq("game_id", gameId)
+    .eq("team_id", teamId)
+    .maybeSingle();
+
+  if (existing?.id) {
+    await supabase
+      .from("game_goalies")
+      .update({ player_id: playerId || null })
+      .eq("id", existing.id);
+  } else {
+    await supabase.from("game_goalies").insert([
+      {
+        game_id: gameId,
+        team_id: teamId,
+        player_id: playerId || null,
+        shots_against: 0,
+        goals_against: 0,
+      },
+    ]);
+  }
+}
+
+
+
 /* ---------- helpers ---------- */
 const pad2 = (n) => String(n).padStart(2, "0");
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
@@ -79,26 +107,40 @@ export default function LiveQuickPage() {
       setGame(g);
       setHome(ht);
       setAway(at);
+
+const { data: gg } = await supabase
+  .from("game_goalies")
+  .select("team_id, player_id")
+  .eq("game_id", g.id);
+
+const goalieMap = {};
+(gg || []).forEach((r) => {
+  goalieMap[r.team_id] = r.player_id;
+});
+setGoalieOnIce(goalieMap);
+
+      
       setHomeShots(g.home_shots || 0);
       setAwayShots(g.away_shots || 0);
       setClock("15:00");
 
-      const loadDressed = async (teamId) => {
-        const { data } = await supabase
-          .from("game_rosters")
-          .select("players:player_id(id,name,position), number")
-          .eq("game_id", g.id)
-          .eq("team_id", teamId)
-          .eq("is_dressed", true);
+      async function loadDressedRoster(gameId, teamId) {
+  const { data } = await supabase
+    .from("game_rosters")
+    .select("players:player_id(id,name,position), number")
+    .eq("game_id", gameId)
+    .eq("team_id", teamId)
+    .eq("is_dressed", true);
 
-        return (data || [])
-          .map((r) => ({ ...r.players, number: r.number }))
-          .filter(Boolean)
-          .sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
-      };
+  return (data || [])
+    .map((r) => ({ ...r.players, number: r.number }))
+    .filter(Boolean)
+    .sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
+}
 
-      setHomeDressed(await loadDressed(g.home_team_id));
-      setAwayDressed(await loadDressed(g.away_team_id));
+     setHomeDressed(await loadDressedRoster(g.id, g.home_team_id));
+setAwayDressed(await loadDressedRoster(g.id, g.away_team_id));
+
 
       refreshEvents(g.id);
     })();
@@ -108,6 +150,49 @@ export default function LiveQuickPage() {
       clearInterval(tickTimer.current);
     };
   }, [slug]);
+
+  /* ---------- roster realtime sync (ADD THIS BLOCK) ---------- */
+useEffect(() => {
+  if (!game?.id) return;
+
+  let dead = false;
+
+  async function reload() {
+    if (dead) return;
+
+    setHomeDressed(
+      await loadDressedRoster(game.id, game.home_team_id)
+    );
+
+    setAwayDressed(
+      await loadDressedRoster(game.id, game.away_team_id)
+    );
+  }
+
+  // load immediately
+  reload();
+
+  // subscribe to roster changes
+  const ch = supabase
+    .channel(`rt-quick-rosters-${game.id}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "game_rosters",
+        filter: `game_id=eq.${game.id}`,
+      },
+      reload
+    )
+    .subscribe();
+
+  return () => {
+    dead = true;
+    supabase.removeChannel(ch);
+  };
+}, [game?.id]);
+/* ---------- end roster sync ---------- */
 
   /* ---------- events ---------- */
   async function refreshEvents(gameId) {
@@ -190,8 +275,18 @@ export default function LiveQuickPage() {
 
       {/* goalies */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 12 }}>
-        <GoalieSelect team={away} players={awayDressed} value={goalieOnIce[away.id]} onChange={(v) => setGoalieOnIce((m) => ({ ...m, [away.id]: v }))} />
-        <GoalieSelect team={home} players={homeDressed} value={goalieOnIce[home.id]} onChange={(v) => setGoalieOnIce((m) => ({ ...m, [home.id]: v }))} />
+
+        
+        <GoalieSelect team={away} players={awayDressed} value={goalieOnIce[away.id]} onChange={(v) => onChange={async (v) => {
+  setGoalieOnIce((m) => ({ ...m, [away.id]: v }));
+  await persistGoalie(game.id, away.id, v);
+}} />
+
+        
+        <GoalieSelect team={home} players={homeDressed} value={goalieOnIce[home.id]} onChange={async (v) => {
+  setGoalieOnIce((m) => ({ ...m, [home.id]: v }));
+  await persistGoalie(game.id, home.id, v);
+}} />
       </div>
 
       {/* players */}
