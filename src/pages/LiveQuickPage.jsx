@@ -167,9 +167,15 @@ export default function LiveQuickPage() {
 
   return (
     <div className="container">
-      <div className="button-group">
-        <Link className="btn btn-grey" to="/games">Back to Games</Link>
-      </div>
+      <div className="button-group" style={{ marginBottom: 8 }}>
+  <Link className="btn btn-blue" to={`/live/${slug}`}>
+    🏒 Live Rink
+  </Link>
+
+  <Link className="btn btn-grey" to="/games">
+    Back to Games
+  </Link>
+</div>
 
       {/* header */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12 }}>
