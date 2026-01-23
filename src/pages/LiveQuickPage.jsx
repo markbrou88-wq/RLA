@@ -31,6 +31,94 @@ async function persistGoalie(gameId, teamId, playerId) {
   }
 }
 
+async function loadTeamPlayerNumbers(teamId, seasonId, categoryId) {
+  const { data, error } = await supabase
+    .from("players")
+    .select("id, number")
+    .eq("team_id", teamId)
+    .eq("season_id", seasonId)
+    .eq("category_id", categoryId);
+
+  if (error) {
+    console.error("loadTeamPlayerNumbers error", error);
+    return {};
+  }
+
+  const map = {};
+  (data || []).forEach((p) => {
+    map[p.id] = p.number;
+  });
+
+  return map;
+}
+
+async function fetchGameRosterDressed(gameId, teamId, numberMap) {
+  const { data, error } = await supabase
+    .from("game_rosters")
+    .select(`
+      player_id,
+      players:player_id(id, name, position)
+    `)
+    .eq("game_id", gameId)
+    .eq("team_id", teamId)
+    .eq("is_dressed", true);
+
+  if (error) {
+    console.error("fetchGameRosterDressed error", error);
+    return [];
+  }
+
+  return (data || [])
+    .map((r) => ({
+      ...r.players,
+      number: numberMap[r.player_id],
+    }))
+    .filter(Boolean)
+    .sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
+}
+
+async function ensureAndLoadDressed(game, teamId) {
+  const numberMap = await loadTeamPlayerNumbers(
+    teamId,
+    game.season_id,
+    game.category_id
+  );
+
+  // try existing dressed roster first
+  let dressed = await fetchGameRosterDressed(
+    game.id,
+    teamId,
+    numberMap
+  );
+
+  if (dressed.length > 0) return dressed;
+
+  // ❗ no dressed players → auto-create roster
+  const { data: players } = await supabase
+    .from("players")
+    .select("id")
+    .eq("team_id", teamId)
+    .eq("season_id", game.season_id)
+    .eq("category_id", game.category_id);
+
+  if (!players?.length) return [];
+
+  await supabase.from("game_rosters").insert(
+    players.map((p) => ({
+      game_id: game.id,
+      team_id: teamId,
+      player_id: p.id,
+      is_dressed: true,
+    }))
+  );
+
+  // reload after insert
+  return fetchGameRosterDressed(game.id, teamId, numberMap);
+}
+
+
+
+
 async function loadDressedRoster(gameId, teamId) {
   const { data } = await supabase
     .from("game_rosters")
@@ -138,8 +226,14 @@ setGoalieOnIce(goalieMap);
 
      
 
-     setHomeDressed(await loadDressedRoster(g.id, g.home_team_id));
-setAwayDressed(await loadDressedRoster(g.id, g.away_team_id));
+const [homeDress, awayDress] = await Promise.all([
+  ensureAndLoadDressed(g, g.home_team_id),
+  ensureAndLoadDressed(g, g.away_team_id),
+]);
+
+setHomeDressed(homeDress);
+setAwayDressed(awayDress);
+
 
 
       refreshEvents(g.id);
@@ -160,14 +254,11 @@ useEffect(() => {
   async function reload() {
     if (dead) return;
 
-    setHomeDressed(
-      await loadDressedRoster(game.id, game.home_team_id)
-    );
+    
+   setHomeDressed(await ensureAndLoadDressed(game, game.home_team_id));
+setAwayDressed(await ensureAndLoadDressed(game, game.away_team_id));
 
-    setAwayDressed(
-      await loadDressedRoster(game.id, game.away_team_id)
-    );
-  }
+  
 
   // load immediately
   reload();
