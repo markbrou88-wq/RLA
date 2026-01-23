@@ -245,7 +245,7 @@ setAwayDressed(awayDress);
     };
   }, [slug]);
 
-  /* ---------- roster realtime sync (ADD THIS BLOCK) ---------- */
+  /* ---------- roster realtime sync ---------- */
 useEffect(() => {
   if (!game?.id) return;
 
@@ -254,11 +254,14 @@ useEffect(() => {
   async function reload() {
     if (dead) return;
 
-    
-   setHomeDressed(await ensureAndLoadDressed(game, game.home_team_id));
-setAwayDressed(await ensureAndLoadDressed(game, game.away_team_id));
+    const [homeDress, awayDress] = await Promise.all([
+      ensureAndLoadDressed(game, game.home_team_id),
+      ensureAndLoadDressed(game, game.away_team_id),
+    ]);
 
-  
+    setHomeDressed(homeDress);
+    setAwayDressed(awayDress);
+  }
 
   // load immediately
   reload();
@@ -284,6 +287,7 @@ setAwayDressed(await ensureAndLoadDressed(game, game.away_team_id));
   };
 }, [game?.id]);
 /* ---------- end roster sync ---------- */
+
 
   /* ---------- events ---------- */
   async function refreshEvents(gameId) {
