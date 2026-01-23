@@ -31,89 +31,99 @@ async function persistGoalie(gameId, teamId, playerId) {
   }
 }
 
-async function loadTeamPlayerNumbers(teamId, seasonId, categoryId) {
+async function loadTeamPlayerNumbers(seasonId, categoryId, teamIds) {
+  if (!seasonId || !categoryId || !teamIds?.length) return {};
+
   const { data, error } = await supabase
-    .from("players")
-    .select("id, number")
-    .eq("team_id", teamId)
+    .from("team_players")
+    .select("team_id, player_id, number")
     .eq("season_id", seasonId)
-    .eq("category_id", categoryId);
+    .eq("category_id", categoryId)
+    .in("team_id", teamIds);
 
   if (error) {
-    console.error("loadTeamPlayerNumbers error", error);
+    console.error("loadTeamPlayerNumbers error:", error);
     return {};
   }
 
   const map = {};
-  (data || []).forEach((p) => {
-    map[p.id] = p.number;
+  (data || []).forEach((r) => {
+    map[`${r.team_id}:${r.player_id}`] = r.number ?? null;
   });
 
   return map;
 }
 
-async function fetchGameRosterDressed(gameId, teamId, numberMap) {
-  const { data, error } = await supabase
+
+async function fetchGameRosterDressed(gameId, teamId, numberMap = {}) {
+  const buildRoster = (rows) =>
+    (rows || [])
+      .map((r) => {
+        const p = r.players;
+        if (!p) return null;
+        return {
+          ...p,
+          number: numberMap[`${teamId}:${p.id}`] ?? null,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (a.number ?? 9999) - (b.number ?? 9999));
+
+  // Try "dressed"
+  const res1 = await supabase
     .from("game_rosters")
-    .select(`
-      player_id,
-      players:player_id(id, name, position)
-    `)
+    .select("player_id, dressed, players:player_id(id,name,position)")
+    .eq("game_id", gameId)
+    .eq("team_id", teamId)
+    .eq("dressed", true);
+
+  if (!res1.error) return buildRoster(res1.data);
+
+  // Fallback to "is_dressed"
+  const res2 = await supabase
+    .from("game_rosters")
+    .select("player_id, is_dressed, players:player_id(id,name,position)")
     .eq("game_id", gameId)
     .eq("team_id", teamId)
     .eq("is_dressed", true);
 
-  if (error) {
-    console.error("fetchGameRosterDressed error", error);
-    return [];
-  }
-
-  return (data || [])
-    .map((r) => ({
-      ...r.players,
-      number: numberMap[r.player_id],
-    }))
-    .filter(Boolean)
-    .sort((a, b) => (a.number ?? 999) - (b.number ?? 999));
+  return buildRoster(res2.data);
 }
 
-async function ensureAndLoadDressed(game, teamId) {
+
+
+async function ensureAndLoadDressed(gameRow, teamId) {
   const numberMap = await loadTeamPlayerNumbers(
-    teamId,
-    game.season_id,
-    game.category_id
+    gameRow.season_id,
+    gameRow.category_id,
+    [teamId]
   );
 
-  // try existing dressed roster first
-  let dressed = await fetchGameRosterDressed(
-    game.id,
-    teamId,
-    numberMap
-  );
+  let dressed = await fetchGameRosterDressed(gameRow.id, teamId, numberMap);
 
-  if (dressed.length > 0) return dressed;
+  if (!dressed.length) {
+    await supabase
+      .from("team_players")
+      .select("player_id")
+      .eq("season_id", gameRow.season_id)
+      .eq("category_id", gameRow.category_id)
+      .eq("team_id", teamId)
+      .then(({ data }) => {
+        if (!data?.length) return;
+        return supabase.from("game_rosters").insert(
+          data.map((p) => ({
+            game_id: gameRow.id,
+            team_id: teamId,
+            player_id: p.player_id,
+            dressed: true,
+          }))
+        );
+      });
 
-  // ❗ no dressed players → auto-create roster
-  const { data: players } = await supabase
-    .from("players")
-    .select("id")
-    .eq("team_id", teamId)
-    .eq("season_id", game.season_id)
-    .eq("category_id", game.category_id);
+    dressed = await fetchGameRosterDressed(gameRow.id, teamId, numberMap);
+  }
 
-  if (!players?.length) return [];
-
-  await supabase.from("game_rosters").insert(
-    players.map((p) => ({
-      game_id: game.id,
-      team_id: teamId,
-      player_id: p.id,
-      is_dressed: true,
-    }))
-  );
-
-  // reload after insert
-  return fetchGameRosterDressed(game.id, teamId, numberMap);
+  return dressed;
 }
 
 
