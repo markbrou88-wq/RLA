@@ -1169,7 +1169,7 @@ function toggleQuickAssist(playerId) {
   <div
   style={{
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gridTemplateColumns: "1fr auto 1fr",
     alignItems: "center",
     gap: 12,
   }}
@@ -1286,8 +1286,9 @@ function toggleQuickAssist(playerId) {
       <div
   style={{
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(36px, 1fr))",
-    gap: 6,
+    gridTemplateColumns: "repeat(2, 1fr)",
+justifyItems: "center",
+    gap: 8,
   }}
 >
         {awayDressed.map((p) => (
@@ -1337,8 +1338,9 @@ height: "clamp(32px, 8vw, 56px)",
       <div
   style={{
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(36px, 1fr))",
-    gap: 6,
+   gridTemplateColumns: "repeat(2, 1fr)",
+justifyItems: "center",
+    gap: 8,
   }}
 >
 
@@ -1424,13 +1426,15 @@ height: "clamp(32px, 8vw, 56px)",
                       </strong>
                       {aTxt && <span style={{ color: "#666" }}> (A: {aTxt})</span>}
                     </td>
-                    <td style={{ padding: 8, textAlign: "right", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <td style={{ padding: 8, textAlign: "right" }}>
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>  
                       <button className="btn btn-grey" onClick={() => openGoalFor(null, null, r)}>
                         Edit
                       </button>
                       <button className="btn btn-grey" onClick={() => deleteRow(r)}>
                         Delete
                       </button>
+                        <div>
                     </td>
                   </tr>
                 );
@@ -1837,7 +1841,8 @@ function ClockBlock({
       className="card"
       style={{
         padding: "clamp(6px, 2vw, 12px)",
-        minWidth: "clamp(96px, 22vw, 340px)",
+       width: "100%",
+maxWidth: 360,
         textAlign: "center",
       }}
     >
