@@ -42,6 +42,9 @@ const textOn = () => "#fff";
 
 export default function LivePage() {
   const { slug } = useParams();
+  const isCompact = window.matchMedia("(max-width: 900px)").matches;
+  const isPhone = window.matchMedia("(max-width: 600px)").matches;
+
 
 // --------------------------------------------------------------------------
   // 1A. GAME & TEAM STATE (loaded once, then reused everywhere)
@@ -1158,7 +1161,17 @@ function toggleQuickAssist(playerId) {
       
 
       {/* header: scores + clock + shots */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "center" }}>
+
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: isPhone ? "1fr" : "1fr auto 1fr",
+    gap: isPhone ? 8 : 12,
+    alignItems: "center",
+  }}
+>
+
+      
         <div>
           <ScoreCard team={away} score={game.away_score || 0} side="left" />
           <ShotCounter
@@ -1265,7 +1278,9 @@ function toggleQuickAssist(playerId) {
         {away.short_name || away.name}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 56px)", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isPhone
+  ? "repeat(5, 48px)"
+  : "repeat(4, 56px)", gap: 10 }}>
         {awayDressed.map((p) => (
 
 
@@ -1280,13 +1295,13 @@ function toggleQuickAssist(playerId) {
     })
   }
   style={{
-    width: 56,
-    height: 56,
+   width: isPhone ? 48 : 56,
+    height: isPhone ? 48 : 56,
     borderRadius: 999,
     background: awayColor,
     color: "#fff",
     fontWeight: 900,
-    fontSize: 18,
+    fontSize: isPhone ? 16 : 18,
     border: "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
@@ -1306,7 +1321,9 @@ function toggleQuickAssist(playerId) {
         {home.short_name || home.name}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 56px)", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isPhone
+  ? "repeat(5, 48px)"
+  : "repeat(4, 56px)", gap: 10 }}>
 
         {homeDressed.map((p) => (
 
@@ -1321,13 +1338,13 @@ function toggleQuickAssist(playerId) {
     })
   }
   style={{
-    width: 56,
-    height: 56,
+   width: isPhone ? 48 : 56,
+height: isPhone ? 48 : 56,
     borderRadius: 999,
     background: homeColor,
     color: "#fff",
     fontWeight: 900,
-    fontSize: 18,
+    fontSize: isPhone ? 16 : 18,
     border: "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
@@ -1351,15 +1368,15 @@ function toggleQuickAssist(playerId) {
         <div style={{ fontWeight: 800, marginBottom: 8 }}>Events</div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ textAlign: "left", color: "#666" }}>
-              <th style={{ padding: 8 }}>PERIOD</th>
-              <th style={{ padding: 8 }}>TIME</th>
-              <th style={{ padding: 8 }}>TEAM</th>
-              <th style={{ padding: 8 }}>TYPE</th>
-              <th style={{ padding: 8 }}>PLAYER / ASSISTS</th>
-              <th />
-            </tr>
-          </thead>
+  <tr style={{ textAlign: "left", color: "#666" }}>
+    {!isPhone && <th style={{ padding: 8 }}>PERIOD</th>}
+    <th style={{ padding: 8 }}>TIME</th>
+    {!isPhone && <th style={{ padding: 8 }}>TEAM</th>}
+    <th style={{ padding: 8 }}>TYPE</th>
+    <th style={{ padding: 8 }}>PLAYER / ASSISTS</th>
+    <th />
+  </tr>
+</thead>
           <tbody>
             {rows.length === 0 && (
               <tr>
@@ -1376,9 +1393,10 @@ function toggleQuickAssist(playerId) {
                 const teamLabel = r.goal.teams?.short_name || r.goal.teams?.name || "";
                 return (
                   <tr key={`g${i}`} style={{ borderTop: "1px solid #f0f0f0" }}>
-                    <td style={{ padding: 8 }}>{r.goal.period}</td>
-                    <td style={{ padding: 8 }}>{r.goal.time_mmss}</td>
-                    <td style={{ padding: 8 }}>{teamLabel}</td>
+                    {!isPhone && <td style={{ padding: 8 }}>{r.goal.period}</td>}
+<td style={{ padding: 8 }}>{r.goal.time_mmss}</td>
+{!isPhone && <td style={{ padding: 8 }}>{teamLabel}</td>}
+
                     <td style={{ padding: 8 }}>goal</td>
                     <td style={{ padding: 8 }}>
                       <strong>
@@ -1400,9 +1418,11 @@ function toggleQuickAssist(playerId) {
               const e = r.single;
               return (
                 <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f0f0f0" }}>
-                  <td style={{ padding: 8 }}>{e.period}</td>
-                  <td style={{ padding: 8 }}>{e.time_mmss}</td>
-                  <td style={{ padding: 8 }}>{e.teams?.short_name || e.teams?.name || ""}</td>
+                  {!isPhone && <td style={{ padding: 8 }}>{e.period}</td>}
+<td style={{ padding: 8 }}>{e.time_mmss}</td>
+{!isPhone && (
+  <td style={{ padding: 8
+
                   <td style={{ padding: 8 }}>{e.event}</td>
                   <td style={{ padding: 8 }}>{e.players?.name || (e.players?.number ? `#${e.players.number}` : "—")}</td>
                   <td style={{ padding: 8, textAlign: "right" }}>
@@ -1473,8 +1493,12 @@ function toggleQuickAssist(playerId) {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(4, 56px)",
-        gap: 10,
+        gridTemplateColumns: isPhone
+  ? "repeat(5, 48px)"
+  : isCompact
+  ? "repeat(4, 52px)"
+  : "repeat(4, 56px)",
+gap: isPhone ? 8 : 10,
       }}
     >
       {quickAssistChoices.map((p) => {
@@ -1485,13 +1509,13 @@ function toggleQuickAssist(playerId) {
             key={p.id}
             onClick={() => toggleQuickAssist(p.id)}
             style={{
-              width: 56,
-              height: 56,
+              width: isPhone ? 48 : 56,
+             height: isPhone ? 48 : 56,
               borderRadius: 999,
               background: selected ? "#16a34a" : "#e5e7eb",
               color: selected ? "#fff" : "#111",
               fontWeight: 900,
-              fontSize: 18,
+             fontSize: isPhone ? 16 : 18,
               border: "none",
               cursor: "pointer",
               boxShadow: selected
@@ -1534,7 +1558,8 @@ function toggleQuickAssist(playerId) {
     <div
       className="card"
       style={{
-        width: 320,
+        width: isPhone ? "100%" : 320,
+maxWidth: "calc(100vw - 24px)",
         textAlign: "center",
       }}
     >
@@ -1546,7 +1571,15 @@ function toggleQuickAssist(playerId) {
         Choose action
       </div>
 
-      <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+      <div
+  style={{
+    display: "flex",
+    gap: 10,
+    justifyContent: "center",
+    flexWrap: "wrap",
+  }}
+>
+
         {/* GOAL */}
         <button
           className="btn btn-blue"
@@ -1692,11 +1725,11 @@ function ScoreCard({ team, score, side }) {
           background: "#0d2a66",
           color: "#fff",
           fontWeight: 900,
-          fontSize: 28,
+          fontSize: isPhone ? 22 : 28,
           borderRadius: 12,
-          minWidth: 76,
+          minWidth: isPhone ? 60 : 76,
           textAlign: "center",
-          padding: "10px 16px",
+          padding: isPhone ? "8px 12px" : "10px 16px",
         }}
       >
         {score}
@@ -1766,7 +1799,7 @@ function TeamLogoLarge({ team }) {
 
 function ClockBlock({ running, clock, onClockChange, onStart, onReset, period, setPeriod, lenMin, setLenMin }) {
   return (
-    <div className="card" style={{ padding: 12, textAlign: "center", minWidth: 340 }}>
+    <div className="card" style={{ padding: 12, textAlign: "center", minWidth: isPhone ? "100%" : 340 }}>
       <input
         className="input"
         value={clock}
