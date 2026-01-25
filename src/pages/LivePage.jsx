@@ -1234,9 +1234,9 @@ useEffect(() => {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 56px)", gap: 10 }}>
         {awayDressed.map((p) => (
 
+
 <button
   key={p.id}
-  className="chip"
   onClick={() =>
     setQuickPick({
       playerId: p.id,
@@ -1245,6 +1245,18 @@ useEffect(() => {
       name: p.name,
     })
   }
+  style={{
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    background: awayColor,
+    color: "#fff",
+    fontWeight: 900,
+    fontSize: 18,
+    border: "none",
+    cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+  }}
 >
   {p.number ?? "•"}
 </button>
@@ -1263,20 +1275,34 @@ useEffect(() => {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 56px)", gap: 10 }}>
 
         {homeDressed.map((p) => (
-  <button
-    key={p.id}
-    className="chip"
-    onClick={() =>
-      setQuickPick({
-        playerId: p.id,
-        teamId: home.id,
-        number: p.number,
-        name: p.name,
-      })
-    }
-  >
-    {p.number ?? "•"}
-  </button>
+
+<button
+  key={p.id}
+  onClick={() =>
+    setQuickPick({
+      playerId: p.id,
+      teamId: home.id,
+      number: p.number,
+      name: p.name,
+    })
+  }
+  style={{
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    background: homeColor,
+    color: "#fff",
+    fontWeight: 900,
+    fontSize: 18,
+    border: "none",
+    cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+  }}
+>
+  {p.number ?? "•"}
+</button>
+
+    
 ))}
 
       </div>
@@ -1466,10 +1492,21 @@ useEffect(() => {
         {/* GOAL */}
         <button
           className="btn btn-blue"
-          onClick={() => {
-            openGoalFor(quickPick.playerId, quickPick.teamId);
-            setQuickPick(null);
-          }}
+
+     onClick={() => {
+  setGoalPick({
+    scorer: quickPick.playerId,
+    team_id: quickPick.teamId,
+  });
+
+  setAssist1("");
+  setAssist2("");
+  setGoalPeriod(period);
+  setGoalTime(clock);
+
+  setQuickPick(null);
+}}
+     
         >
           🥅 Goal
         </button>
