@@ -1163,76 +1163,22 @@ function toggleQuickAssist(playerId) {
   </Link>
 </div>
 
-<div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)",
-    alignItems: "center",
-    gap: 8,
-  }}
->
-  {/* AWAY */}
-  <div style={{ justifySelf: "start" }}>
-    <ScoreCard team={away} score={game.away_score || 0} />
-    <ShotCounter
-      label="S"
-      value={awayShots}
-      onMinus={() => handleShotMinus(away.id)}
-      onPlus={() => openShotForTeam(away.id)}
-      onManual={(v) => changeAwayShots(v)}
-    />
-  </div>
 
-  {/* CLOCK */}
-  <ClockBlock
-    running={running}
-    clock={clock}
-    onClockChange={(v) => {
-      const clean = v.replace(/[^\d:]/g, "");
-      setClock(clean);
-      remainingMs.current = mmssToMs(clean);
-    }}
-    onStart={() => (running ? stopClock() : startClock())}
-    onReset={resetClock}
-    period={period}
-    setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
-    lenMin={lenMin}
-    setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
-  />
-
-  {/* HOME */}
-  <div style={{ justifySelf: "end" }}>
-    <ScoreCard team={home} score={game.home_score || 0} />
-    <ShotCounter
-      label="S"
-      value={homeShots}
-      onMinus={() => handleShotMinus(home.id)}
-      onPlus={() => openShotForTeam(home.id)}
-      onManual={(v) => changeHomeShots(v)}
-    />
-  </div>
-</div>
-
-
-    
-) : (
-
-
-    
-    
-  /* ================= DESKTOP HEADER ================= */
+   {/* ================= HEADER ================= */}
+<div className="card" style={{ marginBottom: 10 }}>
   <div
     style={{
       display: "grid",
       gridTemplateColumns: "1fr auto 1fr",
-      gap: 12,
       alignItems: "center",
+      gap: 12,
     }}
   >
-    <div>
+    {/* AWAY */}
+    <div style={{ justifySelf: "start" }}>
       <ScoreCard team={away} score={game.away_score || 0} side="left" />
       <ShotCounter
-        label="Shots"
+        label={layoutMode === "quick" ? "S" : "Shots"}
         value={awayShots}
         onMinus={() => handleShotMinus(away.id)}
         onPlus={() => openShotForTeam(away.id)}
@@ -1241,29 +1187,28 @@ function toggleQuickAssist(playerId) {
       />
     </div>
 
-<ClockBlock
+    {/* CLOCK */}
+    <ClockBlock
+      running={running}
+      clock={clock}
+      onClockChange={(v) => {
+        const clean = v.replace(/[^\d:]/g, "");
+        setClock(clean);
+        remainingMs.current = mmssToMs(clean);
+      }}
+      onStart={() => (running ? stopClock() : startClock())}
+      onReset={resetClock}
+      period={period}
+      setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
+      lenMin={lenMin}
+      setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
+    />
 
-  running={running}
-  clock={clock}
-  onClockChange={(v) => {
-    const clean = v.replace(/[^\d:]/g, "");
-    setClock(clean);
-    remainingMs.current = mmssToMs(clean);
-  }}
-  onStart={() => (running ? stopClock() : startClock())}
-  onReset={resetClock}
-  period={period}
-  setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
-  lenMin={lenMin}
-  setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
-/>
-
-    
-
-    <div>
+    {/* HOME */}
+    <div style={{ justifySelf: "end" }}>
       <ScoreCard team={home} score={game.home_score || 0} side="right" />
       <ShotCounter
-        label="Shots"
+        label={layoutMode === "quick" ? "S" : "Shots"}
         value={homeShots}
         onMinus={() => handleShotMinus(home.id)}
         onPlus={() => openShotForTeam(home.id)}
@@ -1272,9 +1217,7 @@ function toggleQuickAssist(playerId) {
       />
     </div>
   </div>
-)}
-
-      
+</div>
 
 
 {/* ===================================================================== */}
