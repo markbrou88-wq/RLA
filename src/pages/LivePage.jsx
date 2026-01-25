@@ -44,8 +44,6 @@ const textOn = () => "#fff";
 // GLOBAL MEDIA FLAGS (SAFE FOR ALL SUBCOMPONENTS)
 // ============================================================================
 
-const isCompact = window.matchMedia("(max-width: 900px)").matches;
-const isPhone = window.matchMedia("(max-width: 600px)").matches;
 
 
 export default function LivePage() {
@@ -1165,59 +1163,58 @@ function toggleQuickAssist(playerId) {
   </Link>
 </div>
 
-      {isPhone ? (
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "1fr auto 1fr",
-      alignItems: "center",
-      gap: 6,
-    }}
-  >
-    {/* AWAY */}
-    <div style={{ textAlign: "left" }}>
-      <ScoreCard team={away} score={game.away_score || 0} side="left" />
-      <ShotCounter
-        label="S"
-        value={awayShots}
-        onMinus={() => handleShotMinus(away.id)}
-        onPlus={() => openShotForTeam(away.id)}
-        onManual={(v) => changeAwayShots(v)}
-        align="left"
-      />
-    </div>
-
-    {/* CLOCK (compact, see section 2) */}
-    <ClockBlock
-      compact
-      running={running}
-      clock={clock}
-      onClockChange={(v) => {
-        const clean = v.replace(/[^\d:]/g, "");
-        setClock(clean);
-        remainingMs.current = mmssToMs(clean);
-      }}
-      onStart={() => (running ? stopClock() : startClock())}
-      onReset={resetClock}
-      period={period}
-      setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
-      lenMin={lenMin}
-      setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)",
+    alignItems: "center",
+    gap: 8,
+  }}
+>
+  {/* AWAY */}
+  <div style={{ justifySelf: "start" }}>
+    <ScoreCard team={away} score={game.away_score || 0} />
+    <ShotCounter
+      label="S"
+      value={awayShots}
+      onMinus={() => handleShotMinus(away.id)}
+      onPlus={() => openShotForTeam(away.id)}
+      onManual={(v) => changeAwayShots(v)}
     />
-
-    {/* HOME */}
-    <div style={{ textAlign: "right" }}>
-      <ScoreCard team={home} score={game.home_score || 0} side="right" />
-      <ShotCounter
-        label="S"
-        value={homeShots}
-        onMinus={() => handleShotMinus(home.id)}
-        onPlus={() => openShotForTeam(home.id)}
-        onManual={(v) => changeHomeShots(v)}
-        align="right"
-      />
-    </div>
   </div>
+
+  {/* CLOCK */}
+  <ClockBlock
+    running={running}
+    clock={clock}
+    onClockChange={(v) => {
+      const clean = v.replace(/[^\d:]/g, "");
+      setClock(clean);
+      remainingMs.current = mmssToMs(clean);
+    }}
+    onStart={() => (running ? stopClock() : startClock())}
+    onReset={resetClock}
+    period={period}
+    setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
+    lenMin={lenMin}
+    setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
+  />
+
+  {/* HOME */}
+  <div style={{ justifySelf: "end" }}>
+    <ScoreCard team={home} score={game.home_score || 0} />
+    <ShotCounter
+      label="S"
+      value={homeShots}
+      onMinus={() => handleShotMinus(home.id)}
+      onPlus={() => openShotForTeam(home.id)}
+      onManual={(v) => changeHomeShots(v)}
+    />
+  </div>
+</div>
+
+
+    
 ) : (
 
 
@@ -1245,7 +1242,7 @@ function toggleQuickAssist(playerId) {
     </div>
 
 <ClockBlock
-  compact={isCompact}
+
   running={running}
   clock={clock}
   onClockChange={(v) => {
@@ -1346,12 +1343,16 @@ function toggleQuickAssist(playerId) {
       <div
   style={{
     display: "grid",
-    gridTemplateColumns: isPhone ? "repeat(3, 1fr)" : "repeat(4, 56px)",
+    gridTemplateColumns: "repeat(auto-fit, minmax(36px, 1fr))",
     gap: 6,
   }}
 >
         {awayDressed.map((p) => (
 
+{/* ===================================================================== */}
+{/* Bubbles                                                     */}
+{/* ===================================================================== */}
+  
 
 <button
   key={p.id}
@@ -1364,13 +1365,13 @@ function toggleQuickAssist(playerId) {
     })
   }
   style={{
-   width: isPhone ? 36 : 56,
-    height: isPhone ? 36 : 56,
+  width: "clamp(32px, 8vw, 56px)",
+height: "clamp(32px, 8vw, 56px)",
     borderRadius: 999,
     background: awayColor,
     color: "#fff",
     fontWeight: 900,
-    fontSize: isPhone ? 13 : 18,
+    fontSize: "clamp(12px, 3vw, 18px)",
     border: "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
@@ -1393,7 +1394,7 @@ function toggleQuickAssist(playerId) {
       <div
   style={{
     display: "grid",
-    gridTemplateColumns: isPhone ? "repeat(3, 1fr)" : "repeat(4, 56px)",
+    gridTemplateColumns: "repeat(auto-fit, minmax(36px, 1fr))",
     gap: 6,
   }}
 >
@@ -1411,13 +1412,13 @@ function toggleQuickAssist(playerId) {
     })
   }
   style={{
-   width: isPhone ? 36 : 56,
-height: isPhone ? 36 : 56,
+   width: "clamp(32px, 8vw, 56px)",
+height: "clamp(32px, 8vw, 56px)",
     borderRadius: 999,
     background: homeColor,
     color: "#fff",
     fontWeight: 900,
-    fontSize: isPhone ? 13 : 18,
+    fontSize: "clamp(12px, 3vw, 18px)",
     border: "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
@@ -1806,11 +1807,11 @@ function ScoreCard({ team, score, side }) {
           background: "#0d2a66",
           color: "#fff",
           fontWeight: 900,
-          fontSize: isPhone ? 18 : 28,
+          fontSize: "clamp(18px, 5vw, 28px)",
           borderRadius: 12,
-          minWidth: isPhone ? 48 : 76,
+          minWidth: "clamp(44px, 10vw, 76px)",
           textAlign: "center",
-          padding: isPhone ? "6px 10px" : "10px 16px",
+          padding: "clamp(6px, 2vw, 14px)",
         }}
       >
         {score}
@@ -1879,7 +1880,6 @@ function TeamLogoLarge({ team }) {
 }
 
 function ClockBlock({
-  compact,
   running,
   clock,
   onClockChange,
@@ -1890,71 +1890,83 @@ function ClockBlock({
   lenMin,
   setLenMin,
 }) {
-
-
-return (
-  <div
-    className="card"
-    style={{
-      padding: compact ? 8 : 12,
-      textAlign: "center",
-      minWidth: compact ? 96 : 340,
-    }}
-  >
+  return (
     <div
+      className="card"
       style={{
-        display: "grid",
-        gridTemplateColumns: compact ? "1fr auto auto" : "1fr",
-        alignItems: "center",
-        gap: 6,
+        padding: "clamp(6px, 2vw, 12px)",
+        minWidth: "clamp(96px, 22vw, 340px)",
+        textAlign: "center",
       }}
     >
-      <input
-        className="input"
-        value={clock}
-        onChange={(e) => onClockChange(e.target.value)}
+      {/* CLOCK ROW */}
+      <div
         style={{
-          fontWeight: 900,
-          fontSize: compact ? 16 : 34,
-          textAlign: "center",
-          padding: compact ? "4px 6px" : undefined,
+          display: "grid",
+          gridTemplateColumns: "1fr auto auto",
+          alignItems: "center",
+          gap: "clamp(4px, 1vw, 8px)",
         }}
-      />
+      >
+        <input
+          className="input"
+          value={clock}
+          onChange={(e) => onClockChange(e.target.value)}
+          style={{
+            fontWeight: 900,
+            fontSize: "clamp(16px, 6vw, 34px)",
+            textAlign: "center",
+            padding: "clamp(4px, 1vw, 10px)",
+          }}
+        />
 
-      <button className="btn btn-grey" onClick={onStart}>
-        {running ? "⏸" : "▶"}
-      </button>
+        <button className="btn btn-grey" onClick={onStart}>
+          {running ? "⏸" : "▶"}
+        </button>
 
-      <button className="btn btn-grey" onClick={onReset}>
-        ↺
-      </button>
-    </div>
+        <button className="btn btn-grey" onClick={onReset}>
+          ↺
+        </button>
+      </div>
 
-    {!compact && (
-      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
+      {/* META ROW (auto wraps on small widths) */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          justifyContent: "center",
+          flexWrap: "wrap",
+          marginTop: 8,
+        }}
+      >
         <span className="muted">Len</span>
         <input
           className="input"
           type="number"
           value={lenMin}
-          onChange={(e) => setLenMin(parseInt(e.target.value || "15", 10))}
+          onChange={(e) =>
+            setLenMin(parseInt(e.target.value || "15", 10))
+          }
           style={{ width: 60 }}
         />
+
         <span className="muted">P</span>
         <input
           className="input"
           type="number"
           value={period}
-          onChange={(e) => setPeriod(parseInt(e.target.value || "1", 10))}
+          onChange={(e) =>
+            setPeriod(parseInt(e.target.value || "1", 10))
+          }
           style={{ width: 50 }}
         />
       </div>
-    )}
-  </div>
-);
-
-  
+    </div>
+  );
 }
+
+
+
 
 function Bench({ title, players, color, height, benchTeamId, onDropBack }) {
   return (
