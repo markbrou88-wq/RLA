@@ -1789,4 +1789,21 @@ html, body {
   }
 }
 
+@media (max-width: 600px) {
+  .card {
+    padding: 8px !important;
+    border-radius: 10px;
+  }
+
+  .btn {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .chip {
+    width: 44px;
+    height: 44px;
+    font-size: 14px;
+  }
+}
 
