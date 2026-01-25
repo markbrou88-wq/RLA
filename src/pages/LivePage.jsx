@@ -1261,15 +1261,24 @@ useEffect(() => {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 56px)", gap: 10 }}>
+
         {homeDressed.map((p) => (
-          <button
-            key={p.id}
-            className="chip"
-            onClick={() => openGoalFor(p.id, home.id)}
-          >
-            {p.number ?? "•"}
-          </button>
-        ))}
+  <button
+    key={p.id}
+    className="chip"
+    onClick={() =>
+      setQuickPick({
+        playerId: p.id,
+        teamId: home.id,
+        number: p.number,
+        name: p.name,
+      })
+    }
+  >
+    {p.number ?? "•"}
+  </button>
+))}
+
       </div>
     </div>
   </div>
