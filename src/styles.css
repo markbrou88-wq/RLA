@@ -1868,7 +1868,7 @@ html, body {
   /* Numeric columns: fixed compact width */
   .standings-table th:not(:first-child),
   .standings-table td:not(:first-child) {
-    width: 7%;                /* 🔑 pulls columns together */
+    width: 6%;                /* 🔑 pulls columns together */
   }
 }
 
