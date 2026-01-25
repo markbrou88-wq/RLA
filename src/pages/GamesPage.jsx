@@ -125,13 +125,7 @@ function MonthSection({
       🏒 {t("Live")}
     </button>
 
-    <button
-      className="btn btn-grey"
-      onClick={() => navigate(`/live-quick/${slug}`)}
-    >
-      ⚡ {t("Quick")}
-    </button>
-  </>
+   
 )}
 
                 {isLoggedIn && (
