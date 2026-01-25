@@ -1446,9 +1446,9 @@ height: "clamp(32px, 8vw, 56px)",
     <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
   <tr style={{ textAlign: "left", color: "#666" }}>
-    {!isPhone && <th style={{ padding: 8 }}>PERIOD</th>}
+    <th style={{ padding: 8 }}>PERIOD</th>
     <th style={{ padding: 8 }}>TIME</th>
-    {!isPhone && <th style={{ padding: 8 }}>TEAM</th>}
+    <th style={{ padding: 8 }}>TEAM</th>
     <th style={{ padding: 8 }}>TYPE</th>
     <th style={{ padding: 8 }}>PLAYER / ASSISTS</th>
     <th />
@@ -1470,9 +1470,9 @@ height: "clamp(32px, 8vw, 56px)",
                 const teamLabel = r.goal.teams?.short_name || r.goal.teams?.name || "";
                 return (
                   <tr key={`g${i}`} style={{ borderTop: "1px solid #f0f0f0" }}>
-                    {!isPhone && <td style={{ padding: 8 }}>{r.goal.period}</td>}
+                    <td style={{ padding: 8 }}>{r.goal.period}</td>
 <td style={{ padding: 8 }}>{r.goal.time_mmss}</td>
-{!isPhone && <td style={{ padding: 8 }}>{teamLabel}</td>}
+<td style={{ padding: 8 }}>{teamLabel}</td>
 
                     <td style={{ padding: 8 }}>goal</td>
                     <td style={{ padding: 8 }}>
@@ -1495,13 +1495,13 @@ height: "clamp(32px, 8vw, 56px)",
               const e = r.single;
               return (
                 <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f0f0f0" }}>
-                 {!isPhone && <td style={{ padding: 8 }}>{e.period}</td>}
+                 <td style={{ padding: 8 }}>{e.period}</td>
 <td style={{ padding: 8 }}>{e.time_mmss}</td>
-{!isPhone && (
+
   <td style={{ padding: 8 }}>
     {e.teams?.short_name || e.teams?.name || ""}
   </td>
-)}
+)
 
 
                   <td style={{ padding: 8 }}>{e.event}</td>
@@ -1575,12 +1575,8 @@ height: "clamp(32px, 8vw, 56px)",
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: isPhone
-  ? "repeat(5, 48px)"
-  : isCompact
-  ? "repeat(4, 52px)"
-  : "repeat(4, 56px)",
-gap: isPhone ? 8 : 10,
+    gridTemplateColumns: "repeat(auto-fit, minmax(48px, 1fr))",
+gap: 8,
       }}
     >
       {quickAssistChoices.map((p) => {
@@ -1591,13 +1587,13 @@ gap: isPhone ? 8 : 10,
             key={p.id}
             onClick={() => toggleQuickAssist(p.id)}
             style={{
-              width: isPhone ? 48 : 56,
-             height: isPhone ? 48 : 56,
+             width: "clamp(44px, 12vw, 70px)",
+             height: "clamp(44px, 10vw, 56px)",
               borderRadius: 999,
               background: selected ? "#16a34a" : "#e5e7eb",
               color: selected ? "#fff" : "#111",
               fontWeight: 900,
-             fontSize: isPhone ? 16 : 18,
+              fontSize: "clamp(14px, 3.5vw, 18px)",
               border: "none",
               cursor: "pointer",
               boxShadow: selected
@@ -1640,7 +1636,7 @@ gap: isPhone ? 8 : 10,
     <div
       className="card"
       style={{
-        width: isPhone ? "100%" : 320,
+        width: "clamp(280px, 90vw, 320px)",
 maxWidth: "calc(100vw - 24px)",
         textAlign: "center",
       }}
@@ -1842,7 +1838,10 @@ function ShotCounter({ label, value, onMinus, onPlus, onManual, align = "left" }
         className="input"
         value={value}
         onChange={(e) => onManual(parseInt(e.target.value || "0", 10) || 0)}
-        style={{ width: isPhone ? 46 : 70, textAlign: "center" }}
+        style={{
+    width: "clamp(44px, 12vw, 70px)",
+    textAlign: "center",
+  }}
       />
       <button className="btn btn-grey" onClick={onPlus}>
         +
@@ -1986,9 +1985,8 @@ function Bench({ title, players, color, height, benchTeamId, onDropBack }) {
       <div
         style={{
           display: "grid",
-         gridTemplateColumns: isPhone
-  ? "repeat(4, 44px)"
-  : "repeat(2, 56px)",
+        gridTemplateColumns: "repeat(auto-fill, minmax(44px, 1fr))",
+
           gap: 8,
           height: height - 48,
           overflow: "auto",
