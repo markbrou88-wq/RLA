@@ -112,6 +112,16 @@ export default function LivePage() {
   const [shotTime, setShotTime] = useState("");
   const [shotPeriod, setShotPeriod] = useState(1);
 
+// ============================================================================
+// SECTION 1H — LAYOUT MODE (UI ONLY)
+// "rink" = current live page
+// "quick" = fast clickable mode
+// ============================================================================
+
+const [layoutMode, setLayoutMode] = useState("rink"); 
+// values: "rink" | "quick"
+  
+  
   // ============================================================================
 // SECTION 2 — LOCAL STORAGE (UI STATE RECOVERY ONLY)
 // NOT stats, NOT authoritative
@@ -1064,10 +1074,27 @@ useEffect(() => {
 
   return (
     <div className="container">
-      <div className="button-group" style={{ marginBottom: 8 }}>
-  <Link className="btn btn-blue" to={`/live-quick/${slug}`}>
-    ⚡ Quick Mode
-  </Link>
+
+{/* ===================================================================== */}
+{/* HEADER CONTROLS — LAYOUT TOGGLE                                      */}
+{/* ===================================================================== */}
+
+<div className="button-group" style={{ marginBottom: 8 }}>
+
+  {/* Toggle layout */}
+  <button
+    className={`btn ${layoutMode === "quick" ? "btn-blue" : "btn-grey"}`}
+    onClick={() => setLayoutMode("quick")}
+  >
+    ⚡ Quick
+  </button>
+
+  <button
+    className={`btn ${layoutMode === "rink" ? "btn-blue" : "btn-grey"}`}
+    onClick={() => setLayoutMode("rink")}
+  >
+    🏒 Rink
+  </button>
 
   <Link className="btn btn-grey" to={`/games/${slug}/roster`}>
     Roster
@@ -1077,6 +1104,8 @@ useEffect(() => {
     Back to Games
   </Link>
 </div>
+
+      
 
       {/* header: scores + clock + shots */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "center" }}>
@@ -1121,41 +1150,106 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* benches + rink */}
-      <div className="live-rink-layout">
-        <Bench
-          title={away.short_name || away.name}
-          players={awayDressed}
-          color={awayColor}
-          height={RINK_H}
-          benchTeamId={away.id}
-          onDropBack={(pid, tid) => tid === away.id && setOnIce((cur) => cur.filter((t) => t.id !== pid))}
-        />
-        <Rink
-          height={RINK_H}
-          onDrop={rinkDrop}
-          onDropTopNet={dropOnTopNet}
-          onDropBottomNet={dropOnBottomNet}
-          home={home}
-          away={away}
-          homeDressed={homeDressed}
-          awayDressed={awayDressed}
-          onIce={onIce}
-          setOnIce={setOnIce}
-          goalieOnIce={goalieOnIce}
-          setGoalie={setGoalie}
-          homeColor={homeColor}
-          awayColor={awayColor}
-        />
-        <Bench
-          title={home.short_name || home.name}
-          players={homeDressed}
-          color={homeColor}
-          height={RINK_H}
-          benchTeamId={home.id}
-          onDropBack={(pid, tid) => tid === home.id && setOnIce((cur) => cur.filter((t) => t.id !== pid))}
-        />
+
+{/* ===================================================================== */}
+{/* MAIN LAYOUT AREA                                                     */}
+{/* ===================================================================== */}
+
+{layoutMode === "rink" && (
+  <div className="live-rink-layout">
+    <Bench
+      title={away.short_name || away.name}
+      players={awayDressed}
+      color={awayColor}
+      height={RINK_H}
+      benchTeamId={away.id}
+      onDropBack={(pid, tid) =>
+        tid === away.id && setOnIce((cur) => cur.filter((t) => t.id !== pid))
+      }
+    />
+
+    <Rink
+      height={RINK_H}
+      onDrop={rinkDrop}
+      onDropTopNet={dropOnTopNet}
+      onDropBottomNet={dropOnBottomNet}
+      home={home}
+      away={away}
+      homeDressed={homeDressed}
+      awayDressed={awayDressed}
+      onIce={onIce}
+      setOnIce={setOnIce}
+      goalieOnIce={goalieOnIce}
+      setGoalie={setGoalie}
+      homeColor={homeColor}
+      awayColor={awayColor}
+    />
+
+    <Bench
+      title={home.short_name || home.name}
+      players={homeDressed}
+      color={homeColor}
+      height={RINK_H}
+      benchTeamId={home.id}
+      onDropBack={(pid, tid) =>
+        tid === home.id && setOnIce((cur) => cur.filter((t) => t.id !== pid))
+      }
+    />
+  </div>
+)}
+
+      
+      {layoutMode === "quick" && (
+  <div
+    className="card"
+    style={{
+      marginTop: 12,
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 16,
+    }}
+  >
+    {/* AWAY TEAM */}
+    <div>
+      <div style={{ fontWeight: 800, marginBottom: 6 }}>
+        {away.short_name || away.name}
       </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 56px)", gap: 10 }}>
+        {awayDressed.map((p) => (
+          <button
+            key={p.id}
+            className="chip"
+            onClick={() => openGoalFor(p.id, away.id)}
+          >
+            {p.number ?? "•"}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {/* HOME TEAM */}
+    <div>
+      <div style={{ fontWeight: 800, marginBottom: 6 }}>
+        {home.short_name || home.name}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 56px)", gap: 10 }}>
+        {homeDressed.map((p) => (
+          <button
+            key={p.id}
+            className="chip"
+            onClick={() => openGoalFor(p.id, home.id)}
+          >
+            {p.number ?? "•"}
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+
+      
 
       {/* events */}
       <div className="card" style={{ marginTop: 14 }}>
