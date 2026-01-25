@@ -1380,8 +1380,11 @@ height: isPhone ? 48 : 56,
 
       {/* events */}
       <div className="card" style={{ marginTop: 14 }}>
-        <div style={{ fontWeight: 800, marginBottom: 8 }}>Events</div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+  <div style={{ fontWeight: 800, marginBottom: 8 }}>Events</div>
+
+  {/* STEP 6 — mobile-safe horizontal scroll */}
+  <div style={{ overflowX: "auto" }}>
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
   <tr style={{ textAlign: "left", color: "#666" }}>
     {!isPhone && <th style={{ padding: 8 }}>PERIOD</th>}
@@ -1455,6 +1458,7 @@ height: isPhone ? 48 : 56,
           </tbody>
         </table>
       </div>
+        </div>
 
       {/* goal modal */}
       {goalPick && (
@@ -1817,19 +1821,32 @@ function TeamLogoLarge({ team }) {
 }
 
 function ClockBlock({ running, clock, onClockChange, onStart, onReset, period, setPeriod, lenMin, setLenMin }) {
+ const isPhone = window.innerWidth < 600;
   return (
     <div className="card" style={{ padding: 12, textAlign: "center", minWidth: isPhone ? "100%" : 340 }}>
       <input
         className="input"
         value={clock}
         onChange={(e) => onClockChange(e.target.value)}
-        style={{ fontWeight: 900, fontSize: 34, textAlign: "center" }}
+        style={{
+  fontWeight: 900,
+  fontSize: isPhone ? 24 : 34,
+  textAlign: "center",
+}}
       />
       <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
-        <button className="btn btn-grey" onClick={onStart}>
+        <button
+  className="btn btn-grey"
+  style={{ fontSize: isPhone ? 12 : 14 }}
+  onClick={onStart}
+>
           {running ? "Stop" : "Start"}
         </button>
-        <button className="btn btn-grey" onClick={onReset}>
+        <button
+  className="btn btn-grey"
+  style={{ fontSize: isPhone ? 12 : 14 }}
+  onClick={onReset}
+>
           Reset
         </button>
       </div>
