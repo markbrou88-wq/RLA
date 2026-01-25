@@ -1330,23 +1330,26 @@ function toggleQuickAssist(playerId) {
       
       {layoutMode === "quick" && (
   <div
-  className="card"
-  style={{
-    marginTop: 12,
-    display: "grid",
-   gridTemplateColumns: "1fr 1fr",
-gap: isPhone ? 10 : 16,
-  }}
->
+    style={{
+      marginTop: 8,
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 8,
+    }}
+  >
     {/* AWAY TEAM */}
     <div>
       <div style={{ fontWeight: 800, marginBottom: 6 }}>
         {away.short_name || away.name}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: isPhone
-  ? "repeat(5, 42px)"
-  : "repeat(4, 56px)", gap: isPhone ? 6 : 10 }}>
+      <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: isPhone ? "repeat(3, 1fr)" : "repeat(4, 56px)",
+    gap: 6,
+  }}
+>
         {awayDressed.map((p) => (
 
 
@@ -1361,13 +1364,13 @@ gap: isPhone ? 10 : 16,
     })
   }
   style={{
-   width: isPhone ? 42 : 56,
-    height: isPhone ? 42 : 56,
+   width: isPhone ? 36 : 56,
+    height: isPhone ? 36 : 56,
     borderRadius: 999,
     background: awayColor,
     color: "#fff",
     fontWeight: 900,
-    fontSize: isPhone ? 14 : 18,
+    fontSize: isPhone ? 13 : 18,
     border: "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
@@ -1387,9 +1390,13 @@ gap: isPhone ? 10 : 16,
         {home.short_name || home.name}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: isPhone
-  ? "repeat(5, 42px)"
-  : "repeat(4, 56px)", gap: isPhone ? 6 : 10 }}>
+      <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: isPhone ? "repeat(3, 1fr)" : "repeat(4, 56px)",
+    gap: 6,
+  }}
+>
 
         {homeDressed.map((p) => (
 
@@ -1404,13 +1411,13 @@ gap: isPhone ? 10 : 16,
     })
   }
   style={{
-   width: isPhone ? 42 : 56,
-height: isPhone ? 42 : 56,
+   width: isPhone ? 36 : 56,
+height: isPhone ? 36 : 56,
     borderRadius: 999,
     background: homeColor,
     color: "#fff",
     fontWeight: 900,
-    fontSize: isPhone ? 14 : 18,
+    fontSize: isPhone ? 13 : 18,
     border: "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
@@ -1799,11 +1806,11 @@ function ScoreCard({ team, score, side }) {
           background: "#0d2a66",
           color: "#fff",
           fontWeight: 900,
-          fontSize: isPhone ? 22 : 28,
+          fontSize: isPhone ? 18 : 28,
           borderRadius: 12,
-          minWidth: isPhone ? 60 : 76,
+          minWidth: isPhone ? 48 : 76,
           textAlign: "center",
-          padding: isPhone ? "8px 12px" : "10px 16px",
+          padding: isPhone ? "6px 10px" : "10px 16px",
         }}
       >
         {score}
@@ -1834,7 +1841,7 @@ function ShotCounter({ label, value, onMinus, onPlus, onManual, align = "left" }
         className="input"
         value={value}
         onChange={(e) => onManual(parseInt(e.target.value || "0", 10) || 0)}
-        style={{ width: 70, textAlign: "center" }}
+        style={{ width: isPhone ? 46 : 70, textAlign: "center" }}
       />
       <button className="btn btn-grey" onClick={onPlus}>
         +
@@ -1891,7 +1898,7 @@ return (
     style={{
       padding: compact ? 8 : 12,
       textAlign: "center",
-      minWidth: compact ? 120 : 340,
+      minWidth: compact ? 96 : 340,
     }}
   >
     <div
@@ -1908,7 +1915,7 @@ return (
         onChange={(e) => onClockChange(e.target.value)}
         style={{
           fontWeight: 900,
-          fontSize: compact ? 18 : 34,
+          fontSize: compact ? 16 : 34,
           textAlign: "center",
           padding: compact ? "4px 6px" : undefined,
         }}
