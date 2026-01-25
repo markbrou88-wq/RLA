@@ -1227,7 +1227,8 @@ function toggleQuickAssist(playerId) {
     setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
   />
 </div>
-    
+    </div>
+</div>
 
 
 {/* ===================================================================== */}
