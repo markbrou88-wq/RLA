@@ -1426,16 +1426,19 @@ height: "clamp(32px, 8vw, 56px)",
                       </strong>
                       {aTxt && <span style={{ color: "#666" }}> (A: {aTxt})</span>}
                     </td>
-                    <td style={{ padding: 8, textAlign: "right" }}>
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>  
-                      <button className="btn btn-grey" onClick={() => openGoalFor(null, null, r)}>
-                        Edit
-                      </button>
-                      <button className="btn btn-grey" onClick={() => deleteRow(r)}>
-                        Delete
-                      </button>
-                        <div>
-                    </td>
+
+<td style={{ padding: 8, textAlign: "right" }}>
+  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+    <button className="btn btn-grey" onClick={() => openGoalFor(null, null, r)}>
+      Edit
+    </button>
+    <button className="btn btn-grey" onClick={() => deleteRow(r)}>
+      Delete
+    </button>
+  </div>
+</td>
+
+                    
                   </tr>
                 );
               }
@@ -1448,7 +1451,7 @@ height: "clamp(32px, 8vw, 56px)",
   <td style={{ padding: 8 }}>
     {e.teams?.short_name || e.teams?.name || ""}
   </td>
-)
+
 
 
                   <td style={{ padding: 8 }}>{e.event}</td>
