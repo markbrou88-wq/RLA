@@ -1839,4 +1839,36 @@ html, body {
   }
 }
 
+/* ================= STANDINGS – PHONE COMPACT COLUMNS ================= */
+@media (max-width: 600px) {
+
+  /* Force compact layout */
+  .standings-table {
+    table-layout: fixed;      /* 🔑 stops wide spacing */
+    width: 100%;
+  }
+
+  /* Tighten cells */
+  .standings-table th,
+  .standings-table td {
+    padding: 4px 4px;         /* 🔑 reduce horizontal gap */
+    font-size: 11px;          /* slightly smaller text */
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Team column: more room + wrap allowed */
+  .standings-table th:first-child,
+  .standings-table td:first-child {
+    text-align: left;
+    white-space: normal;
+    width: 34%;               /* 🔑 anchor column width */
+  }
+
+  /* Numeric columns: fixed compact width */
+  .standings-table th:not(:first-child),
+  .standings-table td:not(:first-child) {
+    width: 7%;                /* 🔑 pulls columns together */
+  }
+}
 
