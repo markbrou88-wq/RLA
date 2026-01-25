@@ -120,6 +120,22 @@ export default function LivePage() {
 
 const [layoutMode, setLayoutMode] = useState("rink"); 
 // values: "rink" | "quick"
+
+// ============================================================================
+// SECTION 1I — QUICK MODE ACTION PICKER (UI ONLY)
+// ============================================================================
+
+// When clicking a player bubble in QUICK mode,
+// we open a small "action menu" for that player.
+const [quickPick, setQuickPick] = useState(null);
+// shape:
+// {
+//   playerId,
+//   teamId,
+//   number,
+//   name
+// }
+
   
   
   // ============================================================================
@@ -1217,13 +1233,23 @@ useEffect(() => {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 56px)", gap: 10 }}>
         {awayDressed.map((p) => (
-          <button
-            key={p.id}
-            className="chip"
-            onClick={() => openGoalFor(p.id, away.id)}
-          >
-            {p.number ?? "•"}
-          </button>
+
+<button
+  key={p.id}
+  className="chip"
+  onClick={() =>
+    setQuickPick({
+      playerId: p.id,
+      teamId: away.id,
+      number: p.number,
+      name: p.name,
+    })
+  }
+>
+  {p.number ?? "•"}
+</button>
+
+    
         ))}
       </div>
     </div>
@@ -1406,6 +1432,72 @@ useEffect(() => {
         </Modal>
       )}
 
+{/* ===================================================================== */}
+{/* QUICK MODE ACTION MODAL (PLAYER CONTEXT MENU)                         */}
+{/* ===================================================================== */}
+
+{quickPick && (
+  <Modal>
+    <div
+      className="card"
+      style={{
+        width: 320,
+        textAlign: "center",
+      }}
+    >
+      <div style={{ fontWeight: 900, fontSize: 20, marginBottom: 6 }}>
+        #{quickPick.number} {quickPick.name}
+      </div>
+
+      <div className="muted" style={{ marginBottom: 12 }}>
+        Choose action
+      </div>
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+        {/* GOAL */}
+        <button
+          className="btn btn-blue"
+          onClick={() => {
+            openGoalFor(quickPick.playerId, quickPick.teamId);
+            setQuickPick(null);
+          }}
+        >
+          🥅 Goal
+        </button>
+
+        {/* SHOT */}
+        <button
+          className="btn btn-grey"
+          onClick={async () => {
+            // direct shot, no shooter selection
+            setQuickPick(null);
+
+            setShotPick({ team_id: quickPick.teamId });
+            setShotShooter(quickPick.playerId);
+            setShotPeriod(period);
+            setShotTime(clock);
+
+            await confirmShot();
+          }}
+        >
+          🎯 Shot
+        </button>
+      </div>
+
+      <div style={{ marginTop: 10 }}>
+        <button
+          className="btn btn-grey"
+          onClick={() => setQuickPick(null)}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </Modal>
+)}
+
+
+      
       {/* shot modal */}
       {shotPick && (
         <Modal>
