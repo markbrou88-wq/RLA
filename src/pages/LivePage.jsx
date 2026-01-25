@@ -112,6 +112,11 @@ export default function LivePage() {
   const [shotTime, setShotTime] = useState("");
   const [shotPeriod, setShotPeriod] = useState(1);
 
+  // QUICK MODE assist picker (tap-based)
+const [quickAssists, setQuickAssists] = useState([]);
+// array of playerIds (max 2)
+
+
 // ============================================================================
 // SECTION 1H — LAYOUT MODE (UI ONLY)
 // "rink" = current live page
@@ -531,6 +536,21 @@ useEffect(() => {
     setRows(grouped);
   }
 
+function toggleQuickAssist(playerId) {
+  setQuickAssists((cur) => {
+    // deselect if already selected
+    if (cur.includes(playerId)) {
+      return cur.filter((id) => id !== playerId);
+    }
+
+    // max 2 assists
+    if (cur.length >= 2) return cur;
+
+    return [...cur, playerId];
+  });
+}
+
+  
    // (confirmGoal, confirmShot, bumpGoalieSA, bumpGoalieGA live here)
   // These functions mutate DB AND trigger realtime updates
   // UI layouts must CALL them, never re-implement logic
@@ -847,13 +867,27 @@ useEffect(() => {
     return roster.filter((p) => idsOnIceSameTeam.has(p.id) && p.id !== goalPick.scorer);
   }, [goalPick, home?.id, homeDressed, awayDressed, onIce]);
 
+  const quickAssistChoices = useMemo(() => {
+  if (!goalPick?.quick) return [];
+
+  const roster =
+    goalPick.team_id === home?.id ? homeDressed : awayDressed;
+
+  return roster.filter((p) => p.id !== goalPick.scorer);
+}, [goalPick, home?.id, homeDressed, awayDressed]);
+
+
   async function confirmGoal() {
     if (!goalPick) return;
     const per = Number(goalPeriod) || 1;
     const tm = (goalTime || clock).trim();
     const tid = Number(goalPick.team_id);
     const scorerId = Number(goalPick.scorer);
-    const aList = [assist1, assist2].filter(Boolean).map(Number).slice(0, 2);
+    
+    const aList = goalPick.quick
+  ? quickAssists
+  : [assist1, assist2].filter(Boolean).map(Number).slice(0, 2);
+
 
     // determine which goalie was scored on (based on current goalieOnIce)
     const opposingTeamId = tid === home.id ? away.id : home.id;
@@ -1428,32 +1462,56 @@ useEffect(() => {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div>
-                <div className="muted">Assist 1</div>
-                <select className="input" value={assist1} onChange={(e) => setAssist1(e.target.value)}>
-                  <option value="">—</option>
-                  {assistChoices.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.number ? `#${p.number} ` : ""}
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div className="muted">Assist 2</div>
-                <select className="input" value={assist2} onChange={(e) => setAssist2(e.target.value)}>
-                  <option value="">—</option>
-                  {assistChoices.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.number ? `#${p.number} ` : ""}
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+
+            {/* ================= QUICK MODE ASSISTS ================= */}
+{goalPick.quick ? (
+  <div>
+    <div className="muted" style={{ marginBottom: 6 }}>
+      Tap assists (optional, max 2)
+    </div>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, 56px)",
+        gap: 10,
+      }}
+    >
+      {quickAssistChoices.map((p) => {
+        const selected = quickAssists.includes(p.id);
+
+        return (
+          <button
+            key={p.id}
+            onClick={() => toggleQuickAssist(p.id)}
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 999,
+              background: selected ? "#16a34a" : "#e5e7eb",
+              color: selected ? "#fff" : "#111",
+              fontWeight: 900,
+              fontSize: 18,
+              border: "none",
+              cursor: "pointer",
+              boxShadow: selected
+                ? "0 0 0 3px rgba(22,163,74,0.6)"
+                : "0 2px 6px rgba(0,0,0,0.15)",
+            }}
+          >
+            {p.number ?? "•"}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+) : (
+  /* ================= RINK MODE (EXISTING) ================= */
+  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+    {/* existing Assist 1 / Assist 2 dropdowns */}
+  </div>
+)}
+
 
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
               <button className="btn btn-grey" onClick={() => setGoalPick(null)}>
@@ -1493,19 +1551,20 @@ useEffect(() => {
         <button
           className="btn btn-blue"
 
-     onClick={() => {
+    onClick={() => {
   setGoalPick({
     scorer: quickPick.playerId,
     team_id: quickPick.teamId,
+    quick: true, // 🔥 FLAG: we are in tap-based mode
   });
 
-  setAssist1("");
-  setAssist2("");
+  setQuickAssists([]); // reset tap assists
   setGoalPeriod(period);
   setGoalTime(clock);
 
   setQuickPick(null);
 }}
+
      
         >
           🥅 Goal
