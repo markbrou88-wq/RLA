@@ -1807,3 +1807,36 @@ html, body {
   }
 }
 
+/* ================= STANDINGS – MOBILE COMPACT ================= */
+@media (max-width: 768px) {
+  /* Remove horizontal scrolling */
+  .table-scroll {
+    overflow-x: hidden;
+  }
+
+  /* Force table to fit screen */
+  .standings-table {
+    width: 100%;
+    table-layout: fixed; /* key line */
+  }
+
+  /* Smaller text */
+  .standings-table th,
+  .standings-table td {
+    font-size: 0.75rem;
+    padding: 6px 4px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Team column: allow wrapping */
+  .standings-table th:first-child,
+  .standings-table td:first-child {
+    text-align: left;
+    white-space: normal;
+    word-break: break-word;
+    max-width: 120px;
+  }
+}
+
+
