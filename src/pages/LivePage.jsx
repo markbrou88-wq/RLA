@@ -1343,7 +1343,7 @@ gap: isPhone ? 10 : 16,
 
       <div style={{ display: "grid", gridTemplateColumns: isPhone
   ? "repeat(5, 42px)"
-  : "repeat(4, 56px)", gap: isPhone ? 6 : 10, }}>
+  : "repeat(4, 56px)", gap: isPhone ? 6 : 10 }}>
         {awayDressed.map((p) => (
 
 
@@ -1386,7 +1386,7 @@ gap: isPhone ? 10 : 16,
 
       <div style={{ display: "grid", gridTemplateColumns: isPhone
   ? "repeat(5, 42px)"
-  : "repeat(4, 56px)", gap: isPhone ? 6 : 10, }}>
+  : "repeat(4, 56px)", gap: isPhone ? 6 : 10 }}>
 
         {homeDressed.map((p) => (
 
