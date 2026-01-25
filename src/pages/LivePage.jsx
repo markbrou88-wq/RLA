@@ -1,9 +1,20 @@
-// LivePage.jsx — goals now auto-create / auto-remove matching 'shot' events
+// ============================================================================
+// LivePage.jsx
+// PURPOSE:
+// - Live game management (scores, shots, goals, clock, rosters)
+// - This file is the SINGLE SOURCE OF TRUTH for live stats
+// - UI layouts (rink / quick) should ONLY reuse logic from here
+// ============================================================================
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
-/* ---------- tiny helpers ---------- */
+// ============================================================================
+// SECTION 0 — TINY PURE HELPERS (NO STATE, NO SIDE EFFECTS)
+// Safe to reuse anywhere (Live / Quick / Summary)
+// ============================================================================
+
 const pad2 = (n) => String(n).padStart(2, "0");
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 const msToMMSS = (ms) => {
@@ -24,35 +35,69 @@ const teamColor = (team) => {
 };
 const textOn = () => "#fff";
 
-/* ================================== */
+// ============================================================================
+// SECTION 1 — MAIN COMPONENT + CORE STATE
+// This is the SINGLE SOURCE OF TRUTH for the live game
+// ============================================================================
+
 export default function LivePage() {
   const { slug } = useParams();
+
+// --------------------------------------------------------------------------
+  // 1A. GAME & TEAM STATE (loaded once, then reused everywhere)
+  // --------------------------------------------------------------------------
 
   const [game, setGame] = useState(null);
   const [home, setHome] = useState(null);
   const [away, setAway] = useState(null);
 
+  // --------------------------------------------------------------------------
+  // 1B. ROSTERS (dressed players only)
+  // IMPORTANT: both Live & Quick MUST use these
+  // --------------------------------------------------------------------------
+
   const [homeDressed, setHomeDressed] = useState([]);
   const [awayDressed, setAwayDressed] = useState([]);
   const [teamPlayerNumberMap, setTeamPlayerNumberMap] = useState({});
 
+  // --------------------------------------------------------------------------
+  // 1C. ON-ICE STATE (UI positioning only)
+  // NOT persisted — visual aid only
+  // --------------------------------------------------------------------------
+
   const [goalieOnIce, setGoalieOnIce] = useState({});
   const [onIce, setOnIce] = useState([]);
 
+// --------------------------------------------------------------------------
+  // 1D. EVENTS TABLE (goals, assists, shots)
+  // --------------------------------------------------------------------------  
+
   const [rows, setRows] = useState([]);
 
-  // shots (persisted)
+  // --------------------------------------------------------------------------
+  // 1E. SHOTS (persisted to DB + LS)
+  // --------------------------------------------------------------------------
+
   const [homeShots, setHomeShots] = useState(0);
   const [awayShots, setAwayShots] = useState(0);
 
-  // clock
+  // --------------------------------------------------------------------------
+  // 1F. CLOCK ENGINE STATE
+  // --------------------------------------------------------------------------
+
   const [period, setPeriod] = useState(1);
   const [lenMin, setLenMin] = useState(15);
   const [clock, setClock] = useState("15:00");
   const [running, setRunning] = useState(false);
+
+   // internal clock refs (NOT React state)
   const tickTimer = useRef(null);
   const lastTs = useRef(0);
   const remainingMs = useRef(0);
+
+// --------------------------------------------------------------------------
+  // 1G. MODAL STATE (goal / shot)
+  // --------------------------------------------------------------------------
 
   // goal modal / edit
   const [goalPick, setGoalPick] = useState(null); // { scorer, team_id, editKey? }
@@ -67,7 +112,11 @@ export default function LivePage() {
   const [shotTime, setShotTime] = useState("");
   const [shotPeriod, setShotPeriod] = useState(1);
 
-  // ---------- localStorage helpers ----------
+  // ============================================================================
+// SECTION 2 — LOCAL STORAGE (UI STATE RECOVERY ONLY)
+// NOT stats, NOT authoritative
+// ============================================================================
+
   const lsKey = (id) => `live:${id}`;
   const loadLS = (id) => {
     try {
@@ -84,12 +133,14 @@ export default function LivePage() {
     } catch {}
   };
 
-  /* ---------- NEW: roster helpers (team_players -> game_rosters) ---------- */
-
+  // ============================================================================
+// SECTION 3 — ROSTER SYSTEM (CRITICAL FOR PARALLEL PAGES)
+// If something is wrong in Quick Mode, it’s usually here
+// ============================================================================
+ 
+   // Load jersey numbers from team_players
   
-  // Load jersey numbers from team_players for the current season/category.
-  // Returns a map keyed as `${team_id}:${player_id}` -> number (int or null).
-  async function loadTeamPlayerNumbers(seasonId, categoryId, teamIds) {
+   async function loadTeamPlayerNumbers(seasonId, categoryId, teamIds) {
     if (!seasonId || !categoryId || !Array.isArray(teamIds) || teamIds.length === 0) return {};
     const { data, error } = await supabase
       .from("team_players")
@@ -110,10 +161,9 @@ export default function LivePage() {
     return map;
   }
 
-  // Fetch dressed roster for a given game/team, attaching the jersey number
-  // from team_players (season/category scoped).
-
-  async function fetchGameRosterDressed(gameId, teamId, numberMap = {}) {
+  // Reads dressed players from game_rosters
+  
+ async function fetchGameRosterDressed(gameId, teamId, numberMap = {}) {
   // Try "dressed" first (your current code)
   let data = null;
 
@@ -205,10 +255,17 @@ export default function LivePage() {
     return dressed;
   }
 
-  /* ---------- initial load ---------- */
+ 
+  
+ // ============================================================================
+// SECTION 4 — INITIAL LOAD (BOOT SEQUENCE)
+// Runs ONCE per page load
+// ============================================================================
+  
   useEffect(() => {
     let dead = false;
     (async () => {
+// 1) Load game
       const { data: g, error: gErr } = await supabase
         .from("games")
         .select("*")
@@ -219,7 +276,7 @@ export default function LivePage() {
         console.error("Error loading game:", gErr);
         return;
       }
-
+ // 2) Load teams
       const [{ data: ht, error: htErr }, { data: at, error: atErr }] = await Promise.all([
         supabase.from("teams").select("*").eq("id", g.home_team_id).single(),
         supabase.from("teams").select("*").eq("id", g.away_team_id).single(),
@@ -239,7 +296,8 @@ export default function LivePage() {
       setHome(ht);
       setAway(at);
 
-      // ✅ NEW: ensure rosters exist for this game; then load dressed
+// 3) Ensure rosters exist (auto-create if missing)
+      
       const [homeDress, awayDress] = await Promise.all([
         ensureAndLoadDressed(g, g.home_team_id),
         ensureAndLoadDressed(g, g.away_team_id),
@@ -252,7 +310,8 @@ export default function LivePage() {
       // length from DB or default
       const baseLen = g.period_seconds ? Math.round(g.period_seconds / 60) : 15;
 
-      // Restore persisted UI state (prefer DB shots if available, otherwise LS)
+// 4) Restore clock + shots
+      
       const ls = loadLS(g.id);
 
       setLenMin(ls.lenMin ?? baseLen);
@@ -282,6 +341,8 @@ export default function LivePage() {
           : 0
       );
 
+// 5) Load events
+ 
       await refreshEvents(g.id);
     })();
 
@@ -292,7 +353,13 @@ export default function LivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  /* realtime events */
+ 
+  // ============================================================================
+// SECTION 5 — REALTIME SUBSCRIPTIONS
+// This is why Live & Quick stay in sync
+// ============================================================================
+
+ 
   useEffect(() => {
     if (!game?.id) return;
     const ch = supabase
@@ -303,6 +370,8 @@ export default function LivePage() {
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, [slug, game?.id]);
+
+  
 
   useEffect(() => {
   if (!game?.id || !home?.id || !away?.id) return;
@@ -377,8 +446,12 @@ useEffect(() => {
   return () => supabase.removeChannel(ch);
 }, [game?.id]);
 
+// ============================================================================
+// SECTION 6 — EVENTS & STATS ENGINE (THE HEART ❤️)
+// All goals/shots MUST go through these functions
+// ============================================================================
 
-  async function refreshEvents(gameId) {
+   async function refreshEvents(gameId) {
     const { data: ev } = await supabase
       .from("events")
       .select(
@@ -432,7 +505,15 @@ useEffect(() => {
     setRows(grouped);
   }
 
-  /* ---------- clock ---------- */
+   // (confirmGoal, confirmShot, bumpGoalieSA, bumpGoalieGA live here)
+  // These functions mutate DB AND trigger realtime updates
+  // UI layouts must CALL them, never re-implement logic
+
+// ============================================================================
+// SECTION 7 — CLOCK ENGINE
+// Pure UI timing, not authoritative
+// ============================================================================
+
   useEffect(() => {
     if (!game?.id) return;
     // persist UI clock/period/len to LS whenever they change
@@ -468,7 +549,11 @@ useEffect(() => {
     setClock(msToMMSS(ms));
   }
 
-  /* ---------- bench / rink drops ---------- */
+  // ============================================================================
+// SECTION 8 — UI INTERACTIONS (RINK / BENCH)
+// Safe to REMOVE for Quick Mode
+// ============================================================================
+
   function readPayload(e) {
     try {
       return JSON.parse(e.dataTransfer.getData("text/plain") || "{}");
@@ -965,6 +1050,12 @@ useEffect(() => {
     }
   }
 
+// ============================================================================
+// SECTION 9 — RENDER (JSX)
+// This is where we will later add:
+// {mode === "rink"} vs {mode === "quick"}
+// ============================================================================
+  
   if (!game || !home || !away) return null;
 
   const homeColor = teamColor(home);
@@ -1278,7 +1369,19 @@ useEffect(() => {
   );
 }
 
-/* ---------- subcomponents ---------- */
+// ============================================================================
+// SECTION 10 — DUMB SUBCOMPONENTS
+// NO business logic, safe to reuse anywhere
+// ============================================================================
+
+// ScoreCard
+// ShotCounter
+// ClockBlock
+// Bench
+// Rink
+// IceToken
+// Modal
+
 
 function ScoreCard({ team, score, side }) {
   return (
