@@ -1693,12 +1693,7 @@ h1, h2 {
 /* ---------- 2. RESTORE CLASSIC TABLE BEHAVIOR FOR STANDINGS ---------- */
 @media (min-width: 900px) {
 
-  /* Disable grid-table system ONLY for standings */
-  .standings-page .tbl,
-  .standings-page .tr,
-  .standings-page .td {
-    display: revert !important;
-  }
+ 
 
   .standings-page table {
     table-layout: auto !important;
@@ -1747,16 +1742,7 @@ h1, h2 {
 
 
 /* ===== Mobile standings table fix ===== */
-.table-scroll {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
 
-.standings-table {
-  width: 100%;
-  min-width: 620px; /* prevents ugly column squish */
-}
 
 /* Mobile tightening */
 @media (max-width: 480px) {
@@ -1807,37 +1793,7 @@ html, body {
   }
 }
 
-/* ================= STANDINGS – MOBILE COMPACT ================= */
-@media (max-width: 768px) {
-  /* Remove horizontal scrolling */
-  .table-scroll {
-    overflow-x: hidden;
-  }
 
-  /* Force table to fit screen */
-  .standings-table {
-    width: 100%;
-    table-layout: fixed; /* key line */
-  }
-
-  /* Smaller text */
-  .standings-table th,
-  .standings-table td {
-    font-size: 0.75rem;
-    padding: 6px 4px;
-    text-align: center;
-    white-space: nowrap;
-  }
-
-  /* Team column: allow wrapping */
-  .standings-table th:first-child,
-  .standings-table td:first-child {
-    text-align: left;
-    white-space: normal;
-    word-break: break-word;
-    max-width: 120px;
-  }
-}
 
 /* ================= STANDINGS – PHONE COMPACT COLUMNS ================= */
 @media (max-width: 600px) {
@@ -1871,4 +1827,39 @@ html, body {
     width: 6%;                /* 🔑 pulls columns together */
   }
 }
+
+/* ================= STANDINGS – PHONE PORTRAIT COMPACT ================= */
+@media (max-width: 600px) {
+
+  /* Real table, not grid */
+  .standings-table {
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  /* Tight cells */
+  .standings-table th,
+  .standings-table td {
+    padding: 4px 3px;     /* 🔑 this is the key */
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Team column = flexible */
+  .standings-table th:first-child,
+  .standings-table td:first-child {
+    text-align: left;
+    white-space: normal;
+    width: auto;          /* 🔑 absorbs free space */
+  }
+
+  /* Numeric columns = HARD constrained */
+  .standings-table th:not(:first-child),
+  .standings-table td:not(:first-child) {
+    width: 1%;            /* 🔥 forces collapse */
+  }
+}
+
 
