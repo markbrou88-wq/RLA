@@ -1418,10 +1418,14 @@ height: isPhone ? 48 : 56,
               const e = r.single;
               return (
                 <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f0f0f0" }}>
-                  {!isPhone && <td style={{ padding: 8 }}>{e.period}</td>}
+                 {!isPhone && <td style={{ padding: 8 }}>{e.period}</td>}
 <td style={{ padding: 8 }}>{e.time_mmss}</td>
 {!isPhone && (
-  <td style={{ padding: 8
+  <td style={{ padding: 8 }}>
+    {e.teams?.short_name || e.teams?.name || ""}
+  </td>
+)}
+
 
                   <td style={{ padding: 8 }}>{e.event}</td>
                   <td style={{ padding: 8 }}>{e.players?.name || (e.players?.number ? `#${e.players.number}` : "—")}</td>
