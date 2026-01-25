@@ -1862,4 +1862,51 @@ html, body {
   }
 }
 
+/* 🚨 STANDINGS: FORCE REAL TABLE ON PHONE (KILL GRID) */
+@media (max-width: 600px) {
+
+  /* If standings was rendered with grid (.tbl / .tr / .td), kill it */
+  .standings-page .tbl {
+    display: none !important;
+  }
+
+  /* Force table version visible */
+  .standings-page table {
+    display: table !important;
+  }
+}
+
+/* ✅ STANDINGS – PHONE PORTRAIT (FINAL, CLEAN) */
+@media (max-width: 600px) {
+
+  .standings-page table {
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .standings-page th,
+  .standings-page td {
+    padding: 4px 3px;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Team column takes remaining space */
+  .standings-page th:first-child,
+  .standings-page td:first-child {
+    text-align: left;
+    white-space: normal;
+    width: auto;
+  }
+
+  /* All numeric columns collapse tightly */
+  .standings-page th:not(:first-child),
+  .standings-page td:not(:first-child) {
+    width: 1%;
+  }
+}
+
+
 
