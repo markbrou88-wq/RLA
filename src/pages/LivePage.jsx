@@ -1133,15 +1133,7 @@ function toggleQuickAssist(playerId) {
   const RINK_H = 560;
 
   return (
-  <div
-    className="live-root"
-    style={{
-      transform: isPhone ? "scale(0.85)" : "none",
-      transformOrigin: "top center",
-      width: isPhone ? "118%" : "100%",
-      marginLeft: isPhone ? "-9%" : 0,
-    }}
-  >
+  <div className="live-root">
 
 {/* ===================================================================== */}
 {/* HEADER CONTROLS — LAYOUT TOGGLE                                      */}
@@ -1174,59 +1166,105 @@ function toggleQuickAssist(playerId) {
 </div>
 
       
+{isPhone ? (
+  /* ================= PHONE HEADER ================= */
+  <div style={{ display: "grid", gap: 8 }}>
+    {/* AWAY */}
+    <div>
+      <ScoreCard team={away} score={game.away_score || 0} side="left" />
+      <ShotCounter
+        label="Shots"
+        value={awayShots}
+        onMinus={() => handleShotMinus(away.id)}
+        onPlus={() => openShotForTeam(away.id)}
+        onManual={(v) => changeAwayShots(v)}
+        align="left"
+      />
+    </div>
 
-      {/* header: scores + clock + shots */}
+    {/* CLOCK */}
+    <ClockBlock
+      running={running}
+      clock={clock}
+      onClockChange={(v) => {
+        const clean = v.replace(/[^\d:]/g, "");
+        setClock(clean);
+        remainingMs.current = mmssToMs(clean);
+      }}
+      onStart={() => (running ? stopClock() : startClock())}
+      onReset={resetClock}
+      period={period}
+      setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
+      lenMin={lenMin}
+      setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
+    />
 
-<div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "1fr auto 1fr",
-    gap: isPhone ? 6 : 12,
-    alignItems: "center",
-  }}
->
+    {/* HOME */}
+    <div>
+      <ScoreCard team={home} score={game.home_score || 0} side="right" />
+      <ShotCounter
+        label="Shots"
+        value={homeShots}
+        onMinus={() => handleShotMinus(home.id)}
+        onPlus={() => openShotForTeam(home.id)}
+        onManual={(v) => changeHomeShots(v)}
+        align="right"
+      />
+    </div>
+  </div>
+) : (
+  /* ================= DESKTOP HEADER ================= */
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr auto 1fr",
+      gap: 12,
+      alignItems: "center",
+    }}
+  >
+    <div>
+      <ScoreCard team={away} score={game.away_score || 0} side="left" />
+      <ShotCounter
+        label="Shots"
+        value={awayShots}
+        onMinus={() => handleShotMinus(away.id)}
+        onPlus={() => openShotForTeam(away.id)}
+        onManual={(v) => changeAwayShots(v)}
+        align="left"
+      />
+    </div>
+
+    <ClockBlock
+      running={running}
+      clock={clock}
+      onClockChange={(v) => {
+        const clean = v.replace(/[^\d:]/g, "");
+        setClock(clean);
+        remainingMs.current = mmssToMs(clean);
+      }}
+      onStart={() => (running ? stopClock() : startClock())}
+      onReset={resetClock}
+      period={period}
+      setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
+      lenMin={lenMin}
+      setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
+    />
+
+    <div>
+      <ScoreCard team={home} score={game.home_score || 0} side="right" />
+      <ShotCounter
+        label="Shots"
+        value={homeShots}
+        onMinus={() => handleShotMinus(home.id)}
+        onPlus={() => openShotForTeam(home.id)}
+        onManual={(v) => changeHomeShots(v)}
+        align="right"
+      />
+    </div>
+  </div>
+)}
 
       
-        <div>
-          <ScoreCard team={away} score={game.away_score || 0} side="left" />
-          <ShotCounter
-            label="Shots"
-            value={awayShots}
-            onMinus={() => handleShotMinus(away.id)}
-            onPlus={() => openShotForTeam(away.id)}
-            onManual={(v) => changeAwayShots(v)}
-            align="left"
-          />
-        </div>
-
-        <ClockBlock
-          running={running}
-          clock={clock}
-          onClockChange={(v) => {
-            const clean = v.replace(/[^\d:]/g, "");
-            setClock(clean);
-            remainingMs.current = mmssToMs(clean);
-          }}
-          onStart={() => (running ? stopClock() : startClock())}
-          onReset={resetClock}
-          period={period}
-          setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
-          lenMin={lenMin}
-          setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
-        />
-
-        <div>
-          <ScoreCard team={home} score={game.home_score || 0} side="right" />
-          <ShotCounter
-            label="Shots"
-            value={homeShots}
-            onMinus={() => handleShotMinus(home.id)}
-            onPlus={() => openShotForTeam(home.id)}
-            onManual={(v) => changeHomeShots(v)}
-            align="right"
-          />
-        </div>
-      </div>
 
 
 {/* ===================================================================== */}
@@ -1279,14 +1317,14 @@ function toggleQuickAssist(playerId) {
       
       {layoutMode === "quick" && (
   <div
-    className="card"
-    style={{
-      marginTop: 12,
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 16,
-    }}
-  >
+  className="card"
+  style={{
+    marginTop: 12,
+    display: "grid",
+    gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr",
+    gap: 16,
+  }}
+>
     {/* AWAY TEAM */}
     <div>
       <div style={{ fontWeight: 800, marginBottom: 6 }}>
