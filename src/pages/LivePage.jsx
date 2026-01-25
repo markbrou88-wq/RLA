@@ -1165,15 +1165,20 @@ function toggleQuickAssist(playerId) {
   </Link>
 </div>
 
-      
-{isPhone ? (
-  /* ================= PHONE HEADER ================= */
-  <div style={{ display: "grid", gap: 8 }}>
+      {isPhone ? (
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr auto 1fr",
+      alignItems: "center",
+      gap: 6,
+    }}
+  >
     {/* AWAY */}
-    <div>
+    <div style={{ textAlign: "left" }}>
       <ScoreCard team={away} score={game.away_score || 0} side="left" />
       <ShotCounter
-        label="Shots"
+        label="S"
         value={awayShots}
         onMinus={() => handleShotMinus(away.id)}
         onPlus={() => openShotForTeam(away.id)}
@@ -1182,8 +1187,9 @@ function toggleQuickAssist(playerId) {
       />
     </div>
 
-    {/* CLOCK */}
+    {/* CLOCK (compact, see section 2) */}
     <ClockBlock
+      compact
       running={running}
       clock={clock}
       onClockChange={(v) => {
@@ -1200,10 +1206,10 @@ function toggleQuickAssist(playerId) {
     />
 
     {/* HOME */}
-    <div>
+    <div style={{ textAlign: "right" }}>
       <ScoreCard team={home} score={game.home_score || 0} side="right" />
       <ShotCounter
-        label="Shots"
+        label="S"
         value={homeShots}
         onMinus={() => handleShotMinus(home.id)}
         onPlus={() => openShotForTeam(home.id)}
@@ -1213,6 +1219,10 @@ function toggleQuickAssist(playerId) {
     </div>
   </div>
 ) : (
+
+
+    
+    
   /* ================= DESKTOP HEADER ================= */
   <div
     style={{
@@ -1321,8 +1331,8 @@ function toggleQuickAssist(playerId) {
   style={{
     marginTop: 12,
     display: "grid",
-    gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr",
-    gap: 16,
+   gridTemplateColumns: "1fr 1fr",
+gap: isPhone ? 10 : 16,
   }}
 >
     {/* AWAY TEAM */}
@@ -1332,8 +1342,8 @@ function toggleQuickAssist(playerId) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: isPhone
-  ? "repeat(5, 48px)"
-  : "repeat(4, 56px)", gap: 10 }}>
+  ? "repeat(5, 42px)"
+  : "repeat(4, 56px)", gap: isPhone ? 6 : 10, }}>
         {awayDressed.map((p) => (
 
 
@@ -1348,13 +1358,13 @@ function toggleQuickAssist(playerId) {
     })
   }
   style={{
-   width: isPhone ? 48 : 56,
-    height: isPhone ? 48 : 56,
+   width: isPhone ? 42 : 56,
+    height: isPhone ? 42 : 56,
     borderRadius: 999,
     background: awayColor,
     color: "#fff",
     fontWeight: 900,
-    fontSize: isPhone ? 16 : 18,
+    fontSize: isPhone ? 14 : 18,
     border: "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
@@ -1375,8 +1385,8 @@ function toggleQuickAssist(playerId) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: isPhone
-  ? "repeat(5, 48px)"
-  : "repeat(4, 56px)", gap: 10 }}>
+  ? "repeat(5, 42px)"
+  : "repeat(4, 56px)", gap: isPhone ? 6 : 10, }}>
 
         {homeDressed.map((p) => (
 
@@ -1391,13 +1401,13 @@ function toggleQuickAssist(playerId) {
     })
   }
   style={{
-   width: isPhone ? 48 : 56,
-height: isPhone ? 48 : 56,
+   width: isPhone ? 42 : 56,
+height: isPhone ? 42 : 56,
     borderRadius: 999,
     background: homeColor,
     color: "#fff",
     fontWeight: 900,
-    fontSize: isPhone ? 16 : 18,
+    fontSize: isPhone ? 14 : 18,
     border: "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
@@ -1860,59 +1870,69 @@ function TeamLogoLarge({ team }) {
 
 function ClockBlock({ running, clock, onClockChange, onStart, onReset, period, setPeriod, lenMin, setLenMin }) {
  const isPhone = window.innerWidth < 600;
-  return (
-    <div className="card" style={{ padding: 12, textAlign: "center", minWidth: isPhone ? "100%" : 340 }}>
+
+return (
+  <div
+    className="card"
+    style={{
+      padding: compact ? 8 : 12,
+      textAlign: "center",
+      minWidth: compact ? 120 : 340,
+    }}
+  >
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: compact ? "1fr auto auto" : "1fr",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
       <input
         className="input"
         value={clock}
         onChange={(e) => onClockChange(e.target.value)}
         style={{
-  fontWeight: 900,
-  fontSize: isPhone ? 24 : 34,
-  textAlign: "center",
-}}
+          fontWeight: 900,
+          fontSize: compact ? 18 : 34,
+          textAlign: "center",
+          padding: compact ? "4px 6px" : undefined,
+        }}
       />
-      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
-        <button
-  className="btn btn-grey"
-  style={{ fontSize: isPhone ? 12 : 14 }}
-  onClick={onStart}
->
-          {running ? "Stop" : "Start"}
-        </button>
-        <button
-  className="btn btn-grey"
-  style={{ fontSize: isPhone ? 12 : 14 }}
-  onClick={onReset}
->
-          Reset
-        </button>
-      </div>
+
+      <button className="btn btn-grey" onClick={onStart}>
+        {running ? "⏸" : "▶"}
+      </button>
+
+      <button className="btn btn-grey" onClick={onReset}>
+        ↺
+      </button>
+    </div>
+
+    {!compact && (
       <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
         <span className="muted">Len</span>
         <input
           className="input"
           type="number"
-          min={1}
-          max={30}
           value={lenMin}
           onChange={(e) => setLenMin(parseInt(e.target.value || "15", 10))}
-          style={{ width: 70 }}
+          style={{ width: 60 }}
         />
-        <span className="muted">min</span>
-        <span style={{ width: 12 }} />
-        <span className="muted">Period</span>
+        <span className="muted">P</span>
         <input
           className="input"
           type="number"
-          min={1}
           value={period}
           onChange={(e) => setPeriod(parseInt(e.target.value || "1", 10))}
-          style={{ width: 70 }}
+          style={{ width: 50 }}
         />
       </div>
-    </div>
-  );
+    )}
+  </div>
+);
+
+  
 }
 
 function Bench({ title, players, color, height, benchTeamId, onDropBack }) {
