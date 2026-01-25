@@ -1244,21 +1244,24 @@ function toggleQuickAssist(playerId) {
       />
     </div>
 
-    <ClockBlock
-      running={running}
-      clock={clock}
-      onClockChange={(v) => {
-        const clean = v.replace(/[^\d:]/g, "");
-        setClock(clean);
-        remainingMs.current = mmssToMs(clean);
-      }}
-      onStart={() => (running ? stopClock() : startClock())}
-      onReset={resetClock}
-      period={period}
-      setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
-      lenMin={lenMin}
-      setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
-    />
+<ClockBlock
+  compact={isCompact}
+  running={running}
+  clock={clock}
+  onClockChange={(v) => {
+    const clean = v.replace(/[^\d:]/g, "");
+    setClock(clean);
+    remainingMs.current = mmssToMs(clean);
+  }}
+  onStart={() => (running ? stopClock() : startClock())}
+  onReset={resetClock}
+  period={period}
+  setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
+  lenMin={lenMin}
+  setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
+/>
+
+    
 
     <div>
       <ScoreCard team={home} score={game.home_score || 0} side="right" />
@@ -1868,8 +1871,19 @@ function TeamLogoLarge({ team }) {
   );
 }
 
-function ClockBlock({ running, clock, onClockChange, onStart, onReset, period, setPeriod, lenMin, setLenMin }) {
- const isPhone = window.innerWidth < 600;
+function ClockBlock({
+  compact,
+  running,
+  clock,
+  onClockChange,
+  onStart,
+  onReset,
+  period,
+  setPeriod,
+  lenMin,
+  setLenMin,
+}) {
+
 
 return (
   <div
