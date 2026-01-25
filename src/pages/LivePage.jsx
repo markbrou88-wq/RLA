@@ -40,10 +40,17 @@ const textOn = () => "#fff";
 // This is the SINGLE SOURCE OF TRUTH for the live game
 // ============================================================================
 
+// ============================================================================
+// GLOBAL MEDIA FLAGS (SAFE FOR ALL SUBCOMPONENTS)
+// ============================================================================
+
+const isCompact = window.matchMedia("(max-width: 900px)").matches;
+const isPhone = window.matchMedia("(max-width: 600px)").matches;
+
+
 export default function LivePage() {
   const { slug } = useParams();
-  const isCompact = window.matchMedia("(max-width: 900px)").matches;
-  const isPhone = window.matchMedia("(max-width: 600px)").matches;
+  
 
 
 // --------------------------------------------------------------------------
