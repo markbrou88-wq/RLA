@@ -1167,13 +1167,13 @@ function toggleQuickAssist(playerId) {
    {/* ================= HEADER ================= */}
 <div className="card" style={{ marginBottom: 10 }}>
   <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "1fr auto 1fr",
-      alignItems: "center",
-      gap: 12,
-    }}
-  >
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    alignItems: "center",
+    gap: 12,
+  }}
+>
     {/* AWAY */}
     <div style={{ justifySelf: "start" }}>
       <ScoreCard team={away} score={game.away_score || 0} side="left" />
