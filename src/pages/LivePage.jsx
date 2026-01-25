@@ -1133,7 +1133,15 @@ function toggleQuickAssist(playerId) {
   const RINK_H = 560;
 
   return (
-    <div className="container">
+  <div
+    className="live-root"
+    style={{
+      transform: isPhone ? "scale(0.85)" : "none",
+      transformOrigin: "top center",
+      width: isPhone ? "118%" : "100%",
+      marginLeft: isPhone ? "-9%" : 0,
+    }}
+  >
 
 {/* ===================================================================== */}
 {/* HEADER CONTROLS — LAYOUT TOGGLE                                      */}
@@ -1172,8 +1180,8 @@ function toggleQuickAssist(playerId) {
 <div
   style={{
     display: "grid",
-    gridTemplateColumns: isPhone ? "1fr" : "1fr auto 1fr",
-    gap: isPhone ? 8 : 12,
+    gridTemplateColumns: "1fr auto 1fr",
+    gap: isPhone ? 6 : 12,
     alignItems: "center",
   }}
 >
@@ -1870,7 +1878,9 @@ function Bench({ title, players, color, height, benchTeamId, onDropBack }) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(2, 56px)",
+         gridTemplateColumns: isPhone
+  ? "repeat(4, 44px)"
+  : "repeat(2, 56px)",
           gap: 8,
           height: height - 48,
           overflow: "auto",
