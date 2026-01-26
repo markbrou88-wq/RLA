@@ -159,7 +159,23 @@ export default function StandingsPage() {
             </tbody>
           </table>
         </div>
-        </div>
+
+          {/* Points system explanation */}
+    <div
+      style={{
+        marginTop: 10,
+        fontSize: 12,
+        color: "var(--muted)",
+        textAlign: "center",
+      }}
+    >
+      <strong>Points system:</strong>{" "}
+      Win (regulation) = 3 pts · Win (OT/SO) = 2 pts · Loss (OT/SO) = 1 pt ·
+      Loss (regulation) = 0 pt
+    </div>
+
+      
+      </div>
       )}
 
       {/* ===== Playoffs Tab ===== */}
