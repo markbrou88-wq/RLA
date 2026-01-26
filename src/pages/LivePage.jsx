@@ -44,6 +44,8 @@ const textOn = () => "#fff";
 // GLOBAL MEDIA FLAGS (SAFE FOR ALL SUBCOMPONENTS)
 // ============================================================================
 
+const isCompact = window.matchMedia("(max-width: 900px)").matches;
+const isPhone = window.matchMedia("(max-width: 600px)").matches;
 
 
 export default function LivePage() {
@@ -1131,7 +1133,7 @@ function toggleQuickAssist(playerId) {
   const RINK_H = 560;
 
   return (
-  <div className="live-root">
+    <div className="container">
 
 {/* ===================================================================== */}
 {/* HEADER CONTROLS — LAYOUT TOGGLE                                      */}
@@ -1163,72 +1165,60 @@ function toggleQuickAssist(playerId) {
   </Link>
 </div>
 
+      
 
-   {/* ================= HEADER ================= */}
-<div className="card" style={{ marginBottom: 10 }}>
-  <div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: 12,
-  }}
->
-{/* SCORES ROW */}
+      {/* header: scores + clock + shots */}
+
 <div
   style={{
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 12,
+    gridTemplateColumns: isPhone ? "1fr" : "1fr auto 1fr",
+    gap: isPhone ? 8 : 12,
     alignItems: "center",
   }}
 >
-  {/* AWAY */}
-  <div>
-    <ScoreCard team={away} score={game.away_score || 0} side="left" />
-    <ShotCounter
-      label={layoutMode === "quick" ? "S" : "Shots"}
-      value={awayShots}
-      onMinus={() => handleShotMinus(away.id)}
-      onPlus={() => openShotForTeam(away.id)}
-      onManual={(v) => changeAwayShots(v)}
-      align="left"
-    />
-  </div>
 
-  {/* HOME */}
-  <div>
-    <ScoreCard team={home} score={game.home_score || 0} side="right" />
-    <ShotCounter
-      label={layoutMode === "quick" ? "S" : "Shots"}
-      value={homeShots}
-      onMinus={() => handleShotMinus(home.id)}
-      onPlus={() => openShotForTeam(home.id)}
-      onManual={(v) => changeHomeShots(v)}
-      align="right"
-    />
-  </div>
-</div>
+      
+        <div>
+          <ScoreCard team={away} score={game.away_score || 0} side="left" />
+          <ShotCounter
+            label="Shots"
+            value={awayShots}
+            onMinus={() => handleShotMinus(away.id)}
+            onPlus={() => openShotForTeam(away.id)}
+            onManual={(v) => changeAwayShots(v)}
+            align="left"
+          />
+        </div>
 
-    {/* CLOCK ROW */}
-<div style={{ display: "flex", justifyContent: "center" }}>
-  <ClockBlock
-    running={running}
-    clock={clock}
-    onClockChange={(v) => {
-      const clean = v.replace(/[^\d:]/g, "");
-      setClock(clean);
-      remainingMs.current = mmssToMs(clean);
-    }}
-    onStart={() => (running ? stopClock() : startClock())}
-    onReset={resetClock}
-    period={period}
-    setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
-    lenMin={lenMin}
-    setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
-  />
-</div>
-    </div>
-</div>
+        <ClockBlock
+          running={running}
+          clock={clock}
+          onClockChange={(v) => {
+            const clean = v.replace(/[^\d:]/g, "");
+            setClock(clean);
+            remainingMs.current = mmssToMs(clean);
+          }}
+          onStart={() => (running ? stopClock() : startClock())}
+          onReset={resetClock}
+          period={period}
+          setPeriod={(v) => setPeriod(clamp(v, 1, 9))}
+          lenMin={lenMin}
+          setLenMin={(v) => setLenMin(clamp(v, 1, 30))}
+        />
+
+        <div>
+          <ScoreCard team={home} score={game.home_score || 0} side="right" />
+          <ShotCounter
+            label="Shots"
+            value={homeShots}
+            onMinus={() => handleShotMinus(home.id)}
+            onPlus={() => openShotForTeam(home.id)}
+            onManual={(v) => changeHomeShots(v)}
+            align="right"
+          />
+        </div>
+      </div>
 
 
 {/* ===================================================================== */}
@@ -1281,11 +1271,12 @@ function toggleQuickAssist(playerId) {
       
       {layoutMode === "quick" && (
   <div
+    className="card"
     style={{
-      marginTop: 8,
+      marginTop: 12,
       display: "grid",
       gridTemplateColumns: "1fr 1fr",
-      gap: 8,
+      gap: 16,
     }}
   >
     {/* AWAY TEAM */}
@@ -1294,20 +1285,11 @@ function toggleQuickAssist(playerId) {
         {away.short_name || away.name}
       </div>
 
-      <div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
-justifyItems: "center",
-    gap: 8,
-  }}
->
+      <div style={{ display: "grid", gridTemplateColumns: isPhone
+  ? "repeat(5, 48px)"
+  : "repeat(4, 56px)", gap: 10 }}>
         {awayDressed.map((p) => (
 
-// {/* ===================================================================== */}
-// {/* Bubbles                                                     */}
-// {/* ===================================================================== */}
-  
 
 <button
   key={p.id}
@@ -1320,13 +1302,13 @@ justifyItems: "center",
     })
   }
   style={{
-  width: "clamp(32px, 8vw, 56px)",
-height: "clamp(32px, 8vw, 56px)",
+   width: isPhone ? 48 : 56,
+    height: isPhone ? 48 : 56,
     borderRadius: 999,
     background: awayColor,
     color: "#fff",
     fontWeight: 900,
-    fontSize: "clamp(12px, 3vw, 18px)",
+    fontSize: isPhone ? 16 : 18,
     border: "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
@@ -1346,14 +1328,9 @@ height: "clamp(32px, 8vw, 56px)",
         {home.short_name || home.name}
       </div>
 
-      <div
-  style={{
-    display: "grid",
-   gridTemplateColumns: "repeat(2, 1fr)",
-justifyItems: "center",
-    gap: 8,
-  }}
->
+      <div style={{ display: "grid", gridTemplateColumns: isPhone
+  ? "repeat(5, 48px)"
+  : "repeat(4, 56px)", gap: 10 }}>
 
         {homeDressed.map((p) => (
 
@@ -1368,13 +1345,13 @@ justifyItems: "center",
     })
   }
   style={{
-   width: "clamp(32px, 8vw, 56px)",
-height: "clamp(32px, 8vw, 56px)",
+   width: isPhone ? 48 : 56,
+height: isPhone ? 48 : 56,
     borderRadius: 999,
     background: homeColor,
     color: "#fff",
     fontWeight: 900,
-    fontSize: "clamp(12px, 3vw, 18px)",
+    fontSize: isPhone ? 16 : 18,
     border: "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
@@ -1395,16 +1372,13 @@ height: "clamp(32px, 8vw, 56px)",
 
       {/* events */}
       <div className="card" style={{ marginTop: 14 }}>
-  <div style={{ fontWeight: 800, marginBottom: 8 }}>Events</div>
-
-  {/* STEP 6 — mobile-safe horizontal scroll */}
-  <div style={{ overflowX: "auto" }}>
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ fontWeight: 800, marginBottom: 8 }}>Events</div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
   <tr style={{ textAlign: "left", color: "#666" }}>
-    <th style={{ padding: 8 }}>PERIOD</th>
+    {!isPhone && <th style={{ padding: 8 }}>PERIOD</th>}
     <th style={{ padding: 8 }}>TIME</th>
-    <th style={{ padding: 8 }}>TEAM</th>
+    {!isPhone && <th style={{ padding: 8 }}>TEAM</th>}
     <th style={{ padding: 8 }}>TYPE</th>
     <th style={{ padding: 8 }}>PLAYER / ASSISTS</th>
     <th />
@@ -1426,9 +1400,9 @@ height: "clamp(32px, 8vw, 56px)",
                 const teamLabel = r.goal.teams?.short_name || r.goal.teams?.name || "";
                 return (
                   <tr key={`g${i}`} style={{ borderTop: "1px solid #f0f0f0" }}>
-                    <td style={{ padding: 8 }}>{r.goal.period}</td>
+                    {!isPhone && <td style={{ padding: 8 }}>{r.goal.period}</td>}
 <td style={{ padding: 8 }}>{r.goal.time_mmss}</td>
-<td style={{ padding: 8 }}>{teamLabel}</td>
+{!isPhone && <td style={{ padding: 8 }}>{teamLabel}</td>}
 
                     <td style={{ padding: 8 }}>goal</td>
                     <td style={{ padding: 8 }}>
@@ -1437,32 +1411,27 @@ height: "clamp(32px, 8vw, 56px)",
                       </strong>
                       {aTxt && <span style={{ color: "#666" }}> (A: {aTxt})</span>}
                     </td>
-
-<td style={{ padding: 8, textAlign: "right" }}>
-  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-    <button className="btn btn-grey" onClick={() => openGoalFor(null, null, r)}>
-      Edit
-    </button>
-    <button className="btn btn-grey" onClick={() => deleteRow(r)}>
-      Delete
-    </button>
-  </div>
-</td>
-
-                    
+                    <td style={{ padding: 8, textAlign: "right", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button className="btn btn-grey" onClick={() => openGoalFor(null, null, r)}>
+                        Edit
+                      </button>
+                      <button className="btn btn-grey" onClick={() => deleteRow(r)}>
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 );
               }
               const e = r.single;
               return (
                 <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f0f0f0" }}>
-                 <td style={{ padding: 8 }}>{e.period}</td>
+                 {!isPhone && <td style={{ padding: 8 }}>{e.period}</td>}
 <td style={{ padding: 8 }}>{e.time_mmss}</td>
-
+{!isPhone && (
   <td style={{ padding: 8 }}>
     {e.teams?.short_name || e.teams?.name || ""}
   </td>
-
+)}
 
 
                   <td style={{ padding: 8 }}>{e.event}</td>
@@ -1478,7 +1447,6 @@ height: "clamp(32px, 8vw, 56px)",
           </tbody>
         </table>
       </div>
-        </div>
 
       {/* goal modal */}
       {goalPick && (
@@ -1536,8 +1504,12 @@ height: "clamp(32px, 8vw, 56px)",
     <div
       style={{
         display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(48px, 1fr))",
-gap: 8,
+        gridTemplateColumns: isPhone
+  ? "repeat(5, 48px)"
+  : isCompact
+  ? "repeat(4, 52px)"
+  : "repeat(4, 56px)",
+gap: isPhone ? 8 : 10,
       }}
     >
       {quickAssistChoices.map((p) => {
@@ -1548,13 +1520,13 @@ gap: 8,
             key={p.id}
             onClick={() => toggleQuickAssist(p.id)}
             style={{
-             width: "clamp(44px, 12vw, 70px)",
-             height: "clamp(44px, 10vw, 56px)",
+              width: isPhone ? 48 : 56,
+             height: isPhone ? 48 : 56,
               borderRadius: 999,
               background: selected ? "#16a34a" : "#e5e7eb",
               color: selected ? "#fff" : "#111",
               fontWeight: 900,
-              fontSize: "clamp(14px, 3.5vw, 18px)",
+             fontSize: isPhone ? 16 : 18,
               border: "none",
               cursor: "pointer",
               boxShadow: selected
@@ -1597,7 +1569,7 @@ gap: 8,
     <div
       className="card"
       style={{
-        width: "clamp(280px, 90vw, 320px)",
+        width: isPhone ? "100%" : 320,
 maxWidth: "calc(100vw - 24px)",
         textAlign: "center",
       }}
@@ -1764,11 +1736,11 @@ function ScoreCard({ team, score, side }) {
           background: "#0d2a66",
           color: "#fff",
           fontWeight: 900,
-          fontSize: "clamp(18px, 5vw, 28px)",
+          fontSize: isPhone ? 22 : 28,
           borderRadius: 12,
-          minWidth: "clamp(44px, 10vw, 76px)",
+          minWidth: isPhone ? 60 : 76,
           textAlign: "center",
-          padding: "clamp(6px, 2vw, 14px)",
+          padding: isPhone ? "8px 12px" : "10px 16px",
         }}
       >
         {score}
@@ -1799,10 +1771,7 @@ function ShotCounter({ label, value, onMinus, onPlus, onManual, align = "left" }
         className="input"
         value={value}
         onChange={(e) => onManual(parseInt(e.target.value || "0", 10) || 0)}
-        style={{
-    width: "clamp(44px, 12vw, 70px)",
-    textAlign: "center",
-  }}
+        style={{ width: 70, textAlign: "center" }}
       />
       <button className="btn btn-grey" onClick={onPlus}>
         +
@@ -1839,95 +1808,49 @@ function TeamLogoLarge({ team }) {
   );
 }
 
-function ClockBlock({
-  running,
-  clock,
-  onClockChange,
-  onStart,
-  onReset,
-  period,
-  setPeriod,
-  lenMin,
-  setLenMin,
-}) {
+function ClockBlock({ running, clock, onClockChange, onStart, onReset, period, setPeriod, lenMin, setLenMin }) {
   return (
-    <div
-      className="card"
-      style={{
-        padding: "clamp(6px, 2vw, 12px)",
-       width: "100%",
-maxWidth: 360,
-        textAlign: "center",
-      }}
-    >
-      {/* CLOCK ROW */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr auto auto",
-          alignItems: "center",
-          gap: "clamp(4px, 1vw, 8px)",
-        }}
-      >
-        <input
-          className="input"
-          value={clock}
-          onChange={(e) => onClockChange(e.target.value)}
-          style={{
-            fontWeight: 900,
-            fontSize: "clamp(16px, 6vw, 34px)",
-            textAlign: "center",
-            padding: "clamp(4px, 1vw, 10px)",
-          }}
-        />
-
+    <div className="card" style={{ padding: 12, textAlign: "center", minWidth: isPhone ? "100%" : 340 }}>
+      <input
+        className="input"
+        value={clock}
+        onChange={(e) => onClockChange(e.target.value)}
+        style={{ fontWeight: 900, fontSize: 34, textAlign: "center" }}
+      />
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
         <button className="btn btn-grey" onClick={onStart}>
-          {running ? "⏸" : "▶"}
+          {running ? "Stop" : "Start"}
         </button>
-
         <button className="btn btn-grey" onClick={onReset}>
-          ↺
+          Reset
         </button>
       </div>
-
-      {/* META ROW (auto wraps on small widths) */}
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          justifyContent: "center",
-          flexWrap: "wrap",
-          marginTop: 8,
-        }}
-      >
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
         <span className="muted">Len</span>
         <input
           className="input"
           type="number"
+          min={1}
+          max={30}
           value={lenMin}
-          onChange={(e) =>
-            setLenMin(parseInt(e.target.value || "15", 10))
-          }
-          style={{ width: 60 }}
+          onChange={(e) => setLenMin(parseInt(e.target.value || "15", 10))}
+          style={{ width: 70 }}
         />
-
-        <span className="muted">P</span>
+        <span className="muted">min</span>
+        <span style={{ width: 12 }} />
+        <span className="muted">Period</span>
         <input
           className="input"
           type="number"
+          min={1}
           value={period}
-          onChange={(e) =>
-            setPeriod(parseInt(e.target.value || "1", 10))
-          }
-          style={{ width: 50 }}
+          onChange={(e) => setPeriod(parseInt(e.target.value || "1", 10))}
+          style={{ width: 70 }}
         />
       </div>
     </div>
   );
 }
-
-
-
 
 function Bench({ title, players, color, height, benchTeamId, onDropBack }) {
   return (
@@ -1947,8 +1870,7 @@ function Bench({ title, players, color, height, benchTeamId, onDropBack }) {
       <div
         style={{
           display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(44px, 1fr))",
-
+          gridTemplateColumns: "repeat(2, 56px)",
           gap: 8,
           height: height - 48,
           overflow: "auto",
