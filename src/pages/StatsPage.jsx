@@ -29,6 +29,10 @@ export default function StatsPage() {
 
     let cancelled = false;
 
+    setGoalies([]);    // ✅ reset stale data
+  setSkaters([]);
+  setLoading(true);
+
     async function load() {
       setLoading(true);
 
@@ -51,6 +55,7 @@ export default function StatsPage() {
           )
           .eq("season_id", seasonId)
           .eq("category_id", categoryId)
+        .gt("sa", 0) // 🔒 extra safety (optional)
           .order("sv_pct", { ascending: false, nullsFirst: false }),
       ]);
 
