@@ -105,6 +105,15 @@ export default function LivePage() {
   const lastTs = useRef(0);
   const remainingMs = useRef(0);
 
+  // --------------------------------------------------------------------------
+// 1F-BIS. SHOOTOUT STATE
+// --------------------------------------------------------------------------
+
+const [isShootout, setIsShootout] = useState(false);
+const [soRound, setSoRound] = useState(1);
+const [soAttempts, setSoAttempts] = useState([]);
+
+
 // --------------------------------------------------------------------------
   // 1G. MODAL STATE (goal / shot)
   // --------------------------------------------------------------------------
@@ -384,7 +393,14 @@ const [quickPick, setQuickPick] = useState(null);
 
 // 5) Load events
  
-      await refreshEvents(g.id);
+     // 5) Load events
+await refreshEvents(g.id);
+
+// 6) Load shootout state
+setIsShootout(Boolean(g.went_so));
+setSoRound(1);
+await loadShootout(g.id);
+
     })();
 
     return () => {
@@ -546,6 +562,100 @@ useEffect(() => {
     setRows(grouped);
   }
 
+// --------------------------------------------------------------------------
+// SHOOTOUT — LOAD ATTEMPTS (NO SIDE EFFECTS)
+// --------------------------------------------------------------------------
+
+async function loadShootout(gameId) {
+  const { data, error } = await supabase
+    .from("shootout_attempts")
+    .select(`
+      id,
+      game_id,
+      team_id,
+      shooter_id,
+      goalie_id,
+      round,
+      result,
+      players!shootout_attempts_shooter_id_fkey ( id, name ),
+      teams!shootout_attempts_team_id_fkey ( id, short_name )
+    `)
+    .eq("game_id", gameId)
+    .order("round", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("loadShootout error:", error);
+    return;
+  }
+
+  setSoAttempts(data || []);
+}
+
+// --------------------------------------------------------------------------
+// SHOOTOUT — RECORD ONE ATTEMPT (NO STAT SIDE EFFECTS)
+// --------------------------------------------------------------------------
+
+async function recordShootoutAttempt({ teamId, shooterId, result }) {
+  if (!game?.id) return;
+
+  // Determine opposing goalie
+  const opposingTeamId =
+    teamId === home.id ? away.id : home.id;
+
+  const goalieId = goalieOnIce[opposingTeamId];
+
+  if (!goalieId) {
+    alert("Select the opposing goalie before shootout attempt.");
+    return;
+  }
+
+  // Insert shootout attempt
+  await supabase.from("shootout_attempts").insert([
+    {
+      game_id: game.id,
+      team_id: teamId,
+      shooter_id: shooterId,
+      goalie_id: goalieId,
+      round: soRound,
+      result, // 'goal' | 'miss'
+    },
+  ]);
+
+  // Reload attempts
+  await loadShootout(game.id);
+
+  // Count attempts this round (including this one)
+  const attemptsThisRound =
+    soAttempts.filter((a) => a.round === soRound).length + 1;
+
+  // Advance round only after BOTH teams shoot
+  if (attemptsThisRound >= 2) {
+    setSoRound((r) => r + 1);
+  }
+
+  // Update shootout score (game table ONLY)
+  const nextHomeGoals =
+    teamId === home.id && result === "goal"
+      ? (game.so_home_goals || 0) + 1
+      : game.so_home_goals || 0;
+
+  const nextAwayGoals =
+    teamId === away.id && result === "goal"
+      ? (game.so_away_goals || 0) + 1
+      : game.so_away_goals || 0;
+
+  await supabase
+    .from("games")
+    .update({
+      so_home_goals: nextHomeGoals,
+      so_away_goals: nextAwayGoals,
+    })
+    .eq("id", game.id);
+}
+
+  
+  
 function toggleQuickAssist(playerId) {
   setQuickAssists((cur) => {
     // deselect if already selected
@@ -913,6 +1023,13 @@ async function handleShotMinus(teamId) {
 
 
   async function confirmGoal() {
+
+    // 🚫 BLOCK normal goals during shootout
+  if (isShootout) {
+    alert("Use Shootout controls during shootout.");
+    return;
+  }
+    
     if (!goalPick) return;
     const per = Number(goalPeriod) || 1;
     const tm = (goalTime || clock).trim();
@@ -1062,6 +1179,13 @@ async function handleShotMinus(teamId) {
   }, [shotPick, home?.id, homeDressed, awayDressed, onIce]);
 
   async function confirmShot() {
+
+// 🚫 BLOCK normal shots during shootout
+  if (isShootout) {
+    alert("Use Shootout controls during shootout.");
+    return;
+  }
+    
     if (!shotPick || !shotShooter) return;
     const tid = shotPick.team_id;
     const per = Number(shotPeriod) || 1;
@@ -1181,6 +1305,26 @@ async function handleShotMinus(teamId) {
     🏒 Rink
   </button>
 
+  {!isShootout && (
+  <button
+    className="btn btn-orange"
+    onClick={async () => {
+      // 1) local state
+      setIsShootout(true);
+      setSoRound(1);
+
+      // 2) persist to DB
+      await supabase
+        .from("games")
+        .update({ went_so: true })
+        .eq("id", game.id);
+    }}
+  >
+    🥅 Start Shootout
+  </button>
+)}
+
+
   <Link className="btn btn-grey" to={`/games/${slug}/roster`}>
     Roster
   </Link>
@@ -1189,6 +1333,23 @@ async function handleShotMinus(teamId) {
     Back to Games
   </Link>
 </div>
+
+{isShootout && (
+  <div
+    className="card"
+    style={{
+      marginBottom: 10,
+      padding: 10,
+      textAlign: "center",
+      fontWeight: 900,
+      background: "#fff7ed",
+      border: "2px solid #fb923c",
+    }}
+  >
+    🥅 SHOOTOUT — Round {soRound}
+  </div>
+)}
+
 
       
 
@@ -1388,6 +1549,119 @@ height: isPhone ? 48 : 56,
     
 ))}
 
+      </div>
+    </div>
+  </div>
+)}
+
+
+{/* ===================================================================== */}
+{/* SHOOTOUT CONTROLS                                                    */}
+{/* ===================================================================== */}
+
+{isShootout && (
+  <div className="card" style={{ marginTop: 14 }}>
+    <div style={{ fontWeight: 900, marginBottom: 10 }}>
+      🥅 Shootout — Round {soRound}
+    </div>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr",
+        gap: 16,
+      }}
+    >
+      {/* AWAY TEAM SHOOTOUT */}
+      <div>
+        <div style={{ fontWeight: 800, marginBottom: 6 }}>
+          {away.short_name || away.name}
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 56px)",
+            gap: 10,
+          }}
+        >
+          {awayDressed.map((p) => (
+            <div key={p.id} style={{ display: "flex", gap: 6 }}>
+              <button
+                className="btn btn-blue"
+                style={{ flex: 1 }}
+                onClick={() =>
+                  recordShootoutAttempt({
+                    teamId: away.id,
+                    shooterId: p.id,
+                    result: "goal",
+                  })
+                }
+              >
+                #{p.number ?? "•"}
+              </button>
+
+              <button
+                className="btn btn-grey"
+                onClick={() =>
+                  recordShootoutAttempt({
+                    teamId: away.id,
+                    shooterId: p.id,
+                    result: "miss",
+                  })
+                }
+              >
+                ❌
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* HOME TEAM SHOOTOUT */}
+      <div>
+        <div style={{ fontWeight: 800, marginBottom: 6 }}>
+          {home.short_name || home.name}
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 56px)",
+            gap: 10,
+          }}
+        >
+          {homeDressed.map((p) => (
+            <div key={p.id} style={{ display: "flex", gap: 6 }}>
+              <button
+                className="btn btn-blue"
+                style={{ flex: 1 }}
+                onClick={() =>
+                  recordShootoutAttempt({
+                    teamId: home.id,
+                    shooterId: p.id,
+                    result: "goal",
+                  })
+                }
+              >
+                #{p.number ?? "•"}
+              </button>
+
+              <button
+                className="btn btn-grey"
+                onClick={() =>
+                  recordShootoutAttempt({
+                    teamId: home.id,
+                    shooterId: p.id,
+                    result: "miss",
+                  })
+                }
+              >
+                ❌
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   </div>
