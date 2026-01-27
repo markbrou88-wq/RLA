@@ -29,9 +29,13 @@ export default function StatsPage() {
 
     let cancelled = false;
 
+    
+
     async function load() {
       setLoading(true);
-
+ setGoalies([]);
+  setSkaters([]);
+      
       const [
         { data: stats, error: e1 },
         { data: gl, error: e2 },
@@ -161,7 +165,7 @@ export default function StatsPage() {
             </thead>
             <tbody>
               {goalies.map((g) => (
-                <tr key={g.player_id}>
+               <tr key={`${g.player_id}-${g.team}-${seasonId}-${categoryId}`}>
                   <td style={td}>
                     <PlayerLink id={g.player_id}>{g.goalie}</PlayerLink>
                   </td>
