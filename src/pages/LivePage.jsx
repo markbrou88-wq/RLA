@@ -777,10 +777,16 @@ function toggleQuickAssist(playerId) {
     const cur = homeShots || 0;
     const delta = v - cur;
 
-    if (delta > 0 && !goalieOnIce[away?.id]) {
-      alert("Select the AWAY goalie before recording shots.");
-      return;
-    }
+   if (delta > 0) {
+  const gId = goalieOnIce[away?.id];
+  if (!gId) {
+    alert("Select the AWAY goalie before recording shots.");
+    return;
+  }
+
+  // ensure goalie is bound to game_goalies BEFORE bulk apply
+  await upsertGameGoalieRow(away.id, gId);
+}
 
     setHomeShots(v);
     try {
@@ -793,10 +799,16 @@ function toggleQuickAssist(playerId) {
     const cur = awayShots || 0;
     const delta = v - cur;
 
-    if (delta > 0 && !goalieOnIce[home?.id]) {
-      alert("Select the HOME goalie before recording shots.");
-      return;
-    }
+    if (delta > 0) {
+  const gId = goalieOnIce[home?.id];
+  if (!gId) {
+    alert("Select the HOME goalie before recording shots.");
+    return;
+  }
+
+  // ensure goalie is bound to game_goalies BEFORE bulk apply
+  await upsertGameGoalieRow(away.id, gId);
+}
 
     setAwayShots(v);
     try {
@@ -805,20 +817,30 @@ function toggleQuickAssist(playerId) {
     await bumpGoalieSA(home.id, delta);
   }
 
-  // wrappers for "-" buttons: decrement shot + remove latest shot event
-  async function handleShotMinus(teamId) {
-    if (!game) return;
-    const isHome = teamId === home?.id;
-    const cur = isHome ? homeShots : awayShots;
-    if (cur <= 0) return;
+async function handleShotMinus(teamId) {
+  if (!game) return;
+  const isHome = teamId === home?.id;
+  const cur = isHome ? homeShots : awayShots;
+  if (cur <= 0) return;
 
-    if (isHome) {
-      await changeHomeShots(cur - 1);
-    } else {
-      await changeAwayShots(cur - 1);
-    }
+  // 1️⃣ Decrement shots + goalie SA
+  if (isHome) {
+    await changeHomeShots(cur - 1);
+  } else {
+    await changeAwayShots(cur - 1);
+  }
 
-    // delete the latest 'shot' event for that team (if any)
+  // 2️⃣ Count how many real shot EVENTS exist
+  const { count: shotEventCount } = await supabase
+    .from("events")
+    .select("*", { count: "exact", head: true })
+    .eq("game_id", game.id)
+    .eq("team_id", teamId)
+    .eq("event", "shot");
+
+  // 3️⃣ Only delete an event if it matches reality
+  // (prevents bulk/manual shots from eating real events)
+  if (shotEventCount >= cur) {
     const { data: lastShot } = await supabase
       .from("events")
       .select("id")
@@ -834,6 +856,9 @@ function toggleQuickAssist(playerId) {
       await supabase.from("events").delete().eq("id", lastShot.id);
     }
   }
+}
+
+  
 
   /* ---------- GA: bump goals_against on opposing goalie (game_goalies) ---------- */
   async function bumpGoalieGA(opposingTeamId, delta) {
