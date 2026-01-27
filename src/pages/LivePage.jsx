@@ -623,7 +623,26 @@ async function recordShootoutAttempt({ teamId, shooterId, result }) {
   ]);
 
   // Reload attempts
-  await loadShootout(game.id);
+ // Reload attempts
+const { data: updatedAttempts } = await supabase
+  .from("shootout_attempts")
+  .select("*")
+  .eq("game_id", game.id);
+
+setSoAttempts(updatedAttempts || []);
+
+// Check for winner
+const winnerTeamId = getShootoutWinner(
+  updatedAttempts || [],
+  home.id,
+  away.id
+);
+
+if (winnerTeamId) {
+  await finalizeShootout(winnerTeamId);
+  setIsShootout(false);
+}
+
 
   // Count attempts this round (including this one)
   const attemptsThisRound =
@@ -654,6 +673,75 @@ async function recordShootoutAttempt({ teamId, shooterId, result }) {
     .eq("id", game.id);
 }
 
+// --------------------------------------------------------------------------
+// SHOOTOUT — CHECK FOR WINNER
+// --------------------------------------------------------------------------
+
+function getShootoutWinner(attempts, homeId, awayId) {
+  // Count goals by team
+  const homeGoals = attempts.filter(
+    (a) => a.team_id === homeId && a.result === "goal"
+  ).length;
+
+  const awayGoals = attempts.filter(
+    (a) => a.team_id === awayId && a.result === "goal"
+  ).length;
+
+  // Group attempts by round
+  const rounds = {};
+  attempts.forEach((a) => {
+    if (!rounds[a.round]) rounds[a.round] = [];
+    rounds[a.round].push(a);
+  });
+
+  const roundNumbers = Object.keys(rounds).map(Number);
+  const maxRound = Math.max(0, ...roundNumbers);
+
+  // Case 1 — After 3 rounds
+  if (maxRound >= 3 && homeGoals !== awayGoals) {
+    return homeGoals > awayGoals ? homeId : awayId;
+  }
+
+  // Case 2 — Sudden death
+  if (maxRound >= 4) {
+    const lastRound = rounds[maxRound] || [];
+
+    if (lastRound.length === 2) {
+      const [a1, a2] = lastRound;
+
+      if (a1.result !== a2.result) {
+        return a1.result === "goal" ? a1.team_id : a2.team_id;
+      }
+    }
+  }
+
+  return null; // no winner yet
+}
+
+// --------------------------------------------------------------------------
+// SHOOTOUT — FINALIZE GAME
+// --------------------------------------------------------------------------
+
+async function finalizeShootout(winnerTeamId) {
+  if (!game) return;
+
+  await supabase
+    .from("games")
+    .update({
+      so_winner_team_id: winnerTeamId,
+      home_score:
+        winnerTeamId === home.id
+          ? game.home_score + 1
+          : game.home_score,
+      away_score:
+        winnerTeamId === away.id
+          ? game.away_score + 1
+          : game.away_score,
+    })
+    .eq("id", game.id);
+}
+
+  
   
   
 function toggleQuickAssist(playerId) {
@@ -1406,6 +1494,25 @@ async function handleShotMinus(teamId) {
         </div>
       </div>
 
+{!isShootout && game?.so_winner_team_id && (
+  <div
+    className="card"
+    style={{
+      marginTop: 10,
+      fontWeight: 900,
+      textAlign: "center",
+      background: "#ecfeff",
+      border: "2px solid #06b6d4",
+    }}
+  >
+    🏆 Shootout Winner:{" "}
+    {game.so_winner_team_id === home.id
+      ? home.short_name || home.name
+      : away.short_name || away.name}
+  </div>
+)}
+
+      
 
 {/* ===================================================================== */}
 {/* MAIN LAYOUT AREA                                                     */}
