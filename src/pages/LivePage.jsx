@@ -627,20 +627,28 @@ async function recordShootoutAttempt({ teamId, shooterId, result }) {
   ]);
 
   // Reload attempts
- // Reload attempts
-const { data: updatedAttempts } = await supabase
+
+
+  await loadShootout(game.id);
+
+
+// Reload fresh attempts (authoritative)
+const { data: attempts } = await supabase
   .from("shootout_attempts")
-  .select("*")
+  .select("team_id, round, result")
   .eq("game_id", game.id);
 
-setSoAttempts(updatedAttempts || []);
-
-// Check for winner
 const winnerTeamId = getShootoutWinner(
-  updatedAttempts || [],
+  attempts || [],
   home.id,
   away.id
 );
+
+if (winnerTeamId) {
+  await finalizeShootout(winnerTeamId);
+  setIsShootout(false);
+}
+
 
 if (winnerTeamId) {
   await finalizeShootout(winnerTeamId);
@@ -675,6 +683,15 @@ if (winnerTeamId) {
       so_away_goals: nextAwayGoals,
     })
     .eq("id", game.id);
+
+  // 🔥 KEEP LOCAL GAME STATE IN SYNC
+setGame((g) => ({
+  ...g,
+  so_home_goals: nextHomeGoals,
+  so_away_goals: nextAwayGoals,
+}));
+
+  
 }
 
 // --------------------------------------------------------------------------
@@ -743,6 +760,17 @@ async function finalizeShootout(winnerTeamId) {
           : game.away_score,
     })
     .eq("id", game.id);
+  
+setGame((g) => ({
+  ...g,
+  so_winner_team_id: winnerTeamId,
+  home_score:
+    winnerTeamId === home.id ? g.home_score + 1 : g.home_score,
+  away_score:
+    winnerTeamId === away.id ? g.away_score + 1 : g.away_score,
+}));
+
+  
 }
 
   
@@ -1405,11 +1433,30 @@ async function handleShotMinus(teamId) {
       setIsShootout(true);
       setSoRound(1);
 
-      // 2) persist to DB
-      await supabase
-        .from("games")
-        .update({ went_so: true })
-        .eq("id", game.id);
+     // 1️⃣ Persist to DB
+await supabase
+  .from("games")
+  .update({
+    went_so: true,
+    so_home_goals: 0,
+    so_away_goals: 0,
+    so_winner_team_id: null,
+  })
+  .eq("id", game.id);
+
+// 2️⃣ Sync local game state (CRITICAL)
+setGame((g) => ({
+  ...g,
+  went_so: true,
+  so_home_goals: 0,
+  so_away_goals: 0,
+  so_winner_team_id: null,
+}));
+
+// 3️⃣ UI state
+setIsShootout(true);
+setSoRound(1);
+setSoAttempts([]);
     }}
   >
     🥅 Start Shootout
@@ -1417,37 +1464,42 @@ async function handleShotMinus(teamId) {
 )}
 
 {isShootout && (
-  <button
-    className="btn btn-red"
-    onClick={async () => {
-      if (!window.confirm("Reset shootout? All attempts will be deleted.")) return;
 
-      // 1️⃣ Delete attempts
-      await supabase
-        .from("shootout_attempts")
-        .delete()
-        .eq("game_id", game.id);
+<button
+  className="btn btn-red"
+  onClick={async () => {
+    if (!window.confirm("Reset shootout? All attempts will be deleted.")) return;
 
-      // 2️⃣ Reset game shootout fields
-      await supabase
-        .from("games")
-        .update({
-          went_so: false,
-          so_home_goals: 0,
-          so_away_goals: 0,
-          so_winner_team_id: null,
-        })
-        .eq("id", game.id);
+    await supabase.from("shootout_attempts").delete().eq("game_id", game.id);
 
-      // 3️⃣ Reset local state
-      setIsShootout(false);
-      setSoRound(1);
-      setSoAttempts([]);
-      setPendingShootout(null);
-    }}
-  >
-    🔄 Reset Shootout
-    <button
+    await supabase
+      .from("games")
+      .update({
+        went_so: false,
+        so_home_goals: 0,
+        so_away_goals: 0,
+        so_winner_team_id: null,
+      })
+      .eq("id", game.id);
+
+    setGame((g) => ({
+      ...g,
+      went_so: false,
+      so_home_goals: 0,
+      so_away_goals: 0,
+      so_winner_team_id: null,
+    }));
+
+    setIsShootout(false);
+    setSoRound(1);
+    setSoAttempts([]);
+    setPendingShootout({ home: null, away: null });
+  }}
+>
+  🔄 Reset Shootout
+</button>
+
+<button
   className="btn btn-green"
   onClick={async () => {
     const winner =
@@ -1463,6 +1515,8 @@ async function handleShotMinus(teamId) {
 >
   ✅ Finish Shootout
 </button>
+
+  
   </button>
 )}
 
