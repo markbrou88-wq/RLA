@@ -650,15 +650,12 @@ if (winnerTeamId) {
 }
 
 
-if (winnerTeamId) {
-  await finalizeShootout(winnerTeamId);
-  setIsShootout(false);
-}
 
 
   // Count attempts this round (including this one)
-  const attemptsThisRound =
-    soAttempts.filter((a) => a.round === soRound).length + 1;
+ const attemptsThisRound = attempts.filter(
+  (a) => a.round === soRound
+).length;
 
   // Advance round only after BOTH teams shoot
   if (attemptsThisRound >= 2) {
@@ -1463,61 +1460,60 @@ setSoAttempts([]);
   </button>
 )}
 
+
 {isShootout && (
+  <>
+    <button
+      className="btn btn-red"
+      onClick={async () => {
+        if (!window.confirm("Reset shootout? All attempts will be deleted.")) return;
 
-<button
-  className="btn btn-red"
-  onClick={async () => {
-    if (!window.confirm("Reset shootout? All attempts will be deleted.")) return;
+        await supabase.from("shootout_attempts").delete().eq("game_id", game.id);
 
-    await supabase.from("shootout_attempts").delete().eq("game_id", game.id);
+        await supabase
+          .from("games")
+          .update({
+            went_so: false,
+            so_home_goals: 0,
+            so_away_goals: 0,
+            so_winner_team_id: null,
+          })
+          .eq("id", game.id);
 
-    await supabase
-      .from("games")
-      .update({
-        went_so: false,
-        so_home_goals: 0,
-        so_away_goals: 0,
-        so_winner_team_id: null,
-      })
-      .eq("id", game.id);
+        setGame((g) => ({
+          ...g,
+          went_so: false,
+          so_home_goals: 0,
+          so_away_goals: 0,
+          so_winner_team_id: null,
+        }));
 
-    setGame((g) => ({
-      ...g,
-      went_so: false,
-      so_home_goals: 0,
-      so_away_goals: 0,
-      so_winner_team_id: null,
-    }));
+        setIsShootout(false);
+        setSoRound(1);
+        setSoAttempts([]);
+        setPendingShootout({ home: null, away: null });
+      }}
+    >
+      🔄 Reset Shootout
+    </button>
 
-    setIsShootout(false);
-    setSoRound(1);
-    setSoAttempts([]);
-    setPendingShootout({ home: null, away: null });
-  }}
->
-  🔄 Reset Shootout
-</button>
+    <button
+      className="btn btn-green"
+      onClick={async () => {
+        const winner =
+          (game.so_home_goals || 0) > (game.so_away_goals || 0)
+            ? home.id
+            : away.id;
 
-<button
-  className="btn btn-green"
-  onClick={async () => {
-    const winner =
-      (game.so_home_goals || 0) > (game.so_away_goals || 0)
-        ? home.id
-        : away.id;
+        if (!window.confirm("Finish shootout and assign win?")) return;
 
-    if (!window.confirm("Finish shootout and assign win?")) return;
-
-    await finalizeShootout(winner);
-    setIsShootout(false);
-  }}
->
-  ✅ Finish Shootout
-</button>
-
-  
-  </button>
+        await finalizeShootout(winner);
+        setIsShootout(false);
+      }}
+    >
+      ✅ Finish Shootout
+    </button>
+  </>
 )}
 
   
