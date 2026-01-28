@@ -567,6 +567,65 @@ useEffect(() => {
   }
 
 // --------------------------------------------------------------------------
+// SHOOTOUT — CONSTANTS & HELPERS
+// --------------------------------------------------------------------------
+
+const SO_DECIDER_EVENT = "so_decider";
+
+function safeTeamShort(teamId) {
+  if (teamId === home?.id) return home?.short_name || home?.name || "HOME";
+  if (teamId === away?.id) return away?.short_name || away?.name || "AWAY";
+  return "TEAM";
+}
+
+async function recomputeShootoutScoreFromDB(gameId) {
+  const { data, error } = await supabase
+    .from("shootout_attempts")
+    .select("team_id, result, round")
+    .eq("game_id", gameId);
+
+  if (error) {
+    console.error("recomputeShootoutScoreFromDB error:", error);
+    return { homeGoals: 0, awayGoals: 0, maxRound: 1, attempts: [] };
+  }
+
+  const attempts = data || [];
+  const homeGoals = attempts.filter(
+    (a) => a.team_id === home.id && a.result === "goal"
+  ).length;
+
+  const awayGoals = attempts.filter(
+    (a) => a.team_id === away.id && a.result === "goal"
+  ).length;
+
+  const maxRound = Math.max(1, ...attempts.map((a) => Number(a.round || 1)));
+
+  return { homeGoals, awayGoals, maxRound, attempts };
+}
+
+function computeNextShootoutRound(attempts, currentRound) {
+  const inRound = attempts.filter(
+    (a) => Number(a.round) === Number(currentRound)
+  );
+  const teams = new Set(inRound.map((a) => a.team_id));
+
+  if (teams.has(home.id) && teams.has(away.id)) {
+    return currentRound + 1;
+  }
+  return currentRound;
+}
+
+async function deleteShootoutDeciderEvent(gameId) {
+  await supabase
+    .from("events")
+    .delete()
+    .eq("game_id", gameId)
+    .eq("event", SO_DECIDER_EVENT);
+}
+
+
+  
+// --------------------------------------------------------------------------
 // SHOOTOUT — LOAD ATTEMPTS (NO SIDE EFFECTS)
 // --------------------------------------------------------------------------
 
@@ -603,10 +662,7 @@ async function loadShootout(gameId) {
 async function recordShootoutAttempt({ teamId, shooterId, result }) {
   if (!game?.id) return;
 
-  // Determine opposing goalie
-  const opposingTeamId =
-    teamId === home.id ? away.id : home.id;
-
+  const opposingTeamId = teamId === home.id ? away.id : home.id;
   const goalieId = goalieOnIce[opposingTeamId];
 
   if (!goalieId) {
@@ -614,82 +670,50 @@ async function recordShootoutAttempt({ teamId, shooterId, result }) {
     return;
   }
 
-  // Insert shootout attempt
-  await supabase.from("shootout_attempts").insert([
+  // 1️⃣ Insert attempt (authoritative)
+  const { error } = await supabase.from("shootout_attempts").insert([
     {
       game_id: game.id,
       team_id: teamId,
       shooter_id: shooterId,
       goalie_id: goalieId,
       round: soRound,
-      result, // 'goal' | 'miss'
+      result, // "goal" | "miss"
     },
   ]);
 
-  // Reload attempts
-
-
-  await loadShootout(game.id);
-
-
-// Reload fresh attempts (authoritative)
-const { data: attempts } = await supabase
-  .from("shootout_attempts")
-  .select("team_id, round, result")
-  .eq("game_id", game.id);
-
-const winnerTeamId = getShootoutWinner(
-  attempts || [],
-  home.id,
-  away.id
-);
-
-if (winnerTeamId) {
-  await finalizeShootout(winnerTeamId);
-  setIsShootout(false);
-}
-
-
-
-
-  // Count attempts this round (including this one)
- const attemptsThisRound = attempts.filter(
-  (a) => a.round === soRound
-).length;
-
-  // Advance round only after BOTH teams shoot
-  if (attemptsThisRound >= 2) {
-    setSoRound((r) => r + 1);
+  if (error) {
+    console.error("recordShootoutAttempt error:", error);
+    alert("Could not save shootout attempt.");
+    return;
   }
 
-  // Update shootout score (game table ONLY)
-  const nextHomeGoals =
-    teamId === home.id && result === "goal"
-      ? (game.so_home_goals || 0) + 1
-      : game.so_home_goals || 0;
+  // 2️⃣ Reload attempts
+  await loadShootout(game.id);
 
-  const nextAwayGoals =
-    teamId === away.id && result === "goal"
-      ? (game.so_away_goals || 0) + 1
-      : game.so_away_goals || 0;
+  // 3️⃣ Recompute score from DB (NO DRIFT)
+  const { homeGoals, awayGoals, attempts } =
+    await recomputeShootoutScoreFromDB(game.id);
 
   await supabase
     .from("games")
     .update({
-      so_home_goals: nextHomeGoals,
-      so_away_goals: nextAwayGoals,
+      so_home_goals: homeGoals,
+      so_away_goals: awayGoals,
     })
     .eq("id", game.id);
 
-  // 🔥 KEEP LOCAL GAME STATE IN SYNC
-setGame((g) => ({
-  ...g,
-  so_home_goals: nextHomeGoals,
-  so_away_goals: nextAwayGoals,
-}));
+  setGame((g) => ({
+    ...g,
+    so_home_goals: homeGoals,
+    so_away_goals: awayGoals,
+  }));
 
-  
+  // 4️⃣ Advance round only after BOTH teams shot
+  const nextRound = computeNextShootoutRound(attempts, soRound);
+  if (nextRound !== soRound) setSoRound(nextRound);
 }
+
 
 // --------------------------------------------------------------------------
 // SHOOTOUT — CHECK FOR WINNER
@@ -741,35 +765,54 @@ function getShootoutWinner(attempts, homeId, awayId) {
 // --------------------------------------------------------------------------
 
 async function finalizeShootout(winnerTeamId) {
-  if (!game) return;
+  if (!game?.id) return;
+
+  // 1️⃣ Remove previous decider (safety)
+  await deleteShootoutDeciderEvent(game.id);
+
+  // 2️⃣ Insert unattached deciding goal (audit trail)
+  await supabase.from("events").insert([
+    {
+      game_id: game.id,
+      team_id: winnerTeamId,
+      player_id: null,
+      period: 4,
+      time_mmss: "00:00",
+      event: SO_DECIDER_EVENT,
+      goalie_id: null,
+    },
+  ]);
+
+  const nextHome =
+    winnerTeamId === home.id
+      ? (game.home_score || 0) + 1
+      : game.home_score || 0;
+
+  const nextAway =
+    winnerTeamId === away.id
+      ? (game.away_score || 0) + 1
+      : game.away_score || 0;
 
   await supabase
     .from("games")
     .update({
+      went_so: true,
       so_winner_team_id: winnerTeamId,
-      home_score:
-        winnerTeamId === home.id
-          ? game.home_score + 1
-          : game.home_score,
-      away_score:
-        winnerTeamId === away.id
-          ? game.away_score + 1
-          : game.away_score,
+      home_score: nextHome,
+      away_score: nextAway,
     })
     .eq("id", game.id);
-  
-setGame((g) => ({
-  ...g,
-  so_winner_team_id: winnerTeamId,
-  home_score:
-    winnerTeamId === home.id ? g.home_score + 1 : g.home_score,
-  away_score:
-    winnerTeamId === away.id ? g.away_score + 1 : g.away_score,
-}));
 
-  
+  setGame((g) => ({
+    ...g,
+    went_so: true,
+    so_winner_team_id: winnerTeamId,
+    home_score: nextHome,
+    away_score: nextAway,
+  }));
 }
 
+  
   
   
   
@@ -1034,7 +1077,7 @@ function toggleQuickAssist(playerId) {
   }
 
   // ensure goalie is bound to game_goalies BEFORE bulk apply
-  await upsertGameGoalieRow(away.id, gId);
+  await upsertGameGoalieRow(home.id, gId);
 }
 
     setAwayShots(v);
@@ -1499,17 +1542,28 @@ setSoAttempts([]);
 
     <button
       className="btn btn-green"
+
       onClick={async () => {
-        const winner =
-          (game.so_home_goals || 0) > (game.so_away_goals || 0)
-            ? home.id
-            : away.id;
+  const hg = Number(game.so_home_goals || 0);
+  const ag = Number(game.so_away_goals || 0);
 
-        if (!window.confirm("Finish shootout and assign win?")) return;
+  if (hg === ag) {
+    alert("Shootout is tied. Add attempts or reset.");
+    return;
+  }
 
-        await finalizeShootout(winner);
-        setIsShootout(false);
-      }}
+  const winner = hg > ag ? home.id : away.id;
+
+  if (!window.confirm(`Finish shootout? Winner: ${safeTeamShort(winner)}`))
+    return;
+
+  await finalizeShootout(winner);
+
+  // Hide controls but KEEP events table
+  setIsShootout(false);
+}}
+
+      
     >
       ✅ Finish Shootout
     </button>
@@ -1939,14 +1993,52 @@ onClick={() =>
         <button
           className="btn btn-red"
           style={{ flex: 1 }}
-          onClick={() => {
-            recordShootoutAttempt({
-              teamId: home.id,
-              shooterId: p.id,
-              result: "miss",
-            });
-            setPendingShootout((cur) => ({ ...cur, home: null }));
-          }}
+
+onClick={async () => {
+  if (!window.confirm("Reset shootout? All attempts and deciding goal will be deleted."))
+    return;
+
+  await supabase.from("shootout_attempts").delete().eq("game_id", game.id);
+  await deleteShootoutDeciderEvent(game.id);
+
+  let nextHome = game.home_score || 0;
+  let nextAway = game.away_score || 0;
+
+  if (game.so_winner_team_id === home.id) nextHome--;
+  if (game.so_winner_team_id === away.id) nextAway--;
+
+  nextHome = Math.max(0, nextHome);
+  nextAway = Math.max(0, nextAway);
+
+  await supabase
+    .from("games")
+    .update({
+      went_so: false,
+      so_home_goals: 0,
+      so_away_goals: 0,
+      so_winner_team_id: null,
+      home_score: nextHome,
+      away_score: nextAway,
+    })
+    .eq("id", game.id);
+
+  setGame((g) => ({
+    ...g,
+    went_so: false,
+    so_home_goals: 0,
+    so_away_goals: 0,
+    so_winner_team_id: null,
+    home_score: nextHome,
+    away_score: nextAway,
+  }));
+
+  setIsShootout(false);
+  setSoRound(1);
+  setSoAttempts([]);
+  setPendingShootout({ home: null, away: null });
+}}
+
+          
         >
           ❌ MISS
         </button>
@@ -2042,7 +2134,7 @@ onClick={() =>
         </table>
       </div>
 
-{isShootout && (
+{(isShootout || game?.went_so || soAttempts.length > 0) && (
   <div className="card" style={{ marginTop: 14 }}>
     <div style={{ fontWeight: 800, marginBottom: 8 }}>
       Shootout Events
