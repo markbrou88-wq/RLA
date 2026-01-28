@@ -112,6 +112,8 @@ export default function LivePage() {
 const [isShootout, setIsShootout] = useState(false);
 const [soRound, setSoRound] = useState(1);
 const [soAttempts, setSoAttempts] = useState([]);
+const [pendingShootout, setPendingShootout] = useState(null);
+// { teamId, shooterId }
 
 
 // --------------------------------------------------------------------------
@@ -1693,37 +1695,63 @@ height: isPhone ? 48 : 56,
           }}
         >
           {awayDressed.map((p) => (
-            <div key={p.id} style={{ display: "flex", gap: 6 }}>
-              <button
-                className="btn btn-blue"
-                style={{ flex: 1 }}
-                onClick={() =>
-                  recordShootoutAttempt({
-                    teamId: away.id,
-                    shooterId: p.id,
-                    result: "goal",
-                  })
-                }
-              >
-                #{p.number ?? "•"} ✓
-              </button>
+  <div key={p.id} style={{ marginBottom: 8 }}>
+    {/* Shooter */}
+    <button
+      className="btn"
+      style={{
+        width: "100%",
+        fontWeight: 900,
+        background: "#1f2937",
+        color: "#fff",
+      }}
+      onClick={() =>
+        setPendingShootout({
+          teamId: away.id,
+          shooterId: p.id,
+        })
+      }
+    >
+      #{p.number ?? "•"} {p.name}
+    </button>
 
-              <button
-                className="btn btn-grey"
-                onClick={() =>
-                  recordShootoutAttempt({
-                    teamId: away.id,
-                    shooterId: p.id,
-                    result: "miss",
-                  })
-                }
-              >
-                ❌
-              </button>
-            </div>
-          ))}
-        </div>
+    {/* Action buttons */}
+    {pendingShootout?.shooterId === p.id && (
+      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+        <button
+          className="btn btn-green"
+          style={{ flex: 1 }}
+          onClick={() => {
+            recordShootoutAttempt({
+              teamId: away.id,
+              shooterId: p.id,
+              result: "goal",
+            });
+            setPendingShootout(null);
+          }}
+        >
+          🥅 GOAL
+        </button>
+
+        <button
+          className="btn btn-red"
+          style={{ flex: 1 }}
+          onClick={() => {
+            recordShootoutAttempt({
+              teamId: away.id,
+              shooterId: p.id,
+              result: "miss",
+            });
+            setPendingShootout(null);
+          }}
+        >
+          ❌ MISS
+        </button>
       </div>
+    )}
+  </div>
+))}
+
 
       {/* HOME TEAM SHOOTOUT */}
       <div>
@@ -1738,36 +1766,66 @@ height: isPhone ? 48 : 56,
             gap: 10,
           }}
         >
-          {homeDressed.map((p) => (
-            <div key={p.id} style={{ display: "flex", gap: 6 }}>
-              <button
-                className="btn btn-blue"
-                style={{ flex: 1 }}
-                onClick={() =>
-                  recordShootoutAttempt({
-                    teamId: home.id,
-                    shooterId: p.id,
-                    result: "goal",
-                  })
-                }
-              >
-                #{p.number ?? "•"} ✓
-              </button>
 
-              <button
-                className="btn btn-grey"
-                onClick={() =>
-                  recordShootoutAttempt({
-                    teamId: home.id,
-                    shooterId: p.id,
-                    result: "miss",
-                  })
-                }
-              >
-                ❌
-              </button>
-            </div>
-          ))}
+          {homeDressed.map((p) => (
+  <div key={p.id} style={{ marginBottom: 8 }}>
+    {/* Shooter */}
+    <button
+      className="btn"
+      style={{
+        width: "100%",
+        fontWeight: 900,
+        background: "#1f2937",
+        color: "#fff",
+      }}
+      onClick={() =>
+        setPendingShootout({
+          teamId: away.id,
+          shooterId: p.id,
+        })
+      }
+    >
+      #{p.number ?? "•"} {p.name}
+    </button>
+
+    {/* Action buttons */}
+    {pendingShootout?.shooterId === p.id && (
+      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+        <button
+          className="btn btn-green"
+          style={{ flex: 1 }}
+          onClick={() => {
+            recordShootoutAttempt({
+              teamId: home.id,
+              shooterId: p.id,
+              result: "goal",
+            });
+            setPendingShootout(null);
+          }}
+        >
+          🥅 GOAL
+        </button>
+
+        <button
+          className="btn btn-red"
+          style={{ flex: 1 }}
+          onClick={() => {
+            recordShootoutAttempt({
+              teamId: home.id,
+              shooterId: p.id,
+              result: "miss",
+            });
+            setPendingShootout(null);
+          }}
+        >
+          ❌ MISS
+        </button>
+      </div>
+    )}
+  </div>
+))}
+
+          
         </div>
       </div>
     </div>
