@@ -1414,6 +1414,41 @@ async function handleShotMinus(teamId) {
   </button>
 )}
 
+{isShootout && (
+  <button
+    className="btn btn-red"
+    onClick={async () => {
+      if (!window.confirm("Reset shootout? All attempts will be deleted.")) return;
+
+      // 1️⃣ Delete attempts
+      await supabase
+        .from("shootout_attempts")
+        .delete()
+        .eq("game_id", game.id);
+
+      // 2️⃣ Reset game shootout fields
+      await supabase
+        .from("games")
+        .update({
+          went_so: false,
+          so_home_goals: 0,
+          so_away_goals: 0,
+          so_winner_team_id: null,
+        })
+        .eq("id", game.id);
+
+      // 3️⃣ Reset local state
+      setIsShootout(false);
+      setSoRound(1);
+      setSoAttempts([]);
+      setPendingShootout(null);
+    }}
+  >
+    🔄 Reset Shootout
+  </button>
+)}
+
+  
 
   <Link className="btn btn-grey" to={`/games/${slug}/roster`}>
     Roster
@@ -1436,9 +1471,11 @@ async function handleShotMinus(teamId) {
       border: "2px solid #fb923c",
     }}
   >
-    🥅 SHOOTOUT — Round {soRound}
+    🥅 SHOOTOUT — Round {Math.min(soRound, 3)} / 3
+    {soRound > 3 && <div style={{ fontSize: 12 }}>Sudden Death</div>}
   </div>
 )}
+
 
 
       
@@ -1698,23 +1735,32 @@ height: isPhone ? 48 : 56,
 {awayDressed.map((p) => (
   <div key={p.id} style={{ marginBottom: 8 }}>
     {/* Shooter */}
-    <button
-      className="btn"
-      style={{
-        width: "100%",
-        fontWeight: 900,
-        background: "#1f2937",
-        color: "#fff",
-      }}
-      onClick={() =>
-        setPendingShootout({
-          teamId: away.id,
-          shooterId: p.id,
-        })
-      }
-    >
-      #{p.number ?? "•"} {p.name}
-    </button>
+
+<button
+  onClick={() =>
+    setPendingShootout({
+      teamId: away.id,
+      shooterId: p.id,
+    })
+  }
+  style={{
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    background: awayColor,
+    color: "#fff",
+    fontWeight: 900,
+    fontSize: 18,
+    border: pendingShootout?.shooterId === p.id
+      ? "3px solid #16a34a"
+      : "none",
+    cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+  }}
+>
+  {p.number ?? "•"}
+</button>
+    
 
     {/* Action buttons */}
     {pendingShootout?.shooterId === p.id && (
@@ -1774,23 +1820,32 @@ height: isPhone ? 48 : 56,
 {homeDressed.map((p) => (
   <div key={p.id} style={{ marginBottom: 8 }}>
     {/* Shooter */}
+
     <button
-      className="btn"
-      style={{
-        width: "100%",
-        fontWeight: 900,
-        background: "#1f2937",
-        color: "#fff",
-      }}
-      onClick={() =>
-        setPendingShootout({
-          teamId: home.id,
-          shooterId: p.id,
-        })
-      }
-    >
-      #{p.number ?? "•"} {p.name}
-    </button>
+  onClick={() =>
+    setPendingShootout({
+      teamId: home.id,
+      shooterId: p.id,
+    })
+  }
+  style={{
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    background: homeColor,
+    color: "#fff",
+    fontWeight: 900,
+    fontSize: 18,
+    border: pendingShootout?.shooterId === p.id
+      ? "3px solid #16a34a"
+      : "none",
+    cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+  }}
+>
+  {p.number ?? "•"}
+</button>
+
 
     {/* Action buttons */}
     {pendingShootout?.shooterId === p.id && (
