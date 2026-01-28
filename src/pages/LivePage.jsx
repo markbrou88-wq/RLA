@@ -112,8 +112,10 @@ export default function LivePage() {
 const [isShootout, setIsShootout] = useState(false);
 const [soRound, setSoRound] = useState(1);
 const [soAttempts, setSoAttempts] = useState([]);
-const [pendingShootout, setPendingShootout] = useState(null);
-// { teamId, shooterId }
+const [pendingShootout, setPendingShootout] = useState({
+  home: null,
+  away: null,
+});
 
 
 // --------------------------------------------------------------------------
@@ -1445,6 +1447,22 @@ async function handleShotMinus(teamId) {
     }}
   >
     🔄 Reset Shootout
+    <button
+  className="btn btn-green"
+  onClick={async () => {
+    const winner =
+      (game.so_home_goals || 0) > (game.so_away_goals || 0)
+        ? home.id
+        : away.id;
+
+    if (!window.confirm("Finish shootout and assign win?")) return;
+
+    await finalizeShootout(winner);
+    setIsShootout(false);
+  }}
+>
+  ✅ Finish Shootout
+</button>
   </button>
 )}
 
@@ -1738,11 +1756,11 @@ height: isPhone ? 48 : 56,
 
 <button
   onClick={() =>
-    setPendingShootout({
-      teamId: away.id,
-      shooterId: p.id,
-    })
-  }
+  setPendingShootout((cur) => ({
+    ...cur,
+    away: p.id,
+  }))
+}
   style={{
     width: 56,
     height: 56,
@@ -1751,7 +1769,7 @@ height: isPhone ? 48 : 56,
     color: "#fff",
     fontWeight: 900,
     fontSize: 18,
-    border: pendingShootout?.shooterId === p.id
+    border: pendingShootout.away === p.id
       ? "3px solid #16a34a"
       : "none",
     cursor: "pointer",
@@ -1763,7 +1781,7 @@ height: isPhone ? 48 : 56,
     
 
     {/* Action buttons */}
-    {pendingShootout?.shooterId === p.id && (
+    {pendingShootout.away === p.id && (
       <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
         <button
           className="btn btn-green"
@@ -1774,7 +1792,7 @@ height: isPhone ? 48 : 56,
               shooterId: p.id,
               result: "goal",
             });
-            setPendingShootout(null);
+            setPendingShootout((cur) => ({ ...cur, away: null }));
           }}
         >
           🥅 GOAL
@@ -1789,7 +1807,7 @@ height: isPhone ? 48 : 56,
               shooterId: p.id,
               result: "miss",
             });
-            setPendingShootout(null);
+            setPendingShootout((cur) => ({ ...cur, away: null }));
           }}
         >
           ❌ MISS
@@ -1822,12 +1840,15 @@ height: isPhone ? 48 : 56,
     {/* Shooter */}
 
     <button
-  onClick={() =>
-    setPendingShootout({
-      teamId: home.id,
-      shooterId: p.id,
-    })
-  }
+
+onClick={() =>
+  setPendingShootout((cur) => ({
+    ...cur,
+    home: p.id,
+  }))
+}
+
+      
   style={{
     width: 56,
     height: 56,
@@ -1836,7 +1857,7 @@ height: isPhone ? 48 : 56,
     color: "#fff",
     fontWeight: 900,
     fontSize: 18,
-    border: pendingShootout?.shooterId === p.id
+    border: pendingShootout.home === p.id
       ? "3px solid #16a34a"
       : "none",
     cursor: "pointer",
@@ -1848,7 +1869,7 @@ height: isPhone ? 48 : 56,
 
 
     {/* Action buttons */}
-    {pendingShootout?.shooterId === p.id && (
+    {pendingShootout.home === p.id && (
       <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
         <button
           className="btn btn-green"
@@ -1859,7 +1880,7 @@ height: isPhone ? 48 : 56,
               shooterId: p.id,
               result: "goal",
             });
-            setPendingShootout(null);
+            setPendingShootout((cur) => ({ ...cur, home: null }));
           }}
         >
           🥅 GOAL
@@ -1874,7 +1895,7 @@ height: isPhone ? 48 : 56,
               shooterId: p.id,
               result: "miss",
             });
-            setPendingShootout(null);
+            setPendingShootout((cur) => ({ ...cur, home: null }));
           }}
         >
           ❌ MISS
@@ -1971,6 +1992,57 @@ height: isPhone ? 48 : 56,
         </table>
       </div>
 
+{isShootout && (
+  <div className="card" style={{ marginTop: 14 }}>
+    <div style={{ fontWeight: 800, marginBottom: 8 }}>
+      Shootout Events
+    </div>
+
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr style={{ textAlign: "left", color: "#666" }}>
+          <th style={{ padding: 8 }}>Round</th>
+          <th style={{ padding: 8 }}>Team</th>
+          <th style={{ padding: 8 }}>Shooter</th>
+          <th style={{ padding: 8 }}>Result</th>
+          <th />
+        </tr>
+      </thead>
+      <tbody>
+        {soAttempts.map((a) => (
+          <tr key={a.id} style={{ borderTop: "1px solid #f0f0f0" }}>
+            <td style={{ padding: 8 }}>{a.round}</td>
+            <td style={{ padding: 8 }}>
+              {a.teams?.short_name}
+            </td>
+            <td style={{ padding: 8 }}>
+              {a.players?.name}
+            </td>
+            <td style={{ padding: 8, fontWeight: 700 }}>
+              {a.result === "goal" ? "🥅 Goal" : "❌ Miss"}
+            </td>
+            <td style={{ padding: 8, textAlign: "right" }}>
+              <button
+                className="btn btn-grey"
+                onClick={async () => {
+                  await supabase
+                    .from("shootout_attempts")
+                    .delete()
+                    .eq("id", a.id);
+                  await loadShootout(game.id);
+                }}
+              >
+                Delete
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)}
+
+      
       {/* goal modal */}
       {goalPick && (
         <Modal>
