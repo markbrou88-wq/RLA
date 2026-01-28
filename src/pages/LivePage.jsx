@@ -1705,7 +1705,7 @@ height: isPhone ? 48 : 56,
                   })
                 }
               >
-                #{p.number ?? "•"}
+                #{p.number ?? "•"} ✓
               </button>
 
               <button
@@ -1751,7 +1751,7 @@ height: isPhone ? 48 : 56,
                   })
                 }
               >
-                #{p.number ?? "•"}
+                #{p.number ?? "•"} ✓
               </button>
 
               <button
