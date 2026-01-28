@@ -1751,7 +1751,7 @@ height: isPhone ? 48 : 56,
     )}
   </div>
 ))}
-
+</div>
 
       {/* HOME TEAM SHOOTOUT */}
       <div>
@@ -1780,7 +1780,7 @@ height: isPhone ? 48 : 56,
       }}
       onClick={() =>
         setPendingShootout({
-          teamId: away.id,
+          teamId: home.id,
           shooterId: p.id,
         })
       }
