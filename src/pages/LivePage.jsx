@@ -1923,12 +1923,12 @@ height: isPhone ? 48 : 56,
         </div>
 
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 56px)",
-            gap: 10,
-          }}
-        >
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(56px, 1fr))",
+    gap: 10,
+  }}
+>
 
 
          {awayDressed.map((p) => {
@@ -2043,13 +2043,13 @@ cursor:
           {home.short_name || home.name}
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 56px)",
-            gap: 10,
-          }}
-        >
+       <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(56px, 1fr))",
+    gap: 10,
+  }}
+>
 
 {homeDressed.map((p) => {
   const res = getShooterResult(p.id, home.id);
