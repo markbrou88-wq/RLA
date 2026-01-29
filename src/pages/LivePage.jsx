@@ -1932,17 +1932,8 @@ height: isPhone ? 48 : 56,
 
 
          {awayDressed.map((p) => {
-  const res = soAttempts.find(
-  (a) =>
-    a.shooter_id === p.id &&
-    a.team_id === away.id
-);
-
-const alreadyShot = soAttempts.some(
-  (a) =>
-    a.shooter_id === p.id &&
-    a.team_id === away.id
-);
+  const res = getShooterResult(p.id, away.id);
+const alreadyShot = Boolean(res);
 const awayPending = pendingShootout.away !== null;
           
   return (
@@ -2061,16 +2052,8 @@ cursor:
         >
 
 {homeDressed.map((p) => {
-  const res = soAttempts.find(
-  (a) =>
-    a.shooter_id === p.id &&
-    a.team_id === home.id
-);
-const alreadyShot = soAttempts.some(
-  (a) =>
-    a.shooter_id === p.id &&
-    a.team_id === home.id
-);
+  const res = getShooterResult(p.id, home.id);
+const alreadyShot = Boolean(res);
 const homePending = pendingShootout.home !== null;
 
   return (
