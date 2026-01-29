@@ -820,7 +820,45 @@ async function finalizeShootout(winnerTeamId) {
   }));
 }
 
-  
+ // --------------------------------------------------------------------------
+// SHOOTOUT — UNDO FINALIZATION (used by Reset Shootout)
+// --------------------------------------------------------------------------
+
+async function undoShootoutFinalization() {
+  if (!game?.id || !game?.so_winner_team_id) return;
+
+  const winnerId = game.so_winner_team_id;
+
+  // 1️⃣ Delete decider event
+  await deleteShootoutDeciderEvent(game.id);
+
+  // 2️⃣ Subtract the +1 goal that was added on finalize
+  const nextHome =
+    winnerId === home.id
+      ? Math.max(0, (game.home_score || 0) - 1)
+      : game.home_score || 0;
+
+  const nextAway =
+    winnerId === away.id
+      ? Math.max(0, (game.away_score || 0) - 1)
+      : game.away_score || 0;
+
+  await supabase
+    .from("games")
+    .update({
+      home_score: nextHome,
+      away_score: nextAway,
+    })
+    .eq("id", game.id);
+
+  // 3️⃣ Update local state
+  setGame((g) => ({
+    ...g,
+    home_score: nextHome,
+    away_score: nextAway,
+  }));
+}
+ 
   
   
   
@@ -1535,25 +1573,35 @@ async function handleShotMinus(teamId) {
       onClick={async () => {
         if (!window.confirm("Reset shootout? All attempts will be deleted.")) return;
 
-        await supabase.from("shootout_attempts").delete().eq("game_id", game.id);
+     // 🔥 Undo shootout finalization (remove decider + score bump)
+await undoShootoutFinalization();
 
-        await supabase
-          .from("games")
-          .update({
-            went_so: false,
-            so_home_goals: 0,
-            so_away_goals: 0,
-            so_winner_team_id: null,
-          })
-          .eq("id", game.id);
+// Delete all shootout attempts
+await supabase
+  .from("shootout_attempts")
+  .delete()
+  .eq("game_id", game.id);
 
-        setGame((g) => ({
-          ...g,
-          went_so: false,
-          so_home_goals: 0,
-          so_away_goals: 0,
-          so_winner_team_id: null,
-        }));
+// Clear shootout metadata
+await supabase
+  .from("games")
+  .update({
+    went_so: false,
+    so_home_goals: 0,
+    so_away_goals: 0,
+    so_winner_team_id: null,
+  })
+  .eq("id", game.id);
+
+// Local state reset
+setGame((g) => ({
+  ...g,
+  went_so: false,
+  so_home_goals: 0,
+  so_away_goals: 0,
+  so_winner_team_id: null,
+}));
+
 
         setIsShootout(false);
         setSoRound(1);
