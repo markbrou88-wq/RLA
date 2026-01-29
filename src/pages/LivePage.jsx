@@ -146,7 +146,7 @@ const [quickAssists, setQuickAssists] = useState([]);
 // "quick" = fast clickable mode
 // ============================================================================
 
-const [layoutMode, setLayoutMode] = useState("rink"); 
+const [layoutMode, setLayoutMode] = useState("quick");
 // values: "rink" | "quick"
 
 // ============================================================================
@@ -400,8 +400,8 @@ const [quickPick, setQuickPick] = useState(null);
      // 5) Load events
 await refreshEvents(g.id);
 
-// 6) Load shootout state
-setIsShootout(Boolean(g.went_so));
+// 6) Load shootout state (VIEW ONLY by default)
+setIsShootout(false);           // 👈 key fix
 setSoRound(1);
 await loadShootout(g.id);
 
@@ -1881,14 +1881,21 @@ height: isPhone ? 48 : 56,
 
          {awayDressed.map((p) => {
   const res = getShooterResult(p.id, away.id);
-
+const alreadyShot = Boolean(res);
+           const someonePending = Boolean(pendingShootout.home || pendingShootout.away);
+          
   return (
     <div key={p.id} style={{ marginBottom: 8 }}>
       {/* Shooter */}
       <button
-        onClick={() =>
-          setPendingShootout((cur) => ({ ...cur, away: p.id }))
-        }
+        onClick={() => {
+  if (alreadyShot || (someonePending && pendingShootout.away !== p.id)) return;
+
+  setPendingShootout({
+    away: p.id,
+    home: null,
+  });
+}}
         style={{
           width: 56,
           height: 56,
@@ -1901,11 +1908,18 @@ height: isPhone ? 48 : 56,
             res === "goal"
               ? "4px solid #16a34a"
               : res === "miss"
-              ? "4px solid #dc2626"
+             ? "4px solid #450a0a"
               : pendingShootout.away === p.id
               ? "3px solid #facc15"
               : "none",
-          cursor: "pointer",
+        opacity:
+  alreadyShot || (someonePending && pendingShootout.away !== p.id)
+    ? 0.6
+    : 1,
+cursor:
+  alreadyShot || (someonePending && pendingShootout.away !== p.id)
+    ? "not-allowed"
+    : "pointer",
           boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
         }}
       >
@@ -1924,7 +1938,7 @@ height: isPhone ? 48 : 56,
                 shooterId: p.id,
                 result: "goal",
               });
-              setPendingShootout((cur) => ({ ...cur, away: null }));
+             setPendingShootout({ home: null, away: null });
             }}
           >
             🥅 GOAL
@@ -1939,7 +1953,7 @@ height: isPhone ? 48 : 56,
                 shooterId: p.id,
                 result: "miss",
               });
-              setPendingShootout((cur) => ({ ...cur, away: null }));
+              setPendingShootout({ home: null, away: null });
             }}
           >
             ❌ MISS
@@ -1971,14 +1985,21 @@ height: isPhone ? 48 : 56,
 
 {homeDressed.map((p) => {
   const res = getShooterResult(p.id, home.id);
+  const alreadyShot = Boolean(res);
+const someonePending = Boolean(pendingShootout.home || pendingShootout.away);
 
   return (
     <div key={p.id} style={{ marginBottom: 8 }}>
       {/* Shooter */}
       <button
-        onClick={() =>
-          setPendingShootout((cur) => ({ ...cur, home: p.id }))
-        }
+       onClick={() => {
+  if (alreadyShot || (someonePending && pendingShootout.home !== p.id)) return;
+
+  setPendingShootout({
+    home: p.id,
+    away: null,
+  });
+}}
         style={{
           width: 56,
           height: 56,
@@ -1991,11 +2012,18 @@ height: isPhone ? 48 : 56,
             res === "goal"
               ? "4px solid #16a34a"
               : res === "miss"
-              ? "4px solid #dc2626"
+             ? "4px solid #450a0a"
               : pendingShootout.home === p.id
               ? "3px solid #facc15"
               : "none",
-          cursor: "pointer",
+          opacity:
+  alreadyShot || (someonePending && pendingShootout.home !== p.id)
+    ? 0.6
+    : 1,
+cursor:
+  alreadyShot || (someonePending && pendingShootout.home !== p.id)
+    ? "not-allowed"
+    : "pointer",
           boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
         }}
       >
@@ -2014,7 +2042,7 @@ height: isPhone ? 48 : 56,
                 shooterId: p.id,
                 result: "goal",
               });
-              setPendingShootout((cur) => ({ ...cur, home: null }));
+              setPendingShootout({ home: null, away: null });
             }}
           >
             🥅 GOAL
@@ -2029,7 +2057,7 @@ height: isPhone ? 48 : 56,
                 shooterId: p.id,
                 result: "miss",
               });
-              setPendingShootout((cur) => ({ ...cur, home: null }));
+              setPendingShootout({ home: null, away: null });
             }}
           >
             ❌ MISS
