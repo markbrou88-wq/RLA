@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useSeason } from "../contexts/SeasonContext";
 import { useCategory } from "../contexts/CategoryContext";
+import { useLocation } from "react-router-dom";
+
 
 function useMaybeI18n() {
   try {
@@ -212,6 +214,8 @@ export default function GamesPage() {
   const navigate = useNavigate();
   const { seasonId } = useSeason();
   const { categoryId } = useCategory();
+  const location = useLocation();
+
 
   const [teams, setTeams] = React.useState([]);
   const [teamMap, setTeamMap] = React.useState({});
@@ -356,6 +360,21 @@ const pastGames = filtered
     setActiveTab("upcoming");
   }
 }, [activeTab, upcomingGames.length, pastGames.length]);
+
+
+  React.useEffect(() => {
+  const state = location.state;
+
+  if (state?.tab) {
+    setActiveTab(state.tab);
+  }
+
+  if (typeof state?.scrollY === "number") {
+    requestAnimationFrame(() => {
+      window.scrollTo(0, state.scrollY);
+    });
+  }
+}, [location.state]);
 
 
   async function handleDelete(id) {
