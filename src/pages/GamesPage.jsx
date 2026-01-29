@@ -102,15 +102,52 @@ function MonthSection({
   
 
   {/* SCORE (secondary for upcoming games) */}
-  <div
-    className="gp-score"
-    style={{ fontSize: "0.95rem", opacity: 0.8 }}
-  >
+
+<div
+  className="gp-score"
+  style={{
+    fontSize: "1.05rem",
+    fontWeight: 700,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 2,
+  }}
+>
+  <div>
     {g.away_score} — {g.home_score}
   </div>
 
-  {/* STATUS */}
-  <div className="gp-sub">{g.status}</div>
+  {g.status === "final" && g.went_so && (
+    <div
+      style={{
+        fontSize: "0.7rem",
+        fontWeight: 700,
+        color: "#6b7280",
+        letterSpacing: "0.05em",
+      }}
+    >
+      SO
+    </div>
+  )}
+
+  {g.status === "final" && g.went_ot && !g.went_so && (
+    <div
+      style={{
+        fontSize: "0.7rem",
+        fontWeight: 700,
+        color: "#6b7280",
+        letterSpacing: "0.05em",
+      }}
+    >
+      OT
+    </div>
+  )}
+</div>
+
+<div className="gp-sub">{g.status}</div>
+
+  
 </div>
 
 
@@ -250,7 +287,7 @@ export default function GamesPage() {
           supabase
             .from("games")
             .select(
-              "id, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot, slug"
+              "id, game_date, home_team_id, away_team_id, home_score, away_score, status, went_ot, went_so, slug"
             )
             .eq("season_id", seasonId)
             .eq("category_id", categoryId)
