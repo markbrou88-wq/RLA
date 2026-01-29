@@ -1934,14 +1934,14 @@ height: isPhone ? 48 : 56,
          {awayDressed.map((p) => {
   const res = getShooterResult(p.id, away.id);
 const alreadyShot = Boolean(res);
-           const someonePending = Boolean(pendingShootout.home || pendingShootout.away);
+const awayPending = pendingShootout.away !== null;
           
   return (
     <div key={p.id} style={{ marginBottom: 8 }}>
       {/* Shooter */}
       <button
-        onClick={() => {
-  if (alreadyShot || (someonePending && pendingShootout.away !== p.id)) return;
+       onClick={() => {
+  if (alreadyShot || (awayPending && pendingShootout.away !== p.id)) return;
 
   setPendingShootout({
     away: p.id,
@@ -1965,11 +1965,11 @@ const alreadyShot = Boolean(res);
               ? "3px solid #facc15"
               : "none",
         opacity:
-  alreadyShot || (someonePending && pendingShootout.away !== p.id)
+  alreadyShot || (awayPending && pendingShootout.away !== p.id)
     ? 0.6
     : 1,
 cursor:
-  alreadyShot || (someonePending && pendingShootout.away !== p.id)
+  alreadyShot || (awayPending && pendingShootout.away !== p.id)
     ? "not-allowed"
     : "pointer",
           boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
@@ -2037,15 +2037,16 @@ cursor:
 
 {homeDressed.map((p) => {
   const res = getShooterResult(p.id, home.id);
-  const alreadyShot = Boolean(res);
-const someonePending = Boolean(pendingShootout.home || pendingShootout.away);
+const alreadyShot = Boolean(res);
+const homePending = pendingShootout.home !== null;
 
   return (
     <div key={p.id} style={{ marginBottom: 8 }}>
       {/* Shooter */}
       <button
        onClick={() => {
-  if (alreadyShot || (someonePending && pendingShootout.home !== p.id)) return;
+ if (alreadyShot || (homePending && pendingShootout.home !== p.id)) return;
+
 
   setPendingShootout({
     home: p.id,
@@ -2069,11 +2070,11 @@ const someonePending = Boolean(pendingShootout.home || pendingShootout.away);
               ? "3px solid #facc15"
               : "none",
           opacity:
-  alreadyShot || (someonePending && pendingShootout.home !== p.id)
+  alreadyShot || (homePending && pendingShootout.home !== p.id)
     ? 0.6
     : 1,
 cursor:
-  alreadyShot || (someonePending && pendingShootout.home !== p.id)
+  alreadyShot || (homePending && pendingShootout.home !== p.id)
     ? "not-allowed"
     : "pointer",
           boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
