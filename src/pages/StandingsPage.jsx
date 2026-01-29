@@ -107,56 +107,58 @@ export default function StandingsPage() {
   <div className="table-scroll">
     <table className="table standings-table">
             <thead>
-              <tr>
-                <th style={{ textAlign: "left" }}>Team</th>
-                <th>GP</th>
-                <th>W</th>
-                <th>L</th>
-                <th>OTL</th>
-                <th>GF</th>
-                <th>GA</th>
-                <th>DIFF</th>
-                <th>PTS</th>
-              </tr>
-            </thead>
+  <tr>
+    <th style={{ textAlign: "left" }}>Team</th>
+    <th>GP</th>
+    <th>W</th>
+    <th>L</th>
+    <th>OTL</th>
+    <th>SOL</th>
+    <th>GF</th>
+    <th>GA</th>
+    <th>DIFF</th>
+    <th>PTS</th>
+  </tr>
+</thead>
 
             <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan="9" style={{ textAlign: "center" }}>
-                    Loading…
-                  </td>
-                </tr>
-              )}
+  {loading && (
+    <tr>
+      <td colSpan="10" style={{ textAlign: "center" }}>
+        Loading…
+      </td>
+    </tr>
+  )}
 
-              {!loading && rows.length === 0 && (
-                <tr>
-                  <td colSpan="9" style={{ textAlign: "center" }}>
-                    No standings available
-                  </td>
-                </tr>
-              )}
+  {!loading && rows.length === 0 && (
+    <tr>
+      <td colSpan="10" style={{ textAlign: "center" }}>
+        No standings available
+      </td>
+    </tr>
+  )}
 
-              {!loading &&
-                rows.map((r) => (
-                  <tr key={r.team_id}>
-                    <td style={{ textAlign: "left" }}>
-                      <Link to={`/teams/${r.team_id}`}>{r.name}</Link>
+  {!loading &&
+    rows.map((r) => (
+      <tr key={r.team_id}>
+        <td style={{ textAlign: "left" }}>
+          <Link to={`/teams/${r.team_id}`}>{r.name}</Link>
+        </td>
+        <td>{r.gp}</td>
+        <td>{r.w}</td>
+        <td>{r.l}</td>
+        <td>{r.otl}</td>
+        <td>{r.sol}</td>
+        <td>{r.gf}</td>
+        <td>{r.ga}</td>
+        <td>{r.diff}</td>
+        <td>
+          <strong>{r.pts}</strong>
+        </td>
+      </tr>
+    ))}
+</tbody>
 
-                    </td>
-                    <td>{r.gp}</td>
-                    <td>{r.w}</td>
-                    <td>{r.l}</td>
-                    <td>{r.otl}</td>
-                    <td>{r.gf}</td>
-                    <td>{r.ga}</td>
-                    <td>{r.diff}</td>
-                    <td>
-                      <strong>{r.pts}</strong>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
           </table>
         </div>
 
