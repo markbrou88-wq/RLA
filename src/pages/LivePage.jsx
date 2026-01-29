@@ -1576,7 +1576,11 @@ async function handleShotMinus(teamId) {
     return;
   }
 
-  const winner = hg > ag ? home.id : away.id;
+  const winner = getShootoutWinner(soAttempts, home.id, away.id);
+if (!winner) {
+  alert("Shootout not decided yet.");
+  return;
+}
 
   if (!window.confirm(`Finish shootout? Winner: ${safeTeamShort(winner)}`))
     return;
