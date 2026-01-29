@@ -655,6 +655,14 @@ async function loadShootout(gameId) {
   setSoAttempts(data || []);
 }
 
+function getShooterResult(shooterId, teamId) {
+  const a = soAttempts.find(
+    (x) => x.shooter_id === shooterId && x.team_id === teamId
+  );
+  return a?.result || null; // "goal" | "miss" | null
+}
+
+  
 // --------------------------------------------------------------------------
 // SHOOTOUT — RECORD ONE ATTEMPT (NO STAT SIDE EFFECTS)
 // --------------------------------------------------------------------------
@@ -1465,44 +1473,60 @@ async function handleShotMinus(teamId) {
     🏒 Rink
   </button>
 
-  {!isShootout && (
+
+{/* START / REOPEN SHOOTOUT */}
+{!isShootout && !game?.went_so && (
   <button
     className="btn btn-orange"
     onClick={async () => {
-      // 1) local state
+      // Fresh shootout only if none exists
+      await supabase
+        .from("games")
+        .update({
+          went_so: true,
+          so_home_goals: 0,
+          so_away_goals: 0,
+          so_winner_team_id: null,
+        })
+        .eq("id", game.id);
+
+      setGame((g) => ({
+        ...g,
+        went_so: true,
+        so_home_goals: 0,
+        so_away_goals: 0,
+        so_winner_team_id: null,
+      }));
+
       setIsShootout(true);
       setSoRound(1);
-
-     // 1️⃣ Persist to DB
-await supabase
-  .from("games")
-  .update({
-    went_so: true,
-    so_home_goals: 0,
-    so_away_goals: 0,
-    so_winner_team_id: null,
-  })
-  .eq("id", game.id);
-
-// 2️⃣ Sync local game state (CRITICAL)
-setGame((g) => ({
-  ...g,
-  went_so: true,
-  so_home_goals: 0,
-  so_away_goals: 0,
-  so_winner_team_id: null,
-}));
-
-// 3️⃣ UI state
-setIsShootout(true);
-setSoRound(1);
-setSoAttempts([]);
+      setSoAttempts([]);
     }}
   >
     🥅 Start Shootout
   </button>
 )}
 
+{/* REOPEN EXISTING SHOOTOUT */}
+{!isShootout && game?.went_so && (
+  <button
+    className="btn btn-blue"
+    onClick={async () => {
+      await loadShootout(game.id);
+      setIsShootout(true);
+      setSoRound(
+        Math.max(
+          1,
+          ...soAttempts.map((a) => Number(a.round || 1))
+        )
+      );
+    }}
+  >
+    🔓 Reopen Shootout
+  </button>
+)}
+
+  
 
 {isShootout && (
   <>
@@ -1865,6 +1889,13 @@ height: isPhone ? 48 : 56,
     away: p.id,
   }))
 }
+
+const res = getShooterResult(p.id, away.id);
+
+<button
+  onClick={() =>
+    setPendingShootout((cur) => ({ ...cur, away: p.id }))
+  }
   style={{
     width: 56,
     height: 56,
@@ -1873,12 +1904,20 @@ height: isPhone ? 48 : 56,
     color: "#fff",
     fontWeight: 900,
     fontSize: 18,
-    border: pendingShootout.away === p.id
-      ? "3px solid #16a34a"
-      : "none",
+    border:
+      res === "goal"
+        ? "4px solid #16a34a"
+        : res === "miss"
+        ? "4px solid #dc2626"
+        : pendingShootout.away === p.id
+        ? "3px solid #facc15"
+        : "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
   }}
+>
+
+  
 >
   {p.number ?? "•"}
 </button>
@@ -1952,7 +1991,13 @@ onClick={() =>
   }))
 }
 
-      
+
+const res = getShooterResult(p.id, home.id);
+
+<button
+  onClick={() =>
+    setPendingShootout((cur) => ({ ...cur, home: p.id }))
+  }
   style={{
     width: 56,
     height: 56,
@@ -1961,12 +2006,21 @@ onClick={() =>
     color: "#fff",
     fontWeight: 900,
     fontSize: 18,
-    border: pendingShootout.home === p.id
-      ? "3px solid #16a34a"
-      : "none",
+    border:
+      res === "goal"
+        ? "4px solid #16a34a"
+        : res === "miss"
+        ? "4px solid #dc2626"
+        : pendingShootout.home === p.id
+        ? "3px solid #facc15"
+        : "none",
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
   }}
+>
+
+      
+  
 >
   {p.number ?? "•"}
 </button>
@@ -1990,58 +2044,23 @@ onClick={() =>
           🥅 GOAL
         </button>
 
-        <button
-          className="btn btn-red"
-          style={{ flex: 1 }}
 
-onClick={async () => {
-  if (!window.confirm("Reset shootout? All attempts and deciding goal will be deleted."))
-    return;
+<button
+  className="btn btn-red"
+  style={{ flex: 1 }}
+  onClick={() => {
+    recordShootoutAttempt({
+      teamId: home.id,
+      shooterId: p.id,
+      result: "miss",
+    });
+    setPendingShootout((cur) => ({ ...cur, home: null }));
+  }}
+>
+  ❌ MISS
+</button>
 
-  await supabase.from("shootout_attempts").delete().eq("game_id", game.id);
-  await deleteShootoutDeciderEvent(game.id);
-
-  let nextHome = game.home_score || 0;
-  let nextAway = game.away_score || 0;
-
-  if (game.so_winner_team_id === home.id) nextHome--;
-  if (game.so_winner_team_id === away.id) nextAway--;
-
-  nextHome = Math.max(0, nextHome);
-  nextAway = Math.max(0, nextAway);
-
-  await supabase
-    .from("games")
-    .update({
-      went_so: false,
-      so_home_goals: 0,
-      so_away_goals: 0,
-      so_winner_team_id: null,
-      home_score: nextHome,
-      away_score: nextAway,
-    })
-    .eq("id", game.id);
-
-  setGame((g) => ({
-    ...g,
-    went_so: false,
-    so_home_goals: 0,
-    so_away_goals: 0,
-    so_winner_team_id: null,
-    home_score: nextHome,
-    away_score: nextAway,
-  }));
-
-  setIsShootout(false);
-  setSoRound(1);
-  setSoAttempts([]);
-  setPendingShootout({ home: null, away: null });
-}}
-
-          
-        >
-          ❌ MISS
-        </button>
+        
       </div>
     )}
   </div>
