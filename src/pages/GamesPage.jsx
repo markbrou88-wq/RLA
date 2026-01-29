@@ -503,9 +503,9 @@ function toTime(value) {
       .from("games")
       .update({ status })
       .eq("id", id)
-      .select(
-        "id, home_team_id, away_team_id, home_score, away_score, went_ot, status, game_date, slug"
-      )
+     .select(
+  "id, home_team_id, away_team_id, home_score, away_score, went_ot, went_so, status, game_date, slug"
+)
       .single();
 
     if (error) {
@@ -513,7 +513,9 @@ function toTime(value) {
       return;
     }
 
-    setGames((cur) => cur.map((g) => (g.id === id ? data : g)));
+  setGames((cur) =>
+  cur.map((g) => (g.id === id ? { ...g, ...data } : g))
+);
 
     try {
       if (status === "final") {
