@@ -1994,14 +1994,17 @@ cursor:
           <button
             className="btn btn-green"
             style={{ flex: 1 }}
-            onClick={() => {
-              recordShootoutAttempt({
-                teamId: away.id,
-                shooterId: p.id,
-                result: "goal",
-              });
-             setPendingShootout({ home: null, away: null });
-            }}
+            onClick={async () => {
+  if (!pendingShootout.away) return;
+
+  await recordShootoutAttempt({
+    teamId: away.id,
+    shooterId: pendingShootout.away,
+    result: "goal",
+  });
+
+  setPendingShootout({ home: null, away: null });
+}}
           >
             🥅 GOAL
           </button>
@@ -2009,14 +2012,17 @@ cursor:
           <button
             className="btn btn-red"
             style={{ flex: 1 }}
-            onClick={() => {
-              recordShootoutAttempt({
-                teamId: away.id,
-                shooterId: p.id,
-                result: "miss",
-              });
-              setPendingShootout({ home: null, away: null });
-            }}
+            onClick={async () => {
+  if (!pendingShootout.away) return;
+
+  await recordShootoutAttempt({
+    teamId: away.id,
+    shooterId: pendingShootout.away,
+    result: "miss",
+  });
+
+  setPendingShootout({ home: null, away: null });
+}}
           >
             ❌ MISS
           </button>
@@ -2108,14 +2114,17 @@ cursor:
           <button
             className="btn btn-green"
             style={{ flex: 1 }}
-            onClick={() => {
-              recordShootoutAttempt({
-                teamId: home.id,
-                shooterId: p.id,
-                result: "goal",
-              });
-              setPendingShootout({ home: null, away: null });
-            }}
+            onClick={async () => {
+  if (!pendingShootout.home) return;
+
+  await recordShootoutAttempt({
+    teamId: home.id,
+    shooterId: pendingShootout.home,
+    result: "goal",
+  });
+
+  setPendingShootout({ away: null, home: null });
+}}
           >
             🥅 GOAL
           </button>
@@ -2123,14 +2132,18 @@ cursor:
           <button
             className="btn btn-red"
             style={{ flex: 1 }}
-            onClick={() => {
-              recordShootoutAttempt({
-                teamId: home.id,
-                shooterId: p.id,
-                result: "miss",
-              });
-              setPendingShootout({ home: null, away: null });
-            }}
+            onClick={async () => {
+  if (!pendingShootout.home) return;
+
+  await recordShootoutAttempt({
+    teamId: home.id,
+    shooterId: pendingShootout.home,
+    result: "miss",
+  });
+
+  setPendingShootout({ away: null, home: null });
+}}
+
           >
             ❌ MISS
           </button>
