@@ -108,44 +108,39 @@ function MonthSection({
   style={{
     fontSize: "1.05rem",
     fontWeight: 700,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 2,
+    textAlign: "center",
   }}
 >
-  <div>
-    {g.away_score} — {g.home_score}
-  </div>
+  {g.away_score} — {g.home_score}
 
-  {g.status === "final" && g.went_so && (
+  {g.status === "final" && (
     <div
       style={{
+        marginTop: 2,
         fontSize: "0.7rem",
-        fontWeight: 700,
-        color: "#6b7280",
-        letterSpacing: "0.05em",
+        fontWeight: 800,
+        padding: "2px 8px",
+        borderRadius: 999,
+        display: "inline-block",
+        background:
+          g.went_so
+            ? "#ede9fe" // purple-ish
+            : g.went_ot
+            ? "#e0f2fe" // blue-ish
+            : "#e5e7eb", // normal final
+        color:
+          g.went_so
+            ? "#5b21b6"
+            : g.went_ot
+            ? "#0369a1"
+            : "#374151",
       }}
     >
-      SO
-    </div>
-  )}
-
-  {g.status === "final" && g.went_ot && !g.went_so && (
-    <div
-      style={{
-        fontSize: "0.7rem",
-        fontWeight: 700,
-        color: "#6b7280",
-        letterSpacing: "0.05em",
-      }}
-    >
-      OT
+      Final{g.went_so ? " (SO)" : g.went_ot ? " (OT)" : ""}
     </div>
   )}
 </div>
 
-<div className="gp-sub">{g.status}</div>
 
   
 </div>
@@ -157,7 +152,13 @@ function MonthSection({
 {isLoggedIn && !isMobile && (
   <button
     className="btn"
-    onClick={() => navigate(`/live/${slug}`)}
+    onClick={() =>
+  navigate(`/live/${slug}`, {
+    state: {
+      from: "/games",
+    },
+  })
+}
   >
     🏒 {t("Live")}
   </button>
