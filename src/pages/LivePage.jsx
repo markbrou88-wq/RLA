@@ -1799,7 +1799,7 @@ if (!winner) {
 )}
 
       
-      {layoutMode === "quick" && (
+      {layoutMode === "quick" && !isShootout && (
   <div
     className="card"
     style={{
