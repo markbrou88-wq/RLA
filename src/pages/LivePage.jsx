@@ -1941,13 +1941,23 @@ const awayPending = pendingShootout.away !== null;
       {/* Shooter */}
       <button
        onClick={() => {
-  if (alreadyShot || (awayPending && pendingShootout.away !== p.id)) return;
+  if (alreadyShot) return;
+
+  // 🔁 Clicking same shooter again = unselect
+  if (pendingShootout.away === p.id) {
+    setPendingShootout({ home: null, away: null });
+    return;
+  }
+
+  // 🚫 Another shooter already pending on this team
+  if (awayPending) return;
 
   setPendingShootout({
     away: p.id,
     home: null,
   });
 }}
+
         style={{
           width: 56,
           height: 56,
@@ -2045,14 +2055,23 @@ const homePending = pendingShootout.home !== null;
       {/* Shooter */}
       <button
        onClick={() => {
- if (alreadyShot || (homePending && pendingShootout.home !== p.id)) return;
+  if (alreadyShot) return;
 
+  // 🔁 Clicking same shooter again = unselect
+  if (pendingShootout.home === p.id) {
+    setPendingShootout({ home: null, away: null });
+    return;
+  }
+
+  // 🚫 Another shooter already pending on this team
+  if (homePending) return;
 
   setPendingShootout({
     home: p.id,
     away: null,
   });
 }}
+
         style={{
           width: 56,
           height: 56,
