@@ -7,7 +7,7 @@
 // ============================================================================
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
 // ============================================================================
@@ -50,7 +50,8 @@ const isPhone = window.matchMedia("(max-width: 600px)").matches;
 
 export default function LivePage() {
   const { slug } = useParams();
-  
+    const location = useLocation();
+
 
 
 // --------------------------------------------------------------------------
@@ -1652,9 +1653,17 @@ if (!winner) {
     Roster
   </Link>
 
-  <Link className="btn btn-grey" to="/games">
-    Back to Games
-  </Link>
+  <Link
+  className="btn btn-grey"
+  to="/games"
+  state={{
+    fromLive: true,
+    scrollY: window.scrollY,
+    fromGameSlug: slug,
+  }}
+>
+  Back to Games
+</Link>
 </div>
 
 {isShootout && (
