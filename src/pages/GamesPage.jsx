@@ -151,17 +151,19 @@ function MonthSection({
 
 {isLoggedIn && !isMobile && (
   <button
-    className="btn"
-    onClick={() =>
-  navigate(`/live/${slug}`, {
-    state: {
-      from: "/games",
-    },
-  })
-}
-  >
-    🏒 {t("Live")}
-  </button>
+  className="btn"
+  onClick={() =>
+    navigate(`/live/${slug}`, {
+      state: {
+        from: "/games",
+        tab: activeTab,
+        scrollY: window.scrollY,
+      },
+    })
+  }
+>
+  🏒 Live
+</button>
 )}
 
                 
