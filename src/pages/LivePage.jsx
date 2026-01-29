@@ -1925,7 +1925,7 @@ height: isPhone ? 48 : 56,
         <div
   style={{
     display: "grid",
-    gridTemplateColumns: "repeat(4, minmax(56px, 1fr))",
+    gridTemplateColumns: "repeat(4, 56px)",
     gap: 10,
   }}
 >
@@ -1937,7 +1937,14 @@ const alreadyShot = Boolean(res);
 const awayPending = pendingShootout.away !== null;
           
   return (
-    <div key={p.id} style={{ marginBottom: 8 }}>
+    <div
+  key={p.id}
+  style={{
+    position: "relative",   // 👈 anchor for overlay
+    width: 56,
+    height: 56,
+  }}
+>
       {/* Shooter */}
       <button
        onClick={() => {
@@ -1989,8 +1996,23 @@ cursor:
       </button>
 
       {/* Action buttons */}
-      {pendingShootout.away === p.id && (
-        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+     {pendingShootout.away === p.id && (
+  <div
+    style={{
+      position: "absolute",
+      top: 62,               // just below the bubble
+      left: "50%",
+      transform: "translateX(-50%)",
+      display: "flex",
+      gap: 6,
+      zIndex: 20,
+      background: "#fff",
+      padding: "4px 6px",
+      borderRadius: 8,
+      boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+      whiteSpace: "nowrap",
+    }}
+  >
           <button
             className="btn btn-green"
             style={{ flex: 1 }}
@@ -2046,7 +2068,7 @@ cursor:
        <div
   style={{
     display: "grid",
-    gridTemplateColumns: "repeat(4, minmax(56px, 1fr))",
+   gridTemplateColumns: "repeat(4, 56px)",
     gap: 10,
   }}
 >
@@ -2057,7 +2079,14 @@ const alreadyShot = Boolean(res);
 const homePending = pendingShootout.home !== null;
 
   return (
-    <div key={p.id} style={{ marginBottom: 8 }}>
+   <div
+  key={p.id}
+  style={{
+    position: "relative",   // 👈 anchor for overlay
+    width: 56,
+    height: 56,
+  }}
+>
       {/* Shooter */}
       <button
        onClick={() => {
@@ -2110,7 +2139,23 @@ cursor:
 
       {/* Action buttons */}
       {pendingShootout.home === p.id && (
-        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+  <div
+    style={{
+      position: "absolute",
+      top: 62,               // just below the bubble
+      left: "50%",
+      transform: "translateX(-50%)",
+      display: "flex",
+      gap: 6,
+      zIndex: 20,
+      background: "#fff",
+      padding: "4px 6px",
+      borderRadius: 8,
+      boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+      whiteSpace: "nowrap",
+    }}
+  >
+
           <button
             className="btn btn-green"
             style={{ flex: 1 }}
