@@ -1818,25 +1818,17 @@ if (!winner) {
       {away.short_name || away.name}
     </div>
 
-    <div className="muted" style={{ marginBottom: 4 }}>
-      Goalie
-    </div>
-    <select
-      className="input"
-      style={{ marginBottom: 14 }}
-      value={goalieOnIce[away.id] || ""}
-      onChange={(e) => setGoalie(away.id, Number(e.target.value) || null)}
-    >
-      <option value="">— Select Goalie —</option>
-      {awayDressed
-        .filter((p) => (p.position || "").toLowerCase().includes("g"))
-        .map((g) => (
-          <option key={g.id} value={g.id}>
-            {g.number ? `#${g.number} ` : ""}
-            {g.name}
-          </option>
-        ))}
-    </select>
+
+<GoalieBubbleRow
+  team={away}
+  dressed={awayDressed}
+  goalieOnIce={goalieOnIce}
+  setGoalie={setGoalie}
+  color={awayColor}
+  align="left"
+/>
+
+    
 
     <div
       style={{
@@ -1883,25 +1875,15 @@ if (!winner) {
       {home.short_name || home.name}
     </div>
 
-    <div className="muted" style={{ marginBottom: 4, textAlign: "right" }}>
-      Goalie
-    </div>
-    <select
-      className="input"
-      style={{ marginBottom: 14 }}
-      value={goalieOnIce[home.id] || ""}
-      onChange={(e) => setGoalie(home.id, Number(e.target.value) || null)}
-    >
-      <option value="">— Select Goalie —</option>
-      {homeDressed
-        .filter((p) => (p.position || "").toLowerCase().includes("g"))
-        .map((g) => (
-          <option key={g.id} value={g.id}>
-            {g.number ? `#${g.number} ` : ""}
-            {g.name}
-          </option>
-        ))}
-    </select>
+    <GoalieBubbleRow
+  team={home}
+  dressed={homeDressed}
+  goalieOnIce={goalieOnIce}
+  setGoalie={setGoalie}
+  color={homeColor}
+  align="right"
+/>
+
 
     <div
       style={{
@@ -3042,6 +3024,94 @@ function IceToken({ player, teamId, x, y, color, onMove, onRemove }) {
     </div>
   );
 }
+
+function GoalieBubbleRow({
+  team,
+  dressed,
+  goalieOnIce,
+  setGoalie,
+  color,
+  align = "left",
+}) {
+  const goalies = dressed.filter(
+    (p) => (p.position || "").toLowerCase().includes("g")
+  );
+
+  if (!goalies.length) {
+    return (
+      <div className="muted" style={{ marginBottom: 12 }}>
+        No goalie dressed
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 10,
+        justifyContent: align === "right" ? "flex-end" : "flex-start",
+        marginBottom: 14,
+      }}
+    >
+      {goalies.map((g) => {
+        const active = goalieOnIce[team.id] === g.id;
+
+        return (
+          <button
+            key={g.id}
+            onClick={() =>
+              setGoalie(team.id, active ? null : g.id)
+            }
+            title={g.name}
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 999,
+              background: color,
+              color: "#fff",
+              fontWeight: 900,
+              fontSize: 18,
+              border: active
+                ? "4px solid #facc15" // gold ring
+                : "none",
+              boxShadow: active
+                ? "0 0 0 3px rgba(250,204,21,0.6)"
+                : "0 2px 6px rgba(0,0,0,0.25)",
+              cursor: "pointer",
+              position: "relative",
+            }}
+          >
+            {g.number ?? "•"}
+
+            {active && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: -6,
+                  right: -6,
+                  background: "#16a34a",
+                  color: "#fff",
+                  borderRadius: 999,
+                  width: 20,
+                  height: 20,
+                  fontSize: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                }}
+              >
+                🥅
+              </div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 
 function Modal({ children }) {
   return (
