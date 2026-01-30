@@ -204,8 +204,9 @@ if (isGoalie) {
         supabase
         .from("games")
 .select(
-  "id, game_date, season_id, home_team_id, away_team_id, slug, home_score, away_score"
+  "id, game_date, season_id, home_team_id, away_team_id, slug, home_score, away_score, went_so"
 )
+
  ,
       ]);
 
