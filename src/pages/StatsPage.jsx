@@ -159,8 +159,9 @@ export default function StatsPage() {
                 <th style={th}>{t("SV%")}</th>
                 <th style={th}>{t("GAA")}</th>
                 <th style={th}>{t("TOI")}</th>
+                <th style={th}>{t("W-L-OTL-SOL")}</th>
                 <th style={th}>SO</th>
-               <th style={th}>{t("W-L-OTL-SOL")}</th>
+               
                 
               
               </tr>
