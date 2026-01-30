@@ -37,6 +37,9 @@ export default function SummaryPage() {
 
   const [showShotsByPeriod, setShowShotsByPeriod] = React.useState({});
 
+  const [shootoutRows, setShootoutRows] = React.useState([]);
+
+
   const toggleShots = (period) => {
   setShowShotsByPeriod((prev) => ({
     ...prev,
@@ -197,6 +200,20 @@ export default function SummaryPage() {
         return bt.localeCompare(at);
       });
 
+     const { data: shootoutAttempts } = await supabase
+  .from("shootout_attempts")
+  .select(`
+    id,
+    team_id,
+    player_id,
+    round,
+    is_goal,
+    players ( id, name )
+  `)
+  .eq("game_id", g.id)
+  .order("round", { ascending: true });
+ 
+
 if (!cancelled) {
   setGame(g);
   setHomeTeam(home || null);
@@ -208,6 +225,8 @@ if (!cancelled) {
   setHomeGoalieRec(homeGoalieRecData);
   setAwayGoalieRec(awayGoalieRecData);
   setRows(grouped || []);
+  setShootoutRows(shootoutAttempts || []);
+
 
   // ✅ open only the most recent period by default
   const periods = [...new Set(
@@ -236,6 +255,17 @@ if (!cancelled) {
     return acc;
   }, {});
 }, [rows]);
+
+
+  const shootoutByTeam = React.useMemo(() => {
+  const out = {};
+  shootoutRows.forEach((a) => {
+    if (!out[a.team_id]) out[a.team_id] = [];
+    out[a.team_id].push(a);
+  });
+  return out;
+}, [shootoutRows]);
+
 
   if (loading)
     return (
@@ -546,7 +576,7 @@ rows.forEach((r) => {
         )}
       </div>
 
-      {isShootout && (
+     {isShootout && (
   <div className="card" style={{ marginTop: 16 }}>
     <h3 style={{ marginTop: 0 }}>Shootout</h3>
 
@@ -554,39 +584,24 @@ rows.forEach((r) => {
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
-        gap: 16,
+        gap: 24,
         textAlign: "center",
-        fontSize: 14,
       }}
     >
-      <div>
-        <strong>{awayTeam?.name}</strong>
-        <div style={{ marginTop: 6 }}>
-          {"● ".repeat(game.so_away_goals)}
-          {"○ ".repeat(
-            Math.max(0, Math.max(game.so_home_goals, game.so_away_goals) - game.so_away_goals)
-          )}
-        </div>
-      </div>
+      {/* AWAY TEAM */}
+      <ShootoutTeam
+        team={awayTeam}
+        attempts={shootoutByTeam[awayTeam?.id] || []}
+      />
 
-      <div>
-        <strong>{homeTeam?.name}</strong>
-        <div style={{ marginTop: 6 }}>
-          {"● ".repeat(game.so_home_goals)}
-          {"○ ".repeat(
-            Math.max(0, Math.max(game.so_home_goals, game.so_away_goals) - game.so_home_goals)
-          )}
-        </div>
-      </div>
+      {/* HOME TEAM */}
+      <ShootoutTeam
+        team={homeTeam}
+        attempts={shootoutByTeam[homeTeam?.id] || []}
+      />
     </div>
 
-    <div
-      style={{
-        marginTop: 12,
-        textAlign: "center",
-        fontWeight: 600,
-      }}
-    >
+    <div style={{ marginTop: 14, textAlign: "center", fontWeight: 600 }}>
       Winner:{" "}
       {game.so_winner_team_id === homeTeam?.id
         ? homeTeam?.name
@@ -667,13 +682,13 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
                   </tr>
                 )}
 
-                {lineup.goalies.map((p, idx) => (
-                  <RosterRow
-                    key={`g-${p.id}`}
-                    p={p}
-                    goalieRec={idx === 0 ? goalieRec : null}
-                  />
-                ))}
+                {lineup.goalies.map((p) => (
+  <RosterRow
+    key={`g-${p.id}`}
+    p={p}
+    goalieRec={goalieRec}
+  />
+))}
               </>
             )}
           </tbody>
@@ -733,3 +748,43 @@ const Td = (props) => (
     }}
   />
 );
+
+function ShootoutTeam({ team, attempts }) {
+  const color = team?.primary_color || "#cc0000"; // fallback
+
+  return (
+    <div>
+      <strong>{team?.name}</strong>
+
+      <div style={{ marginTop: 8 }}>
+        {attempts.map((a, i) => (
+          <span
+            key={a.id}
+            title={`${a.players?.name || "Unknown"} — ${
+              a.is_goal ? "GOAL" : "MISS"
+            }`}
+            style={{
+              display: "inline-block",
+              width: 14,
+              height: 14,
+              borderRadius: "50%",
+              margin: "0 4px",
+              backgroundColor: a.is_goal ? color : "transparent",
+              border: `2px solid ${color}`,
+            }}
+          />
+        ))}
+      </div>
+
+      <div style={{ marginTop: 6, fontSize: 12, color: "#666" }}>
+        {attempts.map((a, i) => (
+          <div key={`n-${a.id}`}>
+            {i + 1}. {a.players?.name || "—"}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
