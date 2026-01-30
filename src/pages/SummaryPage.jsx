@@ -577,7 +577,7 @@ rows.forEach((r) => {
         )}
       </div>
 
-     {isShootout && (
+     {isShootout && shootoutRows.length > 0 && (
   <div className="card" style={{ marginTop: 16 }}>
     <h3 style={{ marginTop: 0 }}>Shootout</h3>
 
@@ -589,13 +589,13 @@ rows.forEach((r) => {
         textAlign: "center",
       }}
     >
-      {/* AWAY TEAM */}
+     
       <ShootoutTeam
         team={awayTeam}
         attempts={shootoutByTeam[awayTeam?.id] || []}
       />
 
-      {/* HOME TEAM */}
+     
       <ShootoutTeam
         team={homeTeam}
         attempts={shootoutByTeam[homeTeam?.id] || []}
