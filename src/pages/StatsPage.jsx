@@ -24,6 +24,14 @@ export default function StatsPage() {
   const [goalies, setGoalies] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
+  const [goalieSort, setGoalieSort] = React.useState({
+  key: "pts",
+  dir: "desc",
+});
+
+  const SortContext = React.createContext(null);
+
+
   React.useEffect(() => {
     if (!seasonId || !categoryId) return;
 
@@ -73,7 +81,15 @@ export default function StatsPage() {
             pts: s.pts ?? 0,
           }))
         );
-        setGoalies(gl || []);
+        setGoalies(
+  (gl || []).map(g => ({
+    ...g,
+    pts:
+      (g.wins ?? 0) * 3 +
+      (g.otl ?? 0) * 1 +
+      (g.sol ?? 0) * 1,
+  }))
+);
         setLoading(false);
       }
     }
@@ -83,6 +99,20 @@ export default function StatsPage() {
       cancelled = true;
     };
   }, [seasonId, categoryId]);
+
+const sortedGoalies = React.useMemo(() => {
+  const { key, dir } = goalieSort;
+  const mult = dir === "asc" ? 1 : -1;
+
+  return [...goalies].sort((a, b) => {
+    const av = a[key] ?? 0;
+    const bv = b[key] ?? 0;
+    if (av === bv) return 0;
+    return av > bv ? mult : -mult;
+  });
+}, [goalies, goalieSort]);
+
+  
 
   return (
     <div className="stats-page">
@@ -113,6 +143,7 @@ export default function StatsPage() {
             borderRadius: 10,
           }}
         >
+          <SortContext.Provider value={goalieSort}>
           <table style={tbl}>
             <thead style={thead}>
               <tr>
@@ -139,6 +170,7 @@ export default function StatsPage() {
               ))}
             </tbody>
           </table>
+            </SortContext.Provider>
         </div>
       ) : (
         <div
@@ -150,24 +182,24 @@ export default function StatsPage() {
         >
           <table style={tbl}>
             <thead style={thead}>
-              <tr>
-                <th style={th}>{t("Goalie")}</th>
-                <th style={th}>{t("Team")}</th>
-                <th style={th}>GP</th>
-                <th style={th}>SA</th>
-                <th style={th}>GA</th>
-                <th style={th}>{t("SV%")}</th>
-                <th style={th}>{t("GAA")}</th>
-                <th style={th}>{t("TOI")}</th>
-                <th style={th}>{t("W-L-OTL-SOL")}</th>
-                <th style={th}>SO</th>
-               
-                
-              
-              </tr>
-            </thead>
+  <tr>
+    <SortableTh label="Goalie" sortKey="goalie" />
+    <SortableTh label="Team" sortKey="team" />
+    <SortableTh label="GP" sortKey="gp" />
+    <SortableTh label="SA" sortKey="sa" />
+    <SortableTh label="GA" sortKey="ga" />
+    <SortableTh label="SV%" sortKey="sv_pct" />
+    <SortableTh label="GAA" sortKey="gaa" />
+    <SortableTh label="TOI" sortKey="toi_seconds" />
+    <SortableTh label="PTS" sortKey="pts" />
+    <th style={th}>{t("W-L-OTL-SOL")}</th>
+    <SortableTh label="SO" sortKey="so" />
+  </tr>
+</thead>
+
             <tbody>
-              {goalies.map((g) => (
+              {sortedGoalies.map((g) => (
+
                <tr key={`${g.player_id}-${g.team}-${seasonId}-${categoryId}`}>
                   <td style={td}>
                     <PlayerLink id={g.player_id}>{g.goalie}</PlayerLink>
@@ -198,6 +230,29 @@ export default function StatsPage() {
     </div>
   );
 }
+
+function SortableTh({ label, sortKey }) {
+  const { key, dir } = React.useContext(SortContext);
+
+  const isActive = key === sortKey;
+  const arrow = isActive ? (dir === "asc" ? " ▲" : " ▼") : "";
+
+  return (
+    <th
+      style={{ ...th, cursor: "pointer" }}
+      onClick={() =>
+        setGoalieSort(prev => ({
+          key: sortKey,
+          dir: prev.key === sortKey && prev.dir === "desc" ? "asc" : "desc",
+        }))
+      }
+    >
+      {label}
+      {arrow}
+    </th>
+  );
+}
+
 
 function fmtTOI(sec) {
   const s = Number(sec || 0);
