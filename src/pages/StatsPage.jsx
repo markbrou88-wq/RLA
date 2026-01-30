@@ -51,7 +51,7 @@ export default function StatsPage() {
         supabase
           .from("goalie_stats_current")
           .select(
-  "gp, player_id, goalie, team, sa, ga, sv_pct, gaa, toi_seconds, wins, losses, otl, sol, so"
+  "gp, player_id, goalie, team, sa, ga, sv_pct, gaa, toi_seconds, wins, losses, otl, so, sol"
 )
           .eq("season_id", seasonId)
           .eq("category_id", categoryId)
@@ -159,8 +159,9 @@ export default function StatsPage() {
                 <th style={th}>{t("SV%")}</th>
                 <th style={th}>{t("GAA")}</th>
                 <th style={th}>{t("TOI")}</th>
+                <th style={th}>SO</th>
                <th style={th}>{t("W-L-OTL-SOL")}</th>
-                <th style={th}>{t("SO")}</th>
+                
               
               </tr>
             </thead>
