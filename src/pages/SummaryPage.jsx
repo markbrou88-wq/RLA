@@ -165,7 +165,8 @@ const getGoalieRec = async (goalie) => {
   w: data.wins ?? 0,
   l: data.losses ?? 0,
   ot: data.otl ?? 0,
-  so: data.so ?? 0,
+  sol: data.sol ?? 0,
+ 
 };
 };
 
@@ -726,7 +727,8 @@ function RosterRow({ p, goalieRec }) {
               goalieRec.w != null ? `${goalieRec.w} W` : null,
               goalieRec.l != null ? `${goalieRec.l} L` : null,
               goalieRec.ot != null ? `${goalieRec.ot} OTL` : null,
-              goalieRec.so != null ? `${goalieRec.so} SO` : null,
+            goalieRec.sol != null ? `${goalieRec.sol} SOL` : null,
+             
             ]
               .filter(Boolean)
               .join(" • ")}
