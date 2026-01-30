@@ -200,19 +200,26 @@ export default function SummaryPage() {
         return bt.localeCompare(at);
       });
 
-     const { data: shootoutAttempts } = await supabase
+    const { data: shootoutAttempts } = await supabase
   .from("shootout_attempts")
   .select(`
     id,
+    game_id,
     team_id,
-    player_id,
+    shooter_id,
+    goalie_id,
     round,
-    is_goal,
-    players ( id, name )
+    result,
+    players:shooter_id ( id, name )
   `)
   .eq("game_id", g.id)
   .order("round", { ascending: true });
- 
+
+ const normalizedShootout = (shootoutAttempts || []).map(a => ({
+  ...a,
+  is_goal: a.result === "goal",
+}));
+
 
 if (!cancelled) {
   setGame(g);
@@ -225,7 +232,7 @@ if (!cancelled) {
   setHomeGoalieRec(homeGoalieRecData);
   setAwayGoalieRec(awayGoalieRecData);
   setRows(grouped || []);
-  setShootoutRows(shootoutAttempts || []);
+  setShootoutRows(normalizedShootout);
 
 
   // ✅ open only the most recent period by default
