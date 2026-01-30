@@ -181,11 +181,13 @@ export default function StatsPage() {
                   </td>
                   <td style={tdRight}>{g.gaa != null ? g.gaa : "—"}</td>
                   <td style={tdRight}>{fmtTOI(g.toi_seconds)}</td>
-                  <td style={tdRight}>
-  {`${g.wins ?? 0}-${
-    Math.max(0, (g.losses ?? 0) - (g.sol ?? 0))
-  }-${g.otl ?? 0}-${g.sol ?? 0}`}
+
+<td style={tdRight}>
+  {`${g.wins ?? 0}-${g.losses ?? 0}-${g.otl ?? 0}-${g.sol ?? 0}`}
 </td>
+
+
+                 
                   <td style={tdRight}>{g.so ?? 0}</td>
                 </tr>
               ))}
