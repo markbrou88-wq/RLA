@@ -1502,7 +1502,9 @@ async function handleShotMinus(teamId) {
     onClick={() => setLayoutMode("quick")}
   >
     ⚡ Quick
-  {/*
+</button>
+    
+    {/*
 <button
   className={`btn ${layoutMode === "rink" ? "btn-blue" : "btn-grey"}`}
   onClick={() => setLayoutMode("rink")}
