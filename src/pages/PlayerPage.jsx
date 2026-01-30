@@ -281,43 +281,48 @@ if (isGoalie) {
 
       const ggMap = new Map((gStats || []).map((r) => [r.game_id, r]));
 
-      builtGoalieLog = (gRoster || [])
-        .map((r) => {
-          const gm = gMap.get(r.game_id);
-          const overlay = ggMap.get(r.game_id);
-          const date = gm?.game_date ? new Date(gm.game_date) : null;
-          const oppId =
-            r.team_id === gm?.home_team_id
-              ? gm?.away_team_id
-              : gm?.home_team_id;
-          const opp = tMap.get(oppId);
 
-return {
-  game_id: r.game_id,
-  season_id: gm?.season_id,
-  season_name: seasonMap.get(gm?.season_id) || "Other",
-  date,
-  slug: gm?.slug || r.game_id,
-  opponent: opp?.short_name || opp?.name || "",
-  sa: overlay?.shots_against ?? 0,
-  ga: overlay?.goals_against ?? 0,
-  toi: overlay?.minutes_seconds ?? 0,
- decision:
-  overlay?.decision === "L" && overlay?.so_loss
-    ? "SOL"
-    : overlay?.decision || "",
+builtGoalieLog = (gRoster || [])
+  .map((r) => {
+    const gm = gMap.get(r.game_id);
+    const overlay = ggMap.get(r.game_id);
+    const date = gm?.game_date ? new Date(gm.game_date) : null;
 
-  so: overlay?.shutout ? 1 : 0,
-};
+    const oppId =
+      r.team_id === gm?.home_team_id
+        ? gm?.away_team_id
+        : gm?.home_team_id;
+    const opp = tMap.get(oppId);
 
-          
-        })
-        .sort(
-          (a, b) =>
-            (b.date?.getTime?.() || 0) -
-            (a.date?.getTime?.() || 0)
-        );
+    const wentSO = gm?.went_so === true;
 
+    const decision =
+      overlay?.decision === "L" && wentSO
+        ? "SOL"
+        : overlay?.decision || "";
+
+    return {
+      game_id: r.game_id,
+      season_id: gm?.season_id,
+      season_name: seasonMap.get(gm?.season_id) || "Other",
+      date,
+      slug: gm?.slug || r.game_id,
+      opponent: opp?.short_name || opp?.name || "",
+      sa: overlay?.shots_against ?? 0,
+      ga: overlay?.goals_against ?? 0,
+      toi: overlay?.minutes_seconds ?? 0,
+      decision,
+      so: overlay?.shutout ? 1 : 0,
+    };
+  })
+  .sort(
+    (a, b) =>
+      (b.date?.getTime?.() || 0) -
+      (a.date?.getTime?.() || 0)
+  );
+
+
+      
       if (!cancelled) {
         setPlayer(pRow);
         setSeasonStats(stats);
