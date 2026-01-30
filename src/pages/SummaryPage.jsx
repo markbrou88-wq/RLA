@@ -258,6 +258,9 @@ if (!cancelled) {
   }`;
 
 
+const isShootout = game.went_so === true;
+
+const shootoutLabel = isShootout ? " (SO)" : "";
 
 
  
@@ -301,9 +304,16 @@ rows.forEach((r) => {
       <div style={{ textAlign: "center", color: "#666", margin: "4px 0" }}>
         {String(game.status || "").toUpperCase()} • {dateStr}
       </div>
+
       <div style={{ textAlign: "center", fontWeight: 700, marginBottom: 16 }}>
-        {scoreline}
-      </div>
+  {scoreline}
+  {isShootout && (
+    <span style={{ fontSize: 13, color: "#666", marginLeft: 6 }}>
+      (SO)
+    </span>
+  )}
+</div>
+
 
       <div className="summary-lineups">
         <div className="summary-team-column">
@@ -535,6 +545,57 @@ rows.forEach((r) => {
           </div>
         )}
       </div>
+
+      {isShootout && (
+  <div className="card" style={{ marginTop: 16 }}>
+    <h3 style={{ marginTop: 0 }}>Shootout</h3>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 16,
+        textAlign: "center",
+        fontSize: 14,
+      }}
+    >
+      <div>
+        <strong>{awayTeam?.name}</strong>
+        <div style={{ marginTop: 6 }}>
+          {"● ".repeat(game.so_away_goals)}
+          {"○ ".repeat(
+            Math.max(0, Math.max(game.so_home_goals, game.so_away_goals) - game.so_away_goals)
+          )}
+        </div>
+      </div>
+
+      <div>
+        <strong>{homeTeam?.name}</strong>
+        <div style={{ marginTop: 6 }}>
+          {"● ".repeat(game.so_home_goals)}
+          {"○ ".repeat(
+            Math.max(0, Math.max(game.so_home_goals, game.so_away_goals) - game.so_home_goals)
+          )}
+        </div>
+      </div>
+    </div>
+
+    <div
+      style={{
+        marginTop: 12,
+        textAlign: "center",
+        fontWeight: 600,
+      }}
+    >
+      Winner:{" "}
+      {game.so_winner_team_id === homeTeam?.id
+        ? homeTeam?.name
+        : awayTeam?.name}
+    </div>
+  </div>
+)}
+
+      
     </div>
   );
 }
