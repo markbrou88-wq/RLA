@@ -29,7 +29,13 @@ export default function StatsPage() {
   dir: "desc",
 });
 
+const [skaterSort, setSkaterSort] = React.useState({
+  key: "pts",
+  dir: "desc",
+});
 
+
+  
 
   React.useEffect(() => {
     if (!seasonId || !categoryId) return;
@@ -111,7 +117,18 @@ const sortedGoalies = React.useMemo(() => {
   });
 }, [goalies, goalieSort]);
 
-  
+  const sortedSkaters = React.useMemo(() => {
+  const { key, dir } = skaterSort;
+  const mult = dir === "asc" ? 1 : -1;
+
+  return [...skaters].sort((a, b) => {
+    const av = a[key] ?? 0;
+    const bv = b[key] ?? 0;
+    if (av === bv) return 0;
+    return av > bv ? mult : -mult;
+  });
+}, [skaters, skaterSort]);
+
 
   return (
     <div className="stats-page">
@@ -146,16 +163,17 @@ const sortedGoalies = React.useMemo(() => {
           <table style={tbl}>
             <thead style={thead}>
               <tr>
-                <th style={th}>{t("Player")}</th>
-                <th style={th}>{t("Team")}</th>
-                <th style={th}>GP</th>
-                <th style={th}>G</th>
-                <th style={th}>A</th>
-                <th style={th}>P</th>
+                <SortableTh label={t("Player")} sortKey="player" sort={skaterSort} setSort={setSkaterSort} />
+<SortableTh label={t("Team")} sortKey="team" sort={skaterSort} setSort={setSkaterSort} />
+<SortableTh label="GP" sortKey="gp" sort={skaterSort} setSort={setSkaterSort} />
+<SortableTh label="G" sortKey="g" sort={skaterSort} setSort={setSkaterSort} />
+<SortableTh label="A" sortKey="a" sort={skaterSort} setSort={setSkaterSort} />
+<SortableTh label="P" sortKey="pts" sort={skaterSort} setSort={setSkaterSort} />
+
               </tr>
             </thead>
             <tbody>
-              {skaters.map((r) => (
+              {sortedSkaters.map((r) => (
                 <tr key={r.player_id}>
                   <td style={td}>
                     <PlayerLink id={r.player_id}>{r.player}</PlayerLink>
