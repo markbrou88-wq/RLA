@@ -51,8 +51,8 @@ export default function StatsPage() {
         supabase
           .from("goalie_stats_current")
           .select(
-            "gp, player_id, goalie, team, sa, ga, sv_pct, gaa, toi_seconds, wins, losses, otl, so"
-          )
+  "gp, player_id, goalie, team, sa, ga, sv_pct, gaa, toi_seconds, wins, losses, otl, sol"
+)
           .eq("season_id", seasonId)
           .eq("category_id", categoryId)
           .order("sv_pct", { ascending: false, nullsFirst: false }),
@@ -159,8 +159,8 @@ export default function StatsPage() {
                 <th style={th}>{t("SV%")}</th>
                 <th style={th}>{t("GAA")}</th>
                 <th style={th}>{t("TOI")}</th>
-                <th style={th}>{t("W-L-OTL")}</th>
-                <th style={th}>SO</th>
+               <th style={th}>{t("W-L-OTL-SOL")}</th>
+              
               </tr>
             </thead>
             <tbody>
@@ -178,7 +178,11 @@ export default function StatsPage() {
                   </td>
                   <td style={tdRight}>{g.gaa != null ? g.gaa : "—"}</td>
                   <td style={tdRight}>{fmtTOI(g.toi_seconds)}</td>
-                  <td style={tdRight}>{`${g.wins ?? 0}-${g.losses ?? 0}-${g.otl ?? 0}`}</td>
+                  <td style={tdRight}>
+  {`${g.wins ?? 0}-${
+    Math.max(0, (g.losses ?? 0) - (g.sol ?? 0))
+  }-${g.otl ?? 0}-${g.sol ?? 0}`}
+</td>
                   <td style={tdRight}>{g.so ?? 0}</td>
                 </tr>
               ))}
