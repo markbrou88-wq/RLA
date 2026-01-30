@@ -1502,14 +1502,14 @@ async function handleShotMinus(teamId) {
     onClick={() => setLayoutMode("quick")}
   >
     ⚡ Quick
-  </button>
-
-  <button
-    className={`btn ${layoutMode === "rink" ? "btn-blue" : "btn-grey"}`}
-    onClick={() => setLayoutMode("rink")}
-  >
-    🏒 Rink
-  </button>
+  {/*
+<button
+  className={`btn ${layoutMode === "rink" ? "btn-blue" : "btn-grey"}`}
+  onClick={() => setLayoutMode("rink")}
+>
+  🏒 Rink
+</button>
+*/}
 
 
 {/* START / REOPEN SHOOTOUT */}
@@ -1809,6 +1809,69 @@ if (!winner) {
       gap: 16,
     }}
   >
+
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr",
+    gap: 12,
+    marginBottom: 12,
+  }}
+>
+  {/* AWAY GOALIE */}
+  <div>
+    <div className="muted" style={{ marginBottom: 4 }}>
+      {away.short_name || away.name} Goalie
+    </div>
+    <select
+      className="input"
+      value={goalieOnIce[away.id] || ""}
+      onChange={(e) =>
+        setGoalie(away.id, Number(e.target.value) || null)
+      }
+    >
+      <option value="">— Select Goalie —</option>
+      {awayDressed
+        .filter((p) =>
+          (p.position || "").toLowerCase().includes("g")
+        )
+        .map((g) => (
+          <option key={g.id} value={g.id}>
+            {g.number ? `#${g.number} ` : ""}
+            {g.name}
+          </option>
+        ))}
+    </select>
+  </div>
+
+  {/* HOME GOALIE */}
+  <div>
+    <div className="muted" style={{ marginBottom: 4 }}>
+      {home.short_name || home.name} Goalie
+    </div>
+    <select
+      className="input"
+      value={goalieOnIce[home.id] || ""}
+      onChange={(e) =>
+        setGoalie(home.id, Number(e.target.value) || null)
+      }
+    >
+      <option value="">— Select Goalie —</option>
+      {homeDressed
+        .filter((p) =>
+          (p.position || "").toLowerCase().includes("g")
+        )
+        .map((g) => (
+          <option key={g.id} value={g.id}>
+            {g.number ? `#${g.number} ` : ""}
+            {g.name}
+          </option>
+        ))}
+    </select>
+  </div>
+</div>
+
+    
     {/* AWAY TEAM */}
     <div>
       <div style={{ fontWeight: 800, marginBottom: 6 }}>
