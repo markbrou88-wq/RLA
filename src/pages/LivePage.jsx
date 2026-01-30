@@ -1818,6 +1818,17 @@ if (!winner) {
       {away.short_name || away.name}
     </div>
 
+    <div
+  style={{
+    fontSize: 12,
+    fontWeight: 700,
+    marginBottom: 6,
+    opacity: 0.7,
+  }}
+>
+  Goalie
+</div>
+
 
 <GoalieBubbleRow
   team={away}
@@ -1828,7 +1839,17 @@ if (!winner) {
   align="left"
 />
 
-    
+    {/* Players label */}
+<div
+  style={{
+    fontSize: 12,
+    fontWeight: 700,
+    marginBottom: 6,
+    opacity: 0.7,
+  }}
+>
+  Players
+</div>
 
     <div
       style={{
@@ -1839,7 +1860,10 @@ if (!winner) {
         gap: 10,
       }}
     >
-      {awayDressed.map((p) => (
+     {awayDressed
+  .filter((p) => !(p.position || "").toLowerCase().includes("g"))
+  .map((p) => (
+
         <button
           key={p.id}
           onClick={() =>
@@ -1875,6 +1899,18 @@ if (!winner) {
       {home.short_name || home.name}
     </div>
 
+<div
+  style={{
+    fontSize: 12,
+    fontWeight: 700,
+    marginBottom: 6,
+    opacity: 0.7,
+    textAlign: "right",
+  }}
+>
+  Goalie
+</div>
+    
     <GoalieBubbleRow
   team={home}
   dressed={homeDressed}
@@ -1884,7 +1920,21 @@ if (!winner) {
   align="right"
 />
 
+{/* Players label */}
+<div
+  style={{
+    fontSize: 12,
+    fontWeight: 700,
+    marginBottom: 6,
+    opacity: 0.7,
+    textAlign: "right",
+  }}
+>
+  Players
+</div>
 
+
+    
     <div
       style={{
         display: "grid",
@@ -1895,7 +1945,9 @@ if (!winner) {
         gap: 10,
       }}
     >
-      {homeDressed.map((p) => (
+     {homeDressed
+  .filter((p) => !(p.position || "").toLowerCase().includes("g"))
+  .map((p) => (
         <button
           key={p.id}
           onClick={() =>
