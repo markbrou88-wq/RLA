@@ -147,24 +147,29 @@ export default function SummaryPage() {
       const homeLU = split(rosterRows, g.home_team_id);
       const awayLU = split(rosterRows, g.away_team_id);
 
-      const getGoalieRec = async (goalie) => {
-        if (!goalie) return null;
-        const { data } = await supabase
-  .from("goalie_stats_current")
-  .select("*")
-  .eq("player_id", goalie.id)
-  .eq("season_id", game.season_id)
-  .eq("category_id", game.category_id)
-  .maybeSingle();
 
+const getGoalieRec = async (goalie) => {
+  if (!goalie) return null;
 
-        if (!data) return null;
-        const w = data.w ?? data.wins ?? data.W ?? null;
-        const l = data.l ?? data.losses ?? data.L ?? null;
-        const ot = data.otl ?? data.overtime_losses ?? data.OTL ?? null;
-        const so = data.so ?? data.shutouts ?? data.SO ?? null;
-        return { w, l, ot, so };
-      };
+  const { data } = await supabase
+    .from("goalie_stats_current")
+    .select("*")
+    .eq("player_id", goalie.id)
+    .eq("season_id", g.season_id)
+    .eq("category_id", g.category_id)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  return {
+    w: data.w ?? 0,
+    l: data.l ?? 0,
+    ot: data.otl ?? 0,
+    so: data.so ?? 0,
+  };
+};
+
+      
 
       const [homeGoalieRecData, awayGoalieRecData] = await Promise.all([
         getGoalieRec(homeLU.goalies[0]),
