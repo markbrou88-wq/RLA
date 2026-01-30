@@ -1803,40 +1803,33 @@ if (!winner) {
       
       {layoutMode === "quick" && !isShootout && (
   <div
-    className="card"
-    style={{
-      marginTop: 12,
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 16,
-    }}
-  >
-
-<div
+  className="card"
   style={{
+    marginTop: 12,
     display: "grid",
     gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr",
-    gap: 12,
-    marginBottom: 12,
+    gap: 24,
+    alignItems: "flex-start",
   }}
 >
-  {/* AWAY GOALIE */}
+  {/* ================= LEFT — AWAY / RLR ================= */}
   <div>
+    <div style={{ fontWeight: 900, marginBottom: 8 }}>
+      {away.short_name || away.name}
+    </div>
+
     <div className="muted" style={{ marginBottom: 4 }}>
-      {away.short_name || away.name} Goalie
+      Goalie
     </div>
     <select
       className="input"
+      style={{ marginBottom: 14 }}
       value={goalieOnIce[away.id] || ""}
-      onChange={(e) =>
-        setGoalie(away.id, Number(e.target.value) || null)
-      }
+      onChange={(e) => setGoalie(away.id, Number(e.target.value) || null)}
     >
       <option value="">— Select Goalie —</option>
       {awayDressed
-        .filter((p) =>
-          (p.position || "").toLowerCase().includes("g")
-        )
+        .filter((p) => (p.position || "").toLowerCase().includes("g"))
         .map((g) => (
           <option key={g.id} value={g.id}>
             {g.number ? `#${g.number} ` : ""}
@@ -1844,25 +1837,64 @@ if (!winner) {
           </option>
         ))}
     </select>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: isPhone
+          ? "repeat(5, 48px)"
+          : "repeat(4, 56px)",
+        gap: 10,
+      }}
+    >
+      {awayDressed.map((p) => (
+        <button
+          key={p.id}
+          onClick={() =>
+            setQuickPick({
+              playerId: p.id,
+              teamId: away.id,
+              number: p.number,
+              name: p.name,
+            })
+          }
+          style={{
+            width: isPhone ? 48 : 56,
+            height: isPhone ? 48 : 56,
+            borderRadius: 999,
+            background: awayColor,
+            color: "#fff",
+            fontWeight: 900,
+            fontSize: isPhone ? 16 : 18,
+            border: "none",
+            cursor: "pointer",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+          }}
+        >
+          {p.number ?? "•"}
+        </button>
+      ))}
+    </div>
   </div>
 
-  {/* HOME GOALIE */}
+  {/* ================= RIGHT — HOME / RLN ================= */}
   <div>
-    <div className="muted" style={{ marginBottom: 4 }}>
-      {home.short_name || home.name} Goalie
+    <div style={{ fontWeight: 900, marginBottom: 8, textAlign: "right" }}>
+      {home.short_name || home.name}
+    </div>
+
+    <div className="muted" style={{ marginBottom: 4, textAlign: "right" }}>
+      Goalie
     </div>
     <select
       className="input"
+      style={{ marginBottom: 14 }}
       value={goalieOnIce[home.id] || ""}
-      onChange={(e) =>
-        setGoalie(home.id, Number(e.target.value) || null)
-      }
+      onChange={(e) => setGoalie(home.id, Number(e.target.value) || null)}
     >
       <option value="">— Select Goalie —</option>
       {homeDressed
-        .filter((p) =>
-          (p.position || "").toLowerCase().includes("g")
-        )
+        .filter((p) => (p.position || "").toLowerCase().includes("g"))
         .map((g) => (
           <option key={g.id} value={g.id}>
             {g.number ? `#${g.number} ` : ""}
@@ -1870,97 +1902,48 @@ if (!winner) {
           </option>
         ))}
     </select>
+
+    <div
+      style={{
+        display: "grid",
+        justifyContent: "flex-end",
+        gridTemplateColumns: isPhone
+          ? "repeat(5, 48px)"
+          : "repeat(4, 56px)",
+        gap: 10,
+      }}
+    >
+      {homeDressed.map((p) => (
+        <button
+          key={p.id}
+          onClick={() =>
+            setQuickPick({
+              playerId: p.id,
+              teamId: home.id,
+              number: p.number,
+              name: p.name,
+            })
+          }
+          style={{
+            width: isPhone ? 48 : 56,
+            height: isPhone ? 48 : 56,
+            borderRadius: 999,
+            background: homeColor,
+            color: "#fff",
+            fontWeight: 900,
+            fontSize: isPhone ? 16 : 18,
+            border: "none",
+            cursor: "pointer",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+          }}
+        >
+          {p.number ?? "•"}
+        </button>
+      ))}
+    </div>
   </div>
 </div>
 
-    
-    {/* AWAY TEAM */}
-    <div>
-      <div style={{ fontWeight: 800, marginBottom: 6 }}>
-        {away.short_name || away.name}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: isPhone
-  ? "repeat(5, 48px)"
-  : "repeat(4, 56px)", gap: 10 }}>
-        {awayDressed.map((p) => (
-
-
-<button
-  key={p.id}
-  onClick={() =>
-    setQuickPick({
-      playerId: p.id,
-      teamId: away.id,
-      number: p.number,
-      name: p.name,
-    })
-  }
-  style={{
-   width: isPhone ? 48 : 56,
-    height: isPhone ? 48 : 56,
-    borderRadius: 999,
-    background: awayColor,
-    color: "#fff",
-    fontWeight: 900,
-    fontSize: isPhone ? 16 : 18,
-    border: "none",
-    cursor: "pointer",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
-  }}
->
-  {p.number ?? "•"}
-</button>
-
-    
-        ))}
-      </div>
-    </div>
-
-    {/* HOME TEAM */}
-    <div>
-      <div style={{ fontWeight: 800, marginBottom: 6 }}>
-        {home.short_name || home.name}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: isPhone
-  ? "repeat(5, 48px)"
-  : "repeat(4, 56px)", gap: 10 }}>
-
-        {homeDressed.map((p) => (
-
-<button
-  key={p.id}
-  onClick={() =>
-    setQuickPick({
-      playerId: p.id,
-      teamId: home.id,
-      number: p.number,
-      name: p.name,
-    })
-  }
-  style={{
-   width: isPhone ? 48 : 56,
-height: isPhone ? 48 : 56,
-    borderRadius: 999,
-    background: homeColor,
-    color: "#fff",
-    fontWeight: 900,
-    fontSize: isPhone ? 16 : 18,
-    border: "none",
-    cursor: "pointer",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
-  }}
->
-  {p.number ?? "•"}
-</button>
-
-    
-))}
-
-      </div>
-    </div>
-  </div>
 )}
 
 
