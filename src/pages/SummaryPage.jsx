@@ -257,7 +257,8 @@ if (!cancelled) {
 }, [rows]);
 
 
-  const shootoutByTeam = React.useMemo(() => {
+ const shootoutByTeam = React.useMemo(() => {
+  if (!shootoutRows || shootoutRows.length === 0) return {};
   const out = {};
   shootoutRows.forEach((a) => {
     if (!out[a.team_id]) out[a.team_id] = [];
@@ -776,11 +777,15 @@ function ShootoutTeam({ team, attempts }) {
         ))}
       </div>
 
-      <div style={{ marginTop: 6, fontSize: 12, color: "#666" }}>
-        {attempts.map((a, i) => (
-          <div key={`n-${a.id}`}>
-            {i + 1}. {a.players?.name || "—"}
-          </div>
+      {attempts.length > 0 && (
+  <div style={{ marginTop: 6, fontSize: 12, color: "#666" }}>
+    {attempts.map((a, i) => (
+      <div key={`n-${a.id}`}>
+        {i + 1}. {a.players?.name || "—"}
+      </div>
+    ))}
+  </div>
+)}
         ))}
       </div>
     </div>
