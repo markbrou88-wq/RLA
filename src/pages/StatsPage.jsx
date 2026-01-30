@@ -29,7 +29,6 @@ export default function StatsPage() {
   dir: "desc",
 });
 
-  const SortContext = React.createContext(null);
 
 
   React.useEffect(() => {
@@ -143,7 +142,7 @@ const sortedGoalies = React.useMemo(() => {
             borderRadius: 10,
           }}
         >
-          <SortContext.Provider value={goalieSort}>
+         <SortContext.Provider value={{ goalieSort, setGoalieSort }}>
           <table style={tbl}>
             <thead style={thead}>
               <tr>
@@ -232,18 +231,22 @@ const sortedGoalies = React.useMemo(() => {
 }
 
 function SortableTh({ label, sortKey }) {
-  const { key, dir } = React.useContext(SortContext);
+  const { goalieSort, setGoalieSort } = React.useContext(SortContext);
+  const { key, dir } = goalieSort;
 
   const isActive = key === sortKey;
   const arrow = isActive ? (dir === "asc" ? " ▲" : " ▼") : "";
 
   return (
     <th
-      style={{ ...th, cursor: "pointer" }}
+      style={{ ...th, cursor: "pointer", userSelect: "none" }}
       onClick={() =>
         setGoalieSort(prev => ({
           key: sortKey,
-          dir: prev.key === sortKey && prev.dir === "desc" ? "asc" : "desc",
+          dir:
+            prev.key === sortKey && prev.dir === "desc"
+              ? "asc"
+              : "desc",
         }))
       }
     >
@@ -252,6 +255,7 @@ function SortableTh({ label, sortKey }) {
     </th>
   );
 }
+
 
 
 function fmtTOI(sec) {
