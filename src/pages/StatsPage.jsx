@@ -142,7 +142,7 @@ const sortedGoalies = React.useMemo(() => {
             borderRadius: 10,
           }}
         >
-         <SortContext.Provider value={{ goalieSort, setGoalieSort }}>
+       
           <table style={tbl}>
             <thead style={thead}>
               <tr>
@@ -169,7 +169,7 @@ const sortedGoalies = React.useMemo(() => {
               ))}
             </tbody>
           </table>
-            </SortContext.Provider>
+         
         </div>
       ) : (
         <div
@@ -182,17 +182,17 @@ const sortedGoalies = React.useMemo(() => {
           <table style={tbl}>
             <thead style={thead}>
   <tr>
-    <SortableTh label="Goalie" sortKey="goalie" />
-    <SortableTh label="Team" sortKey="team" />
-    <SortableTh label="GP" sortKey="gp" />
-    <SortableTh label="SA" sortKey="sa" />
-    <SortableTh label="GA" sortKey="ga" />
-    <SortableTh label="SV%" sortKey="sv_pct" />
-    <SortableTh label="GAA" sortKey="gaa" />
-    <SortableTh label="TOI" sortKey="toi_seconds" />
-    <SortableTh label="PTS" sortKey="pts" />
+    <SortableTh label="Goalie" sortKey="goalie" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label="Team" sortKey="team" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label="GP" sortKey="gp" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label="SA" sortKey="sa" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label="GA" sortKey="ga" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label="SV%" sortKey="sv_pct" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label="GAA" sortKey="gaa" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label="TOI" sortKey="toi_seconds" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label="PTS" sortKey="pts" sort={goalieSort} setSort={setGoalieSort} />
     <th style={th}>{t("W-L-OTL-SOL")}</th>
-    <SortableTh label="SO" sortKey="so" />
+    <SortableTh label="SO" sortKey="so" sort={goalieSort} setSort={setGoalieSort} />
   </tr>
 </thead>
 
@@ -230,18 +230,15 @@ const sortedGoalies = React.useMemo(() => {
   );
 }
 
-function SortableTh({ label, sortKey }) {
-  const { goalieSort, setGoalieSort } = React.useContext(SortContext);
-  const { key, dir } = goalieSort;
-
-  const isActive = key === sortKey;
-  const arrow = isActive ? (dir === "asc" ? " ▲" : " ▼") : "";
+function SortableTh({ label, sortKey, sort, setSort }) {
+  const isActive = sort.key === sortKey;
+  const arrow = isActive ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
 
   return (
     <th
       style={{ ...th, cursor: "pointer", userSelect: "none" }}
       onClick={() =>
-        setGoalieSort(prev => ({
+        setSort(prev => ({
           key: sortKey,
           dir:
             prev.key === sortKey && prev.dir === "desc"
@@ -255,6 +252,7 @@ function SortableTh({ label, sortKey }) {
     </th>
   );
 }
+
 
 
 
