@@ -150,10 +150,13 @@ export default function SummaryPage() {
       const getGoalieRec = async (goalie) => {
         if (!goalie) return null;
         const { data } = await supabase
-          .from("goalie_stats_current")
-          .select("*")
-          .eq("player_id", goalie.id)
-          .maybeSingle();
+  .from("goalie_stats_current")
+  .select("*")
+  .eq("player_id", goalie.id)
+  .eq("season_id", game.season_id)
+  .eq("category_id", game.category_id)
+  .maybeSingle();
+
 
         if (!data) return null;
         const w = data.w ?? data.wins ?? data.W ?? null;
