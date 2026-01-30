@@ -161,12 +161,14 @@ const getGoalieRec = async (goalie) => {
 
   if (!data) return null;
 
-  return {
+  const sol = data.sol ?? 0;
+const rawL = data.losses ?? 0;
+
+return {
   w: data.wins ?? 0,
-  l: data.losses ?? 0,
+  l: Math.max(0, rawL - sol), // ✅ exclude shootout losses
   ot: data.otl ?? 0,
-  sol: data.sol ?? 0,
- 
+  sol,
 };
 };
 
