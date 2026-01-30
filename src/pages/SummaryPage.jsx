@@ -162,11 +162,11 @@ const getGoalieRec = async (goalie) => {
   if (!data) return null;
 
   return {
-    w: data.w ?? 0,
-    l: data.l ?? 0,
-    ot: data.otl ?? 0,
-    so: data.so ?? 0,
-  };
+  w: data.wins ?? 0,
+  l: data.losses ?? 0,
+  ot: data.otl ?? 0,
+  so: data.so ?? 0,
+};
 };
 
       
