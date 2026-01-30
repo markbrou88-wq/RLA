@@ -786,7 +786,7 @@ function ShootoutTeam({ team, attempts }) {
     ))}
   </div>
 )}
-        ))}
+        
       </div>
     </div>
   );
