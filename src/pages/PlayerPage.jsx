@@ -74,6 +74,7 @@ if (isGoalie) {
       losses,
       otl,
       so,
+      sol,
       toi_seconds
       `
     )
@@ -90,9 +91,10 @@ if (isGoalie) {
         acc.otl += r.otl || 0;
         acc.so += r.so || 0;
         acc.toi += r.toi_seconds || 0;
+        acc.sol += r.sol || 0;
         return acc;
       },
-      { gp: 0, sa: 0, ga: 0, w: 0, l: 0, otl: 0, so: 0, toi: 0 }
+     { gp: 0, sa: 0, ga: 0, w: 0, l: 0, otl: 0, sol: 0, so: 0, toi: 0 }
     );
 
     goalieCareerTotals.sv_pct =
@@ -133,7 +135,8 @@ if (isGoalie) {
       gaa,
       wins,
       losses,
-      otl
+      otl,
+      sol
     `)
     .eq("player_id", pid)
     .order("season_id", { ascending: false });
@@ -299,7 +302,11 @@ return {
   sa: overlay?.shots_against ?? 0,
   ga: overlay?.goals_against ?? 0,
   toi: overlay?.minutes_seconds ?? 0,
-  decision: overlay?.decision || "",
+ decision:
+  overlay?.decision === "L" && overlay?.so_loss
+    ? "SOL"
+    : overlay?.decision || "",
+
   so: overlay?.shutout ? 1 : 0,
 };
 
@@ -395,10 +402,10 @@ return {
         value={goalieCareer?.gaa != null ? goalieCareer.gaa : "—"}
       />
       <SummaryBox
-        label="W-L-OTL"
-        value={`${goalieCareer?.w ?? 0}-${goalieCareer?.l ?? 0}-${goalieCareer?.otl ?? 0}`}
-        highlight
-      />
+  label="W-L-OTL-SOL"
+  value={`${goalieCareer?.w ?? 0}-${goalieCareer?.l ?? 0}-${goalieCareer?.otl ?? 0}-${goalieCareer?.sol ?? 0}`}
+  highlight
+/>
     </div>
   )}
 </section>
@@ -448,7 +455,8 @@ return {
             <th style={thS}>GP</th>
             <th style={thS}>SV%</th>
             <th style={thS}>GAA</th>
-            <th style={thS}>W-L-OTL</th>
+            <th style={thS}>W-L-OTL-SOL</th>
+
           </tr>
         </thead>
         <tbody>
@@ -463,7 +471,8 @@ return {
               </td>
               <td style={tdS}>{r.gaa ?? "—"}</td>
               <td style={tdS}>
-                {`${r.wins ?? 0}-${r.losses ?? 0}-${r.otl ?? 0}`}
+                {`${r.wins ?? 0}-${r.losses ?? 0}-${r.otl ?? 0}-${r.sol ?? 0}`}
+
               </td>
             </tr>
           ))}
