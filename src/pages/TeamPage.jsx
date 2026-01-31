@@ -849,53 +849,7 @@ const trend10 = summary.chart.reduce(
           {isLoggedIn && <Th col="actions" label="Actions" />}
         </div>
 
-{/* ---------- GOALIES ---------- */}
-{players.some(p => p.position === "G") && (
-  <div style={{ marginTop: 24 }}>
-    <div className="card-title">Goalies</div>
 
-    <div className="tbl" style={{ marginTop: 8 }}>
-      <div className="tr thead">
-        <div className="td">Goalie</div>
-        <div className="td c">GP</div>
-        <div className="td c">SA</div>
-        <div className="td c">GA</div>
-        <div className="td c">SV%</div>
-        <div className="td c">GAA</div>
-      </div>
-
-      {players
-        .filter(p => p.position === "G")
-        .map(g => {
-          const s = statsMap.get(g.id) || {};
-          const gaa =
-            s.gp && s.ga != null
-              ? ((s.ga / (s.gp * 1800)) * 1800).toFixed(2)
-              : "—";
-
-          const svpct =
-            s.sa > 0
-              ? `${Math.round((1 - s.ga / s.sa) * 1000) / 10}%`
-              : "—";
-
-          return (
-            <div className="tr" key={`g-${g.id}`}>
-              <div className="td left">
-                <Link className="link" to={`/players/${g.id}`}>
-                  {g.name}
-                </Link>
-              </div>
-              <div className="td c">{s.gp ?? 0}</div>
-              <div className="td c">{s.sa ?? 0}</div>
-              <div className="td c">{s.ga ?? 0}</div>
-              <div className="td c">{svpct}</div>
-              <div className="td c">{gaa}</div>
-            </div>
-          );
-        })}
-    </div>
-  </div>
-)}
 
         
 
