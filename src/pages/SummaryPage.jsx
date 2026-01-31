@@ -341,11 +341,18 @@ rows.forEach((r) => {
 
   return (
     <div className="container summary-page" style={{ maxWidth: 1100 }}>
+
+
       <div className="button-group" style={{ marginBottom: 12 }}>
-        <Link className="btn btn-grey" to="/games">
-          {t("Back to Games")}
-        </Link>
-      </div>
+  <Link className="btn btn-grey" to={`/live/${slug}`}>
+    Live
+  </Link>
+
+  <Link className="btn btn-grey" to="/games">
+    {t("Back to Games")}
+  </Link>
+</div>
+
 
       <h2 style={{ textAlign: "center", margin: "6px 0" }}>
         {(awayTeam?.name || "—")} @ {(homeTeam?.name || "—")}
