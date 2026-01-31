@@ -552,13 +552,10 @@ useEffect(() => {
     events.forEach((e) => {
       if (e.event === "assist" && gmap.has(key(e))) gmap.get(key(e)).assists.push(e);
     });
-    const others = events
-  .filter(
-    (e) =>
-      e.event !== "goal" &&
-      e.event !== "assist" &&
-      e.event !== "shot" // 👈 hide shots from UI
-  )
+
+
+     const others = events
+  .filter((e) => e.event !== "goal" && e.event !== "assist")
   .map((x) => ({ single: x }));
 
     const grouped = [...gmap.values(), ...others].sort((a, b) => {
