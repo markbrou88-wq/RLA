@@ -105,7 +105,7 @@ if (isGoalie) {
     goalieCareerTotals.gaa =
   goalieCareerTotals.toi > 0
     ? Math.round(
-        (goalieCareerTotals.ga / goalieCareerTotals.toi) * 60 * 100
+        (goalieCareerTotals.ga / goalieCareerTotals.toi) * 30 * 100
       ) / 100
     : null;
   }
@@ -152,7 +152,7 @@ if (isGoalie) {
   ...r,
   gaa:
     r.toi_seconds > 0
-      ? Math.round((r.ga / r.toi_seconds) * 60 * 100) / 100
+      ? Math.round((r.ga / r.toi_seconds) * 30 * 100) / 100
       : null,
 }));
 
