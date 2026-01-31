@@ -1737,6 +1737,10 @@ if (!winner) {
   </>
 )}
 
+
+<Link className="btn btn-grey" to={`/summary/${slug}`}>
+    Boxscore
+  </Link>
   
 
   <Link className="btn btn-grey" to={`/games/${slug}/roster`}>
