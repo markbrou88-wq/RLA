@@ -83,6 +83,10 @@ export default function LivePage() {
   // --------------------------------------------------------------------------  
 
   const [rows, setRows] = useState([]);
+  // Events UI state (SummaryPage-style)
+const [openPeriods, setOpenPeriods] = useState({});
+const [showShotsByPeriod, setShowShotsByPeriod] = useState({});
+
 
   // --------------------------------------------------------------------------
   // 1E. SHOTS (persisted to DB + LS)
@@ -1534,6 +1538,26 @@ async function recordShotInstant({
 // This is where we will later add:
 // {mode === "rink"} vs {mode === "quick"}
 // ============================================================================
+
+const eventsByPeriod = useMemo(() => {
+  const map = {};
+
+  rows.forEach((r) => {
+    const per = r.goal?.period ?? r.single?.period ?? 0;
+    if (!map[per]) map[per] = [];
+    map[per].push(r);
+  });
+
+  return Object.entries(map)
+    .map(([period, items]) => ({
+      period: Number(period),
+      items,
+      goals: items.filter((r) => r.goal),
+      shots: items.filter((r) => r.single?.event === "shot"),
+    }))
+    .sort((a, b) => a.period - b.period);
+}, [rows]);
+
   
   if (!game || !home || !away) return null;
 
@@ -2358,79 +2382,140 @@ cursor:
       {/* events */}
       <div className="card" style={{ marginTop: 14 }}>
         <div style={{ fontWeight: 800, marginBottom: 8 }}>Events</div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-  <tr style={{ textAlign: "left", color: "#666" }}>
-    {!isPhone && <th style={{ padding: 8 }}>PERIOD</th>}
-    <th style={{ padding: 8 }}>TIME</th>
-    {!isPhone && <th style={{ padding: 8 }}>TEAM</th>}
-    <th style={{ padding: 8 }}>TYPE</th>
-    <th style={{ padding: 8 }}>PLAYER / ASSISTS</th>
-    <th />
-  </tr>
-</thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ padding: 10, color: "#8a8a8a" }}>
-                  —
-                </td>
-              </tr>
-            )}
-            {rows.map((r, i) => {
-              if (r.goal) {
-                const aTxt = r.assists
-                  .map((a) => a.players?.name || (a.players?.number ? `#${a.players.number}` : "—"))
-                  .join(", ");
-                const teamLabel = r.goal.teams?.short_name || r.goal.teams?.name || "";
-                return (
-                  <tr key={`g${i}`} style={{ borderTop: "1px solid #f0f0f0" }}>
-                    {!isPhone && <td style={{ padding: 8 }}>{r.goal.period}</td>}
-<td style={{ padding: 8 }}>{r.goal.time_mmss}</td>
-{!isPhone && <td style={{ padding: 8 }}>{teamLabel}</td>}
 
-                    <td style={{ padding: 8 }}>goal</td>
-                    <td style={{ padding: 8 }}>
-                      <strong>
-                        {r.goal.players?.name || (r.goal.players?.number ? `#${r.goal.players.number}` : "—")}
-                      </strong>
-                      {aTxt && <span style={{ color: "#666" }}> (A: {aTxt})</span>}
-                    </td>
-                    <td style={{ padding: 8, textAlign: "right", display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                      <button className="btn btn-grey" onClick={() => openGoalFor(null, null, r)}>
-                        Edit
-                      </button>
-                      <button className="btn btn-grey" onClick={() => deleteRow(r)}>
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                );
-              }
-              const e = r.single;
+<div className="card" style={{ marginTop: 14 }}>
+  <div style={{ fontWeight: 800, marginBottom: 8 }}>Goals / Events</div>
+
+  {eventsByPeriod.map(({ period, items, shots }) => {
+    const isOpen = openPeriods[period] ?? true;
+    const showShots = showShotsByPeriod[period] ?? false;
+
+    return (
+      <div key={period} style={{ marginBottom: 10 }}>
+        {/* PERIOD HEADER */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            cursor: "pointer",
+            fontWeight: 800,
+            padding: "6px 4px",
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          <div onClick={() =>
+            setOpenPeriods((m) => ({ ...m, [period]: !isOpen }))
+          }>
+            {isOpen ? "▼" : "▶"} Period {period}
+          </div>
+
+          <div
+            style={{ fontSize: 12, color: "#2563eb" }}
+            onClick={() =>
+              setShowShotsByPeriod((m) => ({ ...m, [period]: !showShots }))
+            }
+          >
+            {showShots ? "Hide shots" : `Show shots (${shots.length})`}
+          </div>
+        </div>
+
+        {/* PERIOD EVENTS */}
+        {isOpen &&
+          items.map((r, i) => {
+            /* ================= GOAL ================= */
+            if (r.goal) {
+              const aTxt = r.assists
+                .map((a) => a.players?.name)
+                .join(", ");
+
               return (
-                <tr key={`o${e.id}`} style={{ borderTop: "1px solid #f0f0f0" }}>
-                 {!isPhone && <td style={{ padding: 8 }}>{e.period}</td>}
-<td style={{ padding: 8 }}>{e.time_mmss}</td>
-{!isPhone && (
-  <td style={{ padding: 8 }}>
-    {e.teams?.short_name || e.teams?.name || ""}
-  </td>
-)}
-
-
-                  <td style={{ padding: 8 }}>{e.event}</td>
-                  <td style={{ padding: 8 }}>{e.players?.name || (e.players?.number ? `#${e.players.number}` : "—")}</td>
-                  <td style={{ padding: 8, textAlign: "right" }}>
-                    <button className="btn btn-grey" onClick={() => deleteRow(r)}>
+                <div
+                  key={`g-${i}`}
+                  style={{
+                    background: "#ecfdf5",
+                    padding: 8,
+                    marginTop: 6,
+                    borderRadius: 6,
+                    display: "grid",
+                    gridTemplateColumns: isPhone
+                      ? "1fr"
+                      : "80px 80px 1fr auto",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  <div>{r.goal.time_mmss}</div>
+                  {!isPhone && (
+                    <div>{r.goal.teams?.short_name}</div>
+                  )}
+                  <div>
+                    <strong>{r.goal.players?.name}</strong>
+                    {aTxt && (
+                      <span style={{ color: "#555" }}>
+                        {" "}
+                        (A: {aTxt})
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      className="btn btn-grey"
+                      onClick={() => openGoalFor(null, null, r)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="btn btn-grey"
+                      onClick={() => deleteRow(r)}
+                    >
                       Delete
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               );
-            })}
-          </tbody>
-        </table>
+            }
+
+            /* ================= SHOT ================= */
+            if (r.single?.event === "shot" && showShots) {
+              return (
+                <div
+                  key={`s-${r.single.id}`}
+                  style={{
+                    padding: "6px 8px",
+                    marginTop: 4,
+                    display: "grid",
+                    gridTemplateColumns: isPhone
+                      ? "1fr"
+                      : "80px 80px 1fr auto",
+                    gap: 8,
+                    color: "#666",
+                  }}
+                >
+                  <div>{r.single.time_mmss}</div>
+                  {!isPhone && (
+                    <div>{r.single.teams?.short_name}</div>
+                  )}
+                  <div>{r.single.players?.name}</div>
+                  <div>
+                    <button
+                      className="btn btn-grey"
+                      onClick={() => deleteRow(r)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            return null;
+          })}
+      </div>
+    );
+  })}
+</div>
+
+        
       </div>
 
 {(isShootout || game?.went_so || soAttempts.length > 0) && (
