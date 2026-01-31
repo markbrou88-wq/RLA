@@ -553,8 +553,14 @@ useEffect(() => {
       if (e.event === "assist" && gmap.has(key(e))) gmap.get(key(e)).assists.push(e);
     });
     const others = events
-      .filter((e) => e.event !== "goal" && e.event !== "assist")
-      .map((x) => ({ single: x }));
+  .filter(
+    (e) =>
+      e.event !== "goal" &&
+      e.event !== "assist" &&
+      e.event !== "shot" // 👈 hide shots from UI
+  )
+  .map((x) => ({ single: x }));
+
     const grouped = [...gmap.values(), ...others].sort((a, b) => {
       const ap = a.goal ? a.goal.period : a.single.period;
       const bp = b.goal ? b.goal.period : b.single.period;
@@ -1251,6 +1257,12 @@ async function handleShotMinus(teamId) {
     const opposingTeamId = tid === home.id ? away.id : home.id;
     const goalieScoredOnId = goalieOnIce[opposingTeamId] || null;
 
+    if (!goalieScoredOnId) {
+  alert("Select the opposing goalie before recording a goal.");
+  return;
+}
+
+
     if (goalPick.editKey) {
       // --- EDIT EXISTING ---
       const prevTeamId = goalPick.editKey.goal.team_id;
@@ -1496,13 +1508,7 @@ async function handleShotMinus(teamId) {
 
 <div className="button-group" style={{ marginBottom: 8 }}>
 
-  {/* Toggle layout */}
-  <button
-    className={`btn ${layoutMode === "quick" ? "btn-blue" : "btn-grey"}`}
-    onClick={() => setLayoutMode("quick")}
-  >
-    ⚡ Quick
-</button>
+ 
     
     {/*
 <button
@@ -1552,15 +1558,32 @@ async function handleShotMinus(teamId) {
   <button
     className="btn btn-blue"
     onClick={async () => {
-      await loadShootout(game.id);
-      setIsShootout(true);
-      setSoRound(
-        Math.max(
-          1,
-          ...soAttempts.map((a) => Number(a.round || 1))
-        )
-      );
-    }}
+  // 🔥 Undo previous finalization if it exists
+  await undoShootoutFinalization();
+
+  // Clear winner flag but KEEP attempts
+  await supabase
+    .from("games")
+    .update({
+      so_winner_team_id: null,
+    })
+    .eq("id", game.id);
+
+  setGame((g) => ({
+    ...g,
+    so_winner_team_id: null,
+  }));
+
+  // Reload attempts fresh
+  await loadShootout(game.id);
+
+  setIsShootout(true);
+
+  // Recompute round safely
+  const rounds = soAttempts.map((a) => Number(a.round || 1));
+  setSoRound(rounds.length ? Math.max(...rounds) : 1);
+}}
+
   >
     🔓 Reopen Shootout
   </button>
@@ -3136,27 +3159,7 @@ function GoalieBubbleRow({
           >
             {g.number ?? "•"}
 
-            {active && (
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: -6,
-                  right: -6,
-                  background: "#16a34a",
-                  color: "#fff",
-                  borderRadius: 999,
-                  width: 20,
-                  height: 20,
-                  fontSize: 12,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-                }}
-              >
-                🥅
-              </div>
-            )}
+           
           </button>
         );
       })}
