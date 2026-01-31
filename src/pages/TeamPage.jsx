@@ -244,34 +244,24 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
         .select(`
           player_id,
           goalie,
+          team,
           gp,
           sa,
           ga,
           sv_pct,
-          toi_seconds,
-          wins,
-          losses,
-          otl,
-          sol,
-          so
+          gaa,
+          toi_seconds
         `)
-        .eq("season_id", seasonId)
-        .eq("category_id", categoryId);
+        .eq("team_id", Number(teamId))
+        .eq("season_id", Number(seasonId))
+        .eq("category_id", Number(categoryId));
 
       if (!stop) {
         if (error) {
           console.error(error);
           setGoalies([]);
         } else {
-          setGoalies(
-            (data || []).map(g => ({
-              ...g,
-              gaa:
-                g.toi_seconds > 0
-                  ? Math.round((g.ga / g.toi_seconds) * 1800 * 100) / 100
-                  : null,
-            }))
-          );
+          setGoalies(data || []);
         }
       }
     })();
@@ -281,6 +271,7 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
 
   return goalies;
 }
+
 
 
 /** Stats from leaders_current */
@@ -366,7 +357,8 @@ export default function TeamPage() {
   const team = useTeam(id);
   const summary = useTeamSummary(id);
   const { players, setPlayers, reload } = useRoster(id, seasonId, categoryId);
-  const goalies = useGoaliesForTeam(id, seasonId, categoryId);
+ const goalies = useGoaliesForTeam(id, seasonId, categoryId);
+
 
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
@@ -1023,7 +1015,52 @@ const trend10 = summary.chart.reduce(
             </div>
           </div>
         )}
+
+{/* ---------- GOALIES (STEP 5) ---------- */}
+{goalies.length > 0 && (
+  <>
+    <div className="tr">
+      <div className="td" style={{ fontWeight: 700 }}>
+        Goalies
+      </div>
+    </div>
+
+    <div className="tr thead">
+      <div className="td">Goalie</div>
+      <div className="td c">GP</div>
+      <div className="td c">SA</div>
+      <div className="td c">GA</div>
+      <div className="td c">SV%</div>
+      <div className="td c">GAA</div>
+    </div>
+
+    {goalies.map((g) => (
+      <div className="tr" key={`goalie-${g.player_id}`}>
+        <div className="td left">
+          <Link className="link" to={`/players/${g.player_id}`}>
+            {g.goalie}
+          </Link>
+        </div>
+
+        <div className="td c">{g.gp}</div>
+        <div className="td c">{g.sa}</div>
+        <div className="td c">{g.ga}</div>
+
+        <div className="td c">
+          {g.sv_pct != null ? `${g.sv_pct}%` : "—"}
+        </div>
+
+        <div className="td c">
+          {g.gaa != null ? g.gaa.toFixed(2) : "—"}
+        </div>
+      </div>
+    ))}
+  </>
+)}
+
+        
       </div>
     </div>
   );
 }
+
