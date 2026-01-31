@@ -1396,6 +1396,51 @@ async function handleShotMinus(teamId) {
     return onIceOnly.length ? onIceOnly : roster;
   }, [shotPick, home?.id, homeDressed, awayDressed, onIce]);
 
+  // QUICK MODE — record shot instantly (no modal)
+async function recordShotInstant({
+  teamId,
+  shooterId,
+  periodOverride,
+  timeOverride,
+}) {
+  if (isShootout) {
+    alert("Use Shootout controls during shootout.");
+    return;
+  }
+
+  const per = Number(periodOverride ?? period) || 1;
+  const tm = (timeOverride ?? clock).trim();
+
+  const opposingTeamId = teamId === home.id ? away.id : home.id;
+  const goalieId = goalieOnIce[opposingTeamId];
+
+  if (!goalieId) {
+    alert("Select the opposing goalie before recording a shot.");
+    return;
+  }
+
+  // 1️⃣ bump team shots + goalie SA
+  if (teamId === home.id) {
+    await changeHomeShots((homeShots || 0) + 1);
+  } else {
+    await changeAwayShots((awayShots || 0) + 1);
+  }
+
+  // 2️⃣ insert shot event
+  await supabase.from("events").insert([
+    {
+      game_id: game.id,
+      team_id: teamId,
+      player_id: shooterId,
+      period: per,
+      time_mmss: tm,
+      event: "shot",
+      goalie_id: goalieId,
+    },
+  ]);
+}
+
+
   async function confirmShot() {
 
 // 🚫 BLOCK normal shots during shootout
@@ -2608,23 +2653,25 @@ maxWidth: "calc(100vw - 24px)",
           🥅 Goal
         </button>
 
-        {/* SHOT */}
-        <button
-          className="btn btn-grey"
-          onClick={async () => {
-            // direct shot, no shooter selection
-            setQuickPick(null);
+{/* SHOT — instant confirm */}
+<button
+  className="btn btn-grey"
+  onClick={async () => {
+    setQuickPick(null);
 
-            setShotPick({ team_id: quickPick.teamId });
-            setShotShooter(quickPick.playerId);
-            setShotPeriod(period);
-            setShotTime(clock);
+    await recordShotInstant({
+      teamId: quickPick.teamId,
+      shooterId: quickPick.playerId,
+      periodOverride: period,
+      timeOverride: clock,
+    });
+  }}
+>
+  🎯 Shot
+</button>
 
-            await confirmShot();
-          }}
-        >
-          🎯 Shot
-        </button>
+
+        
       </div>
 
       <div style={{ marginTop: 10 }}>
