@@ -75,17 +75,25 @@ const [skaterSort, setSkaterSort] = React.useState({
         if (e1) console.error(e1);
         if (e2) console.error(e2);
 
-        setSkaters(
-          (stats || []).map((s) => ({
-            player_id: s.player_id,
-            player: s.player,
-            team: s.team,
-            gp: s.gp ?? 0,
-            g: s.g ?? 0,
-            a: s.a ?? 0,
-            pts: s.pts ?? 0,
-          }))
-        );
+// build a set of goalie player_ids for this season/category
+const goalieIds = new Set((gl || []).map(g => g.player_id));
+
+setSkaters(
+  (stats || [])
+    .filter(s => !goalieIds.has(s.player_id)) // 🚫 remove goalies
+    .map((s) => ({
+      player_id: s.player_id,
+      player: s.player,
+      team: s.team,
+      gp: s.gp ?? 0,
+      g: s.g ?? 0,
+      a: s.a ?? 0,
+      pts: s.pts ?? 0,
+    }))
+);
+
+
+        
         setGoalies(
   (gl || []).map(g => {
     const gaa =
