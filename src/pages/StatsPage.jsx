@@ -64,7 +64,7 @@ const [skaterSort, setSkaterSort] = React.useState({
         supabase
           .from("goalie_stats_current")
           .select(
-  "gp, player_id, goalie, team, sa, ga, sv_pct, gaa, toi_seconds, wins, losses, otl, so, sol"
+  "gp, player_id, goalie, team, sa, ga, sv_pct, toi_seconds, wins, losses, otl, so, sol"
 )
           .eq("season_id", seasonId)
           .eq("category_id", categoryId)
@@ -87,14 +87,23 @@ const [skaterSort, setSkaterSort] = React.useState({
           }))
         );
         setGoalies(
-  (gl || []).map(g => ({
-    ...g,
-    pts:
-      (g.wins ?? 0) * 3 +
-      (g.otl ?? 0) * 1 +
-      (g.sol ?? 0) * 1,
-  }))
+  (gl || []).map(g => {
+    const gaa =
+      g.toi_seconds > 0
+        ? Math.round((g.ga / g.toi_seconds) * 1800 * 100) / 100
+        : null;
+
+    return {
+      ...g,
+      gaa,
+      pts:
+        (g.wins ?? 0) * 3 +
+        (g.otl ?? 0) * 1 +
+        (g.sol ?? 0) * 1,
+    };
+  })
 );
+
         setLoading(false);
       }
     }
