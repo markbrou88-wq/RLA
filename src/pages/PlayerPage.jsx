@@ -103,11 +103,11 @@ if (isGoalie) {
         : null;
 
     goalieCareerTotals.gaa =
-      goalieCareerTotals.toi > 0
-        ? Math.round(
-            (goalieCareerTotals.ga / (goalieCareerTotals.toi / 30)) * 100
-          ) / 100
-        : null;
+  goalieCareerTotals.toi > 0
+    ? Math.round(
+        (goalieCareerTotals.ga * 3600 / (goalieCareerTotals.toi)) * 100
+      ) / 100
+    : null;
   }
 }
 
