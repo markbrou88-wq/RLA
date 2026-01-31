@@ -231,7 +231,7 @@ function useRoster(teamId, seasonId, categoryId) {
 function useStatsForPlayers(playerIds, seasonId, categoryId) {
   const [map, setMap] = React.useState(new Map());
 
-  function useGoaliesForTeam(teamId, seasonId, categoryId) {
+function useGoaliesForTeam(teamId, seasonId, categoryId) {
   const [goalies, setGoalies] = React.useState([]);
 
   React.useEffect(() => {
@@ -259,7 +259,6 @@ function useStatsForPlayers(playerIds, seasonId, categoryId) {
           sol,
           so
         `)
-        .eq("team", team?.name)   // 👈 team name matches your view
         .eq("season_id", seasonId)
         .eq("category_id", categoryId);
 
@@ -287,6 +286,8 @@ function useStatsForPlayers(playerIds, seasonId, categoryId) {
   return goalies;
 }
 
+
+  
 
   React.useEffect(() => {
     if (!seasonId || !categoryId || !playerIds || playerIds.length === 0) {
