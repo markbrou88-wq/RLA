@@ -227,10 +227,6 @@ function useRoster(teamId, seasonId, categoryId) {
   return { players, setPlayers, reload };
 }
 
-/** Stats from leaders_current */
-function useStatsForPlayers(playerIds, seasonId, categoryId) {
-  const [map, setMap] = React.useState(new Map());
-
 function useGoaliesForTeam(teamId, seasonId, categoryId) {
   const [goalies, setGoalies] = React.useState([]);
 
@@ -286,6 +282,10 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
   return goalies;
 }
 
+
+/** Stats from leaders_current */
+function useStatsForPlayers(playerIds, seasonId, categoryId) {
+  const [map, setMap] = React.useState(new Map());
 
   
 
