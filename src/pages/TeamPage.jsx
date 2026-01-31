@@ -231,6 +231,63 @@ function useRoster(teamId, seasonId, categoryId) {
 function useStatsForPlayers(playerIds, seasonId, categoryId) {
   const [map, setMap] = React.useState(new Map());
 
+  function useGoaliesForTeam(teamId, seasonId, categoryId) {
+  const [goalies, setGoalies] = React.useState([]);
+
+  React.useEffect(() => {
+    if (!teamId || !seasonId || !categoryId) {
+      setGoalies([]);
+      return;
+    }
+
+    let stop = false;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("goalie_stats_current")
+        .select(`
+          player_id,
+          goalie,
+          gp,
+          sa,
+          ga,
+          sv_pct,
+          toi_seconds,
+          wins,
+          losses,
+          otl,
+          sol,
+          so
+        `)
+        .eq("team", team?.name)   // 👈 team name matches your view
+        .eq("season_id", seasonId)
+        .eq("category_id", categoryId);
+
+      if (!stop) {
+        if (error) {
+          console.error(error);
+          setGoalies([]);
+        } else {
+          setGoalies(
+            (data || []).map(g => ({
+              ...g,
+              gaa:
+                g.toi_seconds > 0
+                  ? Math.round((g.ga / g.toi_seconds) * 1800 * 100) / 100
+                  : null,
+            }))
+          );
+        }
+      }
+    })();
+
+    return () => (stop = true);
+  }, [teamId, seasonId, categoryId]);
+
+  return goalies;
+}
+
+
   React.useEffect(() => {
     if (!seasonId || !categoryId || !playerIds || playerIds.length === 0) {
       setMap(new Map());
@@ -308,6 +365,8 @@ export default function TeamPage() {
   const team = useTeam(id);
   const summary = useTeamSummary(id);
   const { players, setPlayers, reload } = useRoster(id, seasonId, categoryId);
+  const goalies = useGoaliesForTeam(id, seasonId, categoryId);
+
 
   const playerIds = React.useMemo(() => players.map((p) => p.id), [players]);
   const statsMap = useStatsForPlayers(playerIds, seasonId, categoryId);
@@ -538,9 +597,11 @@ export default function TeamPage() {
     reload();
   }
 
-  // ---- Build rows ----
-  const rows = React.useMemo(() => {
-    return players.map((p) => {
+  // ---- Build rows (SKATERS ONLY) ----
+ const rows = React.useMemo(() => {
+  return players
+    .filter(p => p.position !== "G") // ⬅️ REMOVE GOALIES HERE
+    .map((p) => {
       const s = statsMap.get(p.id) || { gp: 0, g: 0, a: 0, pts: 0 };
       return {
         id: p.id,
@@ -554,7 +615,8 @@ export default function TeamPage() {
         __edit: p.__edit,
       };
     });
-  }, [players, statsMap]);
+}, [players, statsMap]);
+
 
   const [sortKey, setSortKey] = React.useState("pts");
   const [sortDir, setSortDir] = React.useState("desc");
@@ -793,6 +855,56 @@ const trend10 = summary.chart.reduce(
           <Th col="pts" label="PTS" />
           {isLoggedIn && <Th col="actions" label="Actions" />}
         </div>
+
+{/* ---------- GOALIES ---------- */}
+{players.some(p => p.position === "G") && (
+  <div style={{ marginTop: 24 }}>
+    <div className="card-title">Goalies</div>
+
+    <div className="tbl" style={{ marginTop: 8 }}>
+      <div className="tr thead">
+        <div className="td">Goalie</div>
+        <div className="td c">GP</div>
+        <div className="td c">SA</div>
+        <div className="td c">GA</div>
+        <div className="td c">SV%</div>
+        <div className="td c">GAA</div>
+      </div>
+
+      {players
+        .filter(p => p.position === "G")
+        .map(g => {
+          const s = statsMap.get(g.id) || {};
+          const gaa =
+            s.gp && s.ga != null
+              ? ((s.ga / (s.gp * 1800)) * 1800).toFixed(2)
+              : "—";
+
+          const svpct =
+            s.sa > 0
+              ? `${Math.round((1 - s.ga / s.sa) * 1000) / 10}%`
+              : "—";
+
+          return (
+            <div className="tr" key={`g-${g.id}`}>
+              <div className="td left">
+                <Link className="link" to={`/players/${g.id}`}>
+                  {g.name}
+                </Link>
+              </div>
+              <div className="td c">{s.gp ?? 0}</div>
+              <div className="td c">{s.sa ?? 0}</div>
+              <div className="td c">{s.ga ?? 0}</div>
+              <div className="td c">{svpct}</div>
+              <div className="td c">{gaa}</div>
+            </div>
+          );
+        })}
+    </div>
+  </div>
+)}
+
+        
 
         {sortedRows.map((r) =>
           r.__edit ? (
