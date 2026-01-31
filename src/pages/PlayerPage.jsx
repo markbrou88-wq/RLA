@@ -127,17 +127,18 @@ if (isGoalie) {
   const { data } = await supabase
     .from("goalie_stats_current")
     .select(`
-      season_id,
-      category_id,
-      team,
-      gp,
-      sv_pct,
-      gaa,
-      wins,
-      losses,
-      otl,
-      sol
-    `)
+  season_id,
+  category_id,
+  team,
+  gp,
+  sv_pct,
+  ga,
+  toi_seconds,
+  wins,
+  losses,
+  otl,
+  sol
+`)
     .eq("player_id", pid)
     .order("season_id", { ascending: false });
 
@@ -147,6 +148,14 @@ if (isGoalie) {
     category_name: catMap.get(r.category_id) || r.category_id,
   }));
 }
+      goalieSeasonStatsLocal = goalieSeasonStatsLocal.map((r) => ({
+  ...r,
+  gaa:
+    r.toi_seconds > 0
+      ? Math.round((r.ga / r.toi_seconds) * 60 * 100) / 100
+      : null,
+}));
+
 
 
       /* ---------- SEASON STATS ---------- */
