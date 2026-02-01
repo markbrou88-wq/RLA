@@ -1135,20 +1135,16 @@ table thead th {
   }
 }
 
-/* --- Header buttons (Français + Dark) --- */
-.auth-bar-right button {
-  background: #e53935;        /* Red Lite red */
+.auth-bar-right .lang-button {
+  background: #e53935;
   border-color: #e53935;
   color: #ffffff;
   border-radius: 999px;
   padding: 0.4rem 1.4rem;
   font-weight: 600;
   font-size: 0.95rem;
-  letter-spacing: 0.03em;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
-  transition: background 0.15s ease, border-color 0.15s ease,
-              transform 0.1s ease, box-shadow 0.1s ease;
 }
+
 
 .auth-bar-right button:hover {
   background: #ff4a3d;
