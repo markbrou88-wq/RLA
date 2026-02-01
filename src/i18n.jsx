@@ -14,7 +14,22 @@ const translations = {
     "Standings • Games • Live Boxscore": "Standings • Games • Live Boxscore",
     "Built with React + Supabase • Realtime edits for boxscores":
       "Built with React + Supabase • Realtime edits for boxscores",
-
+    Playoffs: "Playoffs",
+    W: "W",
+L: "L",
+OTL: "OTL",
+SOL: "SOL",
+GF: "GF",
+GA: "GA",
+DIFF: "DIFF",
+PTS: "PTS",
+"No standings available": "No standings available",
+"Points system": "Points system",
+"Win (regulation)": "Win (regulation)",
+"Win (OT/SO)": "Win (OT/SO)",
+"Loss (OT/SO)": "Loss (OT/SO)",
+"Loss (regulation)": "Loss (regulation)",
+    
     // Auth
     "Email": "Email",
     "Password": "Password",
@@ -60,6 +75,21 @@ const translations = {
       "Classement • Matchs • Feuille de pointage en direct",
     "Built with React + Supabase • Realtime edits for boxscores":
       "Construit avec React + Supabase • Édition en direct des feuilles de match",
+    Playoffs: "Séries",
+    W: "V",
+L: "D",
+OTL: "DP",
+SOL: "DB",
+GF: "BP",
+GA: "BA",
+DIFF: "Diff.",
+PTS: "Pts",
+"No standings available": "Aucun classement disponible",
+"Points system": "Système de points",
+"Win (regulation)": "Victoire (temps réglementaire)",
+"Win (OT/SO)": "Victoire (prolongation / tirs)",
+"Loss (OT/SO)": "Défaite (prolongation / tirs)",
+"Loss (regulation)": "Défaite (temps réglementaire)",    
 
     // Auth
     "Email": "Courriel",
