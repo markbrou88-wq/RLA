@@ -29,6 +29,7 @@ PTS: "PTS",
 "Win (OT/SO)": "Win (OT/SO)",
 "Loss (OT/SO)": "Loss (OT/SO)",
 "Loss (regulation)": "Loss (regulation)",
+ Player: "PLayer",   
     
     // Auth
     "Email": "Email",
@@ -90,6 +91,7 @@ PTS: "Pts",
 "Win (OT/SO)": "Victoire (prolongation / tirs)",
 "Loss (OT/SO)": "Défaite (prolongation / tirs)",
 "Loss (regulation)": "Défaite (temps réglementaire)",    
+   Player: "Joueur", 
 
     // Auth
     "Email": "Courriel",
