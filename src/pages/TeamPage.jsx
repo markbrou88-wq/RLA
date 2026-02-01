@@ -986,7 +986,7 @@ const trend10 = summary.chart.reduce(
       <div className="td c">SV%</div>
       <div className="td c">GAA</div>
       
-      <div className="td c">W-L-OTL-SOL style={{ fontSize: 12, whiteSpace: "nowrap" }} </div>
+      <div className="td c">W-L-OTL-SOL</div>
     </div>
 
     {goalies.map((g) => (
@@ -1006,7 +1006,7 @@ const trend10 = summary.chart.reduce(
 
         <div
   className="td c"
-  style={{ fontSize: 12, whiteSpace: "nowrap" }}
+
 >
   {(g.wins ?? 0)}-{(g.losses ?? 0)}-{(g.otl ?? 0)}-{(g.sol ?? 0)}
 </div>
