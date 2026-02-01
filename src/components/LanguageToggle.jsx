@@ -9,7 +9,7 @@ export default function LanguageToggle() {
 
   return (
     <button onClick={toggleLang}>
-      {lang === "en" ? "Français" : "English"}
+      {lang === "en" ? "FR" : "EN"}
     </button>
   );
 }
