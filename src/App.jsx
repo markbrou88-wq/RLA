@@ -151,10 +151,12 @@ function AppInner() {
             </div>
           </div>
 
-          <div className="auth-bar-right">
-          {/* <LanguageToggle /> */}
-            <ThemeToggle />
-          </div>
+<div className="auth-bar-right">
+  <LanguageToggle />
+  <ThemeToggle />
+</div>
+
+          
         </div>
       </header>
 
