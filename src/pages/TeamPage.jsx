@@ -239,7 +239,7 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
     let stop = false;
 
     (async () => {
-      const { data, error } = await supabase
+     const { data, error } = await supabase
         .from("goalie_stats_current")
         .select(`
           player_id,
@@ -250,7 +250,11 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
           ga,
           sv_pct,
           gaa,
-          toi_seconds
+          toi_seconds,
+          wins,
+          losses,
+          otl,
+          sol
         `)
         .eq("team_id", Number(teamId))
         .eq("season_id", Number(seasonId))
@@ -970,15 +974,10 @@ const trend10 = summary.chart.reduce(
           </div>
         )}
 
-{/* ---------- GOALIES (STEP 5) ---------- */}
+
+        {/* ---------- GOALIES ---------- */}
 {goalies.length > 0 && (
   <>
-    <div className="tr">
-      <div className="td" style={{ fontWeight: 700 }}>
-        Goalies
-      </div>
-    </div>
-
     <div className="tr thead">
       <div className="td">Goalie</div>
       <div className="td c">GP</div>
@@ -986,6 +985,10 @@ const trend10 = summary.chart.reduce(
       <div className="td c">GA</div>
       <div className="td c">SV%</div>
       <div className="td c">GAA</div>
+      <div className="td c">W</div>
+      <div className="td c">L</div>
+      <div className="td c">OTL</div>
+      <div className="td c">SOL</div>
     </div>
 
     {goalies.map((g) => (
@@ -996,21 +999,22 @@ const trend10 = summary.chart.reduce(
           </Link>
         </div>
 
-        <div className="td c">{g.gp}</div>
-        <div className="td c">{g.sa}</div>
-        <div className="td c">{g.ga}</div>
+        <div className="td c">{g.gp ?? 0}</div>
+        <div className="td c">{g.sa ?? 0}</div>
+        <div className="td c">{g.ga ?? 0}</div>
 
-        <div className="td c">
-          {g.sv_pct != null ? `${g.sv_pct}%` : "—"}
-        </div>
+        <div className="td c">{g.sv_pct != null ? `${g.sv_pct}%` : "—"}</div>
+        <div className="td c">{g.gaa != null ? Number(g.gaa).toFixed(2) : "—"}</div>
 
-        <div className="td c">
-          {g.gaa != null ? g.gaa.toFixed(2) : "—"}
-        </div>
+        <div className="td c">{g.wins ?? 0}</div>
+        <div className="td c">{g.losses ?? 0}</div>
+        <div className="td c">{g.otl ?? 0}</div>
+        <div className="td c">{g.sol ?? 0}</div>
       </div>
     ))}
   </>
 )}
+
 
         
       </div>
