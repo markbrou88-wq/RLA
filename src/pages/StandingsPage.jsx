@@ -3,10 +3,14 @@ import { supabase } from "../supabaseClient";
 import { Link } from "react-router-dom";
 import { useSeason } from "../contexts/SeasonContext";
 import { useCategory } from "../contexts/CategoryContext";
+import { useI18n } from "../i18n";
+import LanguageToggle from "../components/LanguageToggle";
+
 
 export default function StandingsPage() {
   const { seasonId } = useSeason();
   const { categoryId } = useCategory();
+  const { t } = useI18n();
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -83,22 +87,29 @@ export default function StandingsPage() {
 
   return (
     <div className="page">
-      <h2>Standings</h2>
+     <div className="row space-between align-center">
+  <h2>{t("Standings")}</h2>
+  <LanguageToggle />
+</div>
 
       {/* Tabs */}
       <div className="row gap" style={{ marginBottom: 12 }}>
-        <button
-          className={`btn ${tab === "standings" ? "" : "secondary"}`}
-          onClick={() => setTab("standings")}
-        >
-          Standings
-        </button>
-        <button
-          className={`btn ${tab === "playoffs" ? "" : "secondary"}`}
-          onClick={() => setTab("playoffs")}
-        >
-          Playoffs
-        </button>
+
+<button
+  className={`btn ${tab === "standings" ? "" : "secondary"}`}
+  onClick={() => setTab("standings")}
+>
+  {t("Standings")}
+</button>
+
+<button
+  className={`btn ${tab === "playoffs" ? "" : "secondary"}`}
+  onClick={() => setTab("playoffs")}
+>
+  {t("Playoffs")}
+</button>
+
+        
       </div>
 
       {/* ===== Standings Tab ===== */}
@@ -107,25 +118,28 @@ export default function StandingsPage() {
   <div className="table-scroll">
     <table className="table standings-table">
             <thead>
-  <tr>
-    <th style={{ textAlign: "left" }}>Team</th>
-    <th>GP</th>
-    <th>W</th>
-    <th>L</th>
-    <th>OTL</th>
-    <th>SOL</th>
-    <th>GF</th>
-    <th>GA</th>
-    <th>DIFF</th>
-    <th>PTS</th>
-  </tr>
+
+<tr>
+  <th style={{ textAlign: "left" }}>{t("Team")}</th>
+  <th>{t("GP")}</th>
+  <th>{t("W")}</th>
+  <th>{t("L")}</th>
+  <th>{t("OTL")}</th>
+  <th>{t("SOL")}</th>
+  <th>{t("GF")}</th>
+  <th>{t("GA")}</th>
+  <th>{t("DIFF")}</th>
+  <th>{t("PTS")}</th>
+</tr>
+
+              
 </thead>
 
             <tbody>
   {loading && (
     <tr>
       <td colSpan="10" style={{ textAlign: "center" }}>
-        Loading…
+       {t("Loading…")}
       </td>
     </tr>
   )}
@@ -133,7 +147,7 @@ export default function StandingsPage() {
   {!loading && rows.length === 0 && (
     <tr>
       <td colSpan="10" style={{ textAlign: "center" }}>
-        No standings available
+        {t("No standings available")}
       </td>
     </tr>
   )}
@@ -171,9 +185,12 @@ export default function StandingsPage() {
         textAlign: "center",
       }}
     >
-      <strong>Points system:</strong>{" "}
-      Win (regulation) = 3 pts · Win (OT/SO) = 2 pts · Loss (OT/SO) = 1 pt ·
-      Loss (regulation) = 0 pt
+     <strong>{t("Points system")}:</strong>{" "}
+{t("Win (regulation)")} = 3 pts ·
+{t("Win (OT/SO)")} = 2 pts ·
+{t("Loss (OT/SO)")} = 1 pt ·
+{t("Loss (regulation)")} = 0 pt
+
     </div>
 
       
