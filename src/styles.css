@@ -1798,4 +1798,16 @@ html, body {
   gap: 6px;
 }
 
+/* Header pills: EN + Theme toggle MUST match */
+.auth-bar-right .lang-pill,
+.auth-bar-right button {
+  width: 44px;          /* 👈 key line */
+  height: 32px;
+  padding: 0;           /* remove auto padding differences */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 700;
+}
 
