@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useSeason } from "../contexts/SeasonContext";
 import { useCategory } from "../contexts/CategoryContext";
 import { useI18n } from "../i18n";
-import LanguageToggle from "../components/LanguageToggle";
+
 
 
 export default function StandingsPage() {
@@ -87,10 +87,7 @@ export default function StandingsPage() {
 
   return (
     <div className="page">
-     <div className="row space-between align-center">
-  <h2>{t("Standings")}</h2>
-  <LanguageToggle />
-</div>
+     <h2>{t("Standings")}</h2>
 
       {/* Tabs */}
       <div className="row gap" style={{ marginBottom: 12 }}>
