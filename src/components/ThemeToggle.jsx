@@ -74,15 +74,15 @@ export default function ThemeToggle() {
     setTheme((t) => t === "dark" ? "light" : "dark");
   };
 
-  return (
-    <button
-      type="button"
-      className="btn secondary"
-      onClick={toggle}
-      title="Toggle theme"
-      aria-label="Toggle theme"
-    >
-      {theme === "dark" ? "☀️" : "🌙"}
-    </button>
-  );
+ return (
+  <button
+    type="button"
+    className="lang-pill"
+    onClick={toggle}
+    title="Toggle theme"
+    aria-label="Toggle theme"
+  >
+    {theme === "dark" ? "☀️" : "🌙"}
+  </button>
+);
 }
