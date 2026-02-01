@@ -16,7 +16,7 @@ function useMaybeI18n() {
 }
 
 export default function StatsPage() {
-  const { t } = useMaybeI18n();
+ const { t } = useI18n();
   const { seasonId } = useSeason();
   const { categoryId } = useCategory();
 
