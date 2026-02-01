@@ -1008,10 +1008,7 @@ const trend10 = summary.chart.reduce(
 </div>
 
 
-        <div className="td c">{g.wins ?? 0}</div>
-        <div className="td c">{g.losses ?? 0}</div>
-        <div className="td c">{g.otl ?? 0}</div>
-        <div className="td c">{g.sol ?? 0}</div>
+      
       </div>
     ))}
   </>
