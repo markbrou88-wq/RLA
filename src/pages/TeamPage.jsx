@@ -986,7 +986,9 @@ const trend10 = summary.chart.reduce(
       <div className="td c">SV%</div>
       <div className="td c">GAA</div>
       
-      <div className="td c">W-L-OTL-SOL</div>
+      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+        W-L-OTL-SOL
+      </div>
     </div>
 
     {goalies.map((g) => (
@@ -1004,10 +1006,7 @@ const trend10 = summary.chart.reduce(
         <div className="td c">{g.sv_pct != null ? `${g.sv_pct}%` : "—"}</div>
         <div className="td c">{g.gaa != null ? Number(g.gaa).toFixed(2) : "—"}</div>
 
-        <div
-  className="td c"
-
->
+       <div className="td c" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
   {(g.wins ?? 0)}-{(g.losses ?? 0)}-{(g.otl ?? 0)}-{(g.sol ?? 0)}
 </div>
 
