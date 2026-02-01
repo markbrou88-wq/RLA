@@ -8,8 +8,8 @@ export default function LanguageToggle() {
   const toggleLang = () => setLang(lang === "en" ? "fr" : "en");
 
   return (
-    <button onClick={toggleLang}>
-      {lang === "en" ? "FR" : "EN"}
-    </button>
-  );
+  <button className="btn ghost small" onClick={toggleLang}>
+    {lang === "en" ? "FR" : "EN"}
+  </button>
+);
 }
