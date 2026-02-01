@@ -1788,3 +1788,18 @@ html, body {
     width: 52px;
   }
 }
+
+.lang-pill {
+  background: #e53935;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+
