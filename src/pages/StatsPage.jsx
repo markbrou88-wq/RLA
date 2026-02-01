@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient";
 import PlayerLink from "../components/PlayerLink";
 import { useSeason } from "../contexts/SeasonContext";
 import { useCategory } from "../contexts/CategoryContext";
+import { useI18n } from "../i18n";
 
 function useMaybeI18n() {
   try {
