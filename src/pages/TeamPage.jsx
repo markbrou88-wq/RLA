@@ -985,6 +985,7 @@ const trend10 = summary.chart.reduce(
       <div className="td c">GA</div>
       <div className="td c">SV%</div>
       <div className="td c">GAA</div>
+       style={{ fontSize: 12, whiteSpace: "nowrap" }}
       <div className="td c">W-L-OTL-SOL</div>
     </div>
 
