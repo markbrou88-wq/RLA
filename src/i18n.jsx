@@ -121,7 +121,7 @@ PTS: "Pts",
     "Points": "Points",
     "Games Played": "Parties jouées",
     "Save%": "Pourcentage d’arrêts",
-    "GAA": "Moyenne de buts alloués",
+    "GAA": "Buts / match",
 
     // Navigation / headers
   "Season": "Saison",
