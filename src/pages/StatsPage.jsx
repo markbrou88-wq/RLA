@@ -182,10 +182,10 @@ const sortedGoalies = React.useMemo(() => {
               <tr>
                 <SortableTh label={t("Player")} sortKey="player" sort={skaterSort} setSort={setSkaterSort} />
 <SortableTh label={t("Team")} sortKey="team" sort={skaterSort} setSort={setSkaterSort} />
-<SortableTh label="GP" sortKey="gp" sort={skaterSort} setSort={setSkaterSort} />
-<SortableTh label="G" sortKey="g" sort={skaterSort} setSort={setSkaterSort} />
-<SortableTh label="A" sortKey="a" sort={skaterSort} setSort={setSkaterSort} />
-<SortableTh label="P" sortKey="pts" sort={skaterSort} setSort={setSkaterSort} />
+<SortableTh label={t("GP")} sortKey="gp" sort={skaterSort} setSort={setSkaterSort} />
+<SortableTh label={t("G")} sortKey="g" sort={skaterSort} setSort={setSkaterSort} />
+<SortableTh label={t("A")} sortKey="a" sort={skaterSort} setSort={setSkaterSort} />
+<SortableTh label={t("PTS")} sortKey="pts" sort={skaterSort} setSort={setSkaterSort} />
 
               </tr>
             </thead>
@@ -217,17 +217,17 @@ const sortedGoalies = React.useMemo(() => {
           <table style={tbl}>
             <thead style={thead}>
   <tr>
-    <SortableTh label="Goalie" sortKey="goalie" sort={goalieSort} setSort={setGoalieSort} />
-    <SortableTh label="Team" sortKey="team" sort={goalieSort} setSort={setGoalieSort} />
-    <SortableTh label="GP" sortKey="gp" sort={goalieSort} setSort={setGoalieSort} />
-    <SortableTh label="SA" sortKey="sa" sort={goalieSort} setSort={setGoalieSort} />
-    <SortableTh label="GA" sortKey="ga" sort={goalieSort} setSort={setGoalieSort} />
-    <SortableTh label="SV%" sortKey="sv_pct" sort={goalieSort} setSort={setGoalieSort} />
-    <SortableTh label="GAA" sortKey="gaa" sort={goalieSort} setSort={setGoalieSort} />
-    <SortableTh label="TOI" sortKey="toi_seconds" sort={goalieSort} setSort={setGoalieSort} />
-    <SortableTh label="PTS" sortKey="pts" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label={t("Goalie")} sortKey="goalie" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label={t("Team")} sortKey="team" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label={t("GP")} sortKey="gp" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label={t("SA")} sortKey="sa" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label={t("GA")} sortKey="ga" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label={t("SV%")} sortKey="sv_pct" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label={t("GAA")} sortKey="gaa" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label={t("TOI")} sortKey="toi_seconds" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label={t("PTS")} sortKey="pts" sort={goalieSort} setSort={setGoalieSort} />
     <th style={th}>{t("W-L-OTL-SOL")}</th>
-    <SortableTh label="SO" sortKey="so" sort={goalieSort} setSort={setGoalieSort} />
+    <SortableTh label={t("SO")} sortKey="so" sort={goalieSort} setSort={setGoalieSort} />
   </tr>
 </thead>
 
