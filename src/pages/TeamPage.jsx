@@ -979,12 +979,12 @@ const trend10 = summary.chart.reduce(
 {goalies.length > 0 && (
   <>
     <div className="tr thead">
-      <div className="td">Goalie</div>
-      <div className="td c">GP</div>
-      <div className="td c">SA</div>
-      <div className="td c">GA</div>
-      <div className="td c">SV%</div>
-      <div className="td c">GAA</div>
+      <div className="td"style={{ fontSize: 12, whiteSpace: "nowrap" }}>Goalie</div>
+      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>GP</div>
+      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>SA</div>
+      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>GA</div>
+      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>SV%</div>
+      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>GAA</div>
       
       <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>
         W-L-OTL-SOL
@@ -999,12 +999,12 @@ const trend10 = summary.chart.reduce(
           </Link>
         </div>
 
-        <div className="td c">{g.gp ?? 0}</div>
-        <div className="td c">{g.sa ?? 0}</div>
-        <div className="td c">{g.ga ?? 0}</div>
+        <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{g.gp ?? 0}</div>
+        <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{g.sa ?? 0}</div>
+        <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{g.ga ?? 0}</div>
 
-        <div className="td c">{g.sv_pct != null ? `${g.sv_pct}%` : "—"}</div>
-        <div className="td c">{g.gaa != null ? Number(g.gaa).toFixed(2) : "—"}</div>
+        <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{g.sv_pct != null ? `${g.sv_pct}%` : "—"}</div>
+        <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{g.gaa != null ? Number(g.gaa).toFixed(2) : "—"}</div>
 
        <div className="td c" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
   {(g.wins ?? 0)}-{(g.losses ?? 0)}-{(g.otl ?? 0)}-{(g.sol ?? 0)}
