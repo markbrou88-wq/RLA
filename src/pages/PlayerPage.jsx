@@ -36,11 +36,11 @@ export default function PlayerPage() {
       setLoading(true);
 
       /* ---------- PLAYER ---------- */
-      const { data: pRow, error: e1 } = await supabase
-        .from("players")
-        .select("id, name, position")
-        .eq("id", pid)
-        .single();
+   const { data: pRow, error: e1 } = await supabase
+  .from("players")
+  .select("id, name, position, avatar_url")
+  .eq("id", pid)
+  .single();
 
       if (e1 || !pRow) {
         if (!cancelled) setLoading(false);
