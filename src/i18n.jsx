@@ -109,6 +109,7 @@ PTS: "Pts",
   "Select a Season and Category to view this team's roster.": "Sélectionnez une saison et une catégorie pour voir l’alignement.",
   "No players found.": "Aucun joueur trouvé.",
   "No final games yet": "Aucun match final pour le moment"
+    }
 
 
 
