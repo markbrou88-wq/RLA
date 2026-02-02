@@ -364,26 +364,29 @@ rows.forEach((r) => {
 </div>
 
 
-      <div className="summary-lineups">
-        <div className="summary-team-column">
-          <LineupCard
-  team={awayTeam}
-  record={awayRecord}
-  lineup={lineupAway}
-  goalieRec={awayGoalieRec}
-  t={t}
-/>
+     <div className="summary-lineups">
+  <div className="summary-team-column">
+    <LineupCard
+      team={awayTeam}
+      record={awayRecord}
+      lineup={lineupAway}
+      goalieRec={awayGoalieRec}
+      t={t}
+    />
+  </div>
 
-<LineupCard
-  team={homeTeam}
-  record={homeRecord}
-  lineup={lineupHome}
-  goalieRec={homeGoalieRec}
-  alignRight
-  t={t}
-/>
-        </div>
-      </div>
+  <div className="summary-team-column">
+    <LineupCard
+      team={homeTeam}
+      record={homeRecord}
+      lineup={lineupHome}
+      goalieRec={homeGoalieRec}
+      alignRight
+      t={t}
+    />
+  </div>
+</div>
+
 
       <div className="card summary-events-card" style={{ padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>{t("Goals / Events")}</h3>
