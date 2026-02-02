@@ -93,6 +93,7 @@ PTS: "Pts",
 "Loss (regulation)": "Défaite (temps réglementaire)",    
    Player: "Joueur", 
 
+   { 
   "Back to Standings": "Retour au classement",
   "Team": "Équipe",
   "Attack": "Attaque",
