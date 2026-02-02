@@ -1836,45 +1836,37 @@ html, body {
 }
 
 
-/* RIGHT: avatar card */
+/* Avatar container */
 .player-avatar-card {
-   
-   /* 👇 ADD THESE */
-  border: 3px solid var(--team-color, #e53935);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
-   
-   display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  background: #fff;
-  min-height: 190px; /* slightly taller header */
-  padding: 12px;
+  width: 280px;              /* bigger */
+  height: 360px;             /* portrait ratio */
+  border-radius: 16px;
+  overflow: hidden;          /* IMPORTANT: crops image nicely */
+  background: #f4f5f7;
+
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+
+  /* optional polish */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-/* Portrait frame */
-.player-avatar-img,
-.player-avatar-placeholder {
-  width: 120px;        /* 👈 controls portrait width */
-  aspect-ratio: 3 / 4; /* 👈 PORTRAIT */
-  border-radius: 12px;
-}
-
-/* Image specifics */
+/* Avatar image */
 .player-avatar-img {
-  object-fit: cover;
-  background: #f3f4f6;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;         /* THIS is the magic */
+  display: block;
 }
 
-/* Placeholder specifics */
+/* Placeholder (no photo) */
 .player-avatar-placeholder {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f3f4f6;
-  color: #9ca3af;
+  color: #999;
   font-size: 14px;
-  text-align: center;
 }
-
