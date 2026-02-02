@@ -364,30 +364,45 @@ if (!player) return <div>{t("Player not found.")}</div>;
 
       </Link>
 
-      {/* Header Card */}
-      <div style={headerCard}>
-        {headerTeam?.logo_url && (
-          <img
-            src={headerTeam.logo_url}
-            alt={headerTeam.short_name || headerTeam.name}
-            style={{ width: 80, height: 80, objectFit: "contain" }}
-          />
-        )}
-        <div>
-        <h2 style={{ margin: 0, fontSize: 26 }}>
-  {headerNumber && (
-    <span style={{ opacity: 0.6, marginRight: 6 }}>
-      #{headerNumber}
-    </span>
-  )}
-  {player.name}
-</h2>
-          <div style={{ color: "#666", marginTop: 4 }}>
-            {player.position || "-"}{" "}
-            {headerTeam?.name ? `• ${headerTeam.name}` : ""}
-          </div>
-        </div>
+     <div style={playerHeader}>
+  {/* LEFT: player info */}
+  <div style={playerInfoCard}>
+    {headerTeam?.logo_url && (
+      <img
+        src={headerTeam.logo_url}
+        alt={headerTeam.name}
+        style={{ width: 64, height: 64 }}
+      />
+    )}
+
+    <div>
+      <h2 style={{ margin: 0 }}>
+        {headerNumber && <span style={{ opacity: 0.6 }}>#{headerNumber} </span>}
+        {player.name}
+      </h2>
+
+      <div style={{ color: "#666", marginTop: 4 }}>
+        {player.position} • {headerTeam?.name}
       </div>
+    </div>
+  </div>
+
+  {/* RIGHT: avatar */}
+  <div style={playerAvatarCard}>
+    {player.avatar_url ? (
+      <img
+        src={player.avatar_url}
+        alt={player.name}
+        style={playerAvatarImg}
+      />
+    ) : (
+      <div style={avatarPlaceholder}>
+        No photo
+      </div>
+    )}
+  </div>
+</div>
+
 
       {/* Career Summary */}
 
