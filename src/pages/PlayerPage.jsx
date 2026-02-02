@@ -791,15 +791,7 @@ function fmtTOI(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-const headerCard = {
-  display: "flex",
-  alignItems: "center",
-  gap: 16,
-  padding: 16,
-  border: "1px solid #eee",
-  borderRadius: 12,
-  marginTop: 10,
-};
+
 
 const summaryRow = {
   display: "flex",
