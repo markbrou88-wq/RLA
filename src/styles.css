@@ -1870,3 +1870,41 @@ html, body {
   color: #999;
   font-size: 14px;
 }
+
+.player-header {
+  display: flex;
+  align-items: stretch;
+  gap: 24px;
+}
+
+.player-info-card {
+  flex: 1;                    /* ← THIS makes it wide */
+  min-height: 180px;          /* visual balance with avatar */
+  padding: 20px;
+
+  border-radius: 16px;
+  background: white;
+
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.player-info-card {
+  flex: 1;                    /* ← THIS makes it wide */
+  min-height: 180px;          /* visual balance with avatar */
+  padding: 20px;
+
+  border-radius: 16px;
+  background: white;
+
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+
+
