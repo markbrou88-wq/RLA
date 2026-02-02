@@ -30,6 +30,7 @@ PTS: "PTS",
 "Loss (OT/SO)": "Loss (OT/SO)",
 "Loss (regulation)": "Loss (regulation)",
  Player: "PLayer",   
+Goalie: "Goalie",   
     
     // Auth
     "Email": "Email",
@@ -92,7 +93,7 @@ PTS: "Pts",
 "Loss (OT/SO)": "Défaite (prolongation / tirs)",
 "Loss (regulation)": "Défaite (temps réglementaire)",    
    Player: "Joueur", 
-
+Goalie: "Gardien",
    
   "Back to Standings": "Retour au classement",
   "Team": "Équipe",
