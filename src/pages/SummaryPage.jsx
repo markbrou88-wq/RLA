@@ -2,18 +2,11 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { useI18n } from "../i18n";
 
-function useMaybeI18n() {
-  try {
-    const { useI18n } = require("../../i18n");
-    return useI18n();
-  } catch {
-    return { t: (s) => s };
-  }
-}
 
 export default function SummaryPage() {
-  const { t } = useMaybeI18n();
+  const { t } = useI18n();
   const { slug } = useParams();
 
   const [loading, setLoading] = React.useState(true);
