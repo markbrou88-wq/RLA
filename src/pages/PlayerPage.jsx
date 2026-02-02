@@ -364,31 +364,27 @@ if (!player) return <div>{t("Player not found.")}</div>;
 
       </Link>
 
-     <div className="player-header">
-  {/* LEFT: player info */}
-
-
-<div
-  className="player-info-card"
-  style={{
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "flex-start", // ⬅️ important
-  }}
->
-
-       
+<div className="player-header">
+  {/* LEFT */}
+  <div
+    className="player-info-card"
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "flex-start",
+    }}
+  >
     {headerTeam?.logo_url && (
       <img
-  src={headerTeam.logo_url}
-  alt={headerTeam.name}
-  style={{
-    width: 80,      // ⬅️ wider
-    height: 48,     // ⬅️ slightly shorter
-    objectFit: "contain",
-    flexShrink: 0,
-  }}
-/>
+        src={headerTeam.logo_url}
+        alt={headerTeam.name}
+        style={{
+          width: 80,
+          height: 48,
+          objectFit: "contain",
+          flexShrink: 0,
+        }}
+      />
     )}
 
     <div
@@ -404,35 +400,30 @@ if (!player) return <div>{t("Player not found.")}</div>;
       {headerNumber && (
         <span style={{ opacity: 0.6 }}>#{headerNumber}</span>
       )}
-
       <span>{player.name}</span>
-
       <span style={{ opacity: 0.5, fontWeight: 500 }}>
         {player.position} • {headerTeam?.name}
       </span>
     </div>
+
+    {/* SECOND ROW — RESERVED SPACE */}
+    <div
+      style={{
+        marginTop: 14,
+        minHeight: 48,
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        color: "#999",
+        fontSize: 14,
+      }}
+    >
+      {/* Future badges / stats */}
+    </div>
   </div>
 
-  {/* SECOND ROW — RESERVED SPACE (badges / stats later) */}
-  <div
-    style={{
-      marginTop: 14,
-      minHeight: 48,
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      color: "#999",
-      fontSize: 14,
-    }}
-  >
-    {/* Future badges / icons go here */}
-  </div>
-</div>
-
-       
-
-  {/* RIGHT: avatar */}
-<div className="player-avatar-card">
+  {/* RIGHT */}
+  <div className="player-avatar-card">
     {player.avatar_url ? (
       <img
         src={player.avatar_url}
@@ -440,12 +431,12 @@ if (!player) return <div>{t("Player not found.")}</div>;
         className="player-avatar-img"
       />
     ) : (
-   <div className="player-avatar-placeholder">
-        No photo
-      </div>
+      <div className="player-avatar-placeholder">No photo</div>
     )}
   </div>
 </div>
+
+      
 
 
       {/* Career Summary */}
