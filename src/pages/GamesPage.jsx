@@ -4,15 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useSeason } from "../contexts/SeasonContext";
 import { useCategory } from "../contexts/CategoryContext";
+import { useI18n } from "../i18n";
 
-function useMaybeI18n() {
-  try {
-    const { useI18n } = require("../i18n");
-    return useI18n();
-  } catch {
-    return { t: (s) => s };
-  }
-}
 
 function groupByMonth(games) {
   return games.reduce((acc, g) => {
@@ -206,7 +199,7 @@ function MonthSection({
 }
 
 export default function GamesPage() {
-  const { t } = useMaybeI18n();
+const { t } = useI18n();
   const navigate = useNavigate();
   const { seasonId } = useSeason();
   const { categoryId } = useCategory();
