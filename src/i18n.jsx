@@ -93,7 +93,7 @@ PTS: "Pts",
 "Loss (regulation)": "Défaite (temps réglementaire)",    
    Player: "Joueur", 
 
-   { 
+   
   "Back to Standings": "Retour au classement",
   "Team": "Équipe",
   "Attack": "Attaque",
@@ -109,8 +109,8 @@ PTS: "Pts",
   "Actions": "Actions",
   "Select a Season and Category to view this team's roster.": "Sélectionnez une saison et une catégorie pour voir l’alignement.",
   "No players found.": "Aucun joueur trouvé.",
-  "No final games yet": "Aucun match final pour le moment"
-    }
+  "No final games yet": "Aucun match final pour le moment",
+    
 
 
 
