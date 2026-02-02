@@ -367,20 +367,21 @@ rows.forEach((r) => {
       <div className="summary-lineups">
         <div className="summary-team-column">
           <LineupCard
-            team={awayTeam}
-            record={awayRecord}
-            lineup={lineupAway}
-            goalieRec={awayGoalieRec}
-          />
-        </div>
-        <div className="summary-team-column">
-          <LineupCard
-            team={homeTeam}
-            record={homeRecord}
-            lineup={lineupHome}
-            goalieRec={homeGoalieRec}
-            alignRight
-          />
+  team={awayTeam}
+  record={awayRecord}
+  lineup={lineupAway}
+  goalieRec={awayGoalieRec}
+  t={t}
+/>
+
+<LineupCard
+  team={homeTeam}
+  record={homeRecord}
+  lineup={lineupHome}
+  goalieRec={homeGoalieRec}
+  alignRight
+  t={t}
+/>
         </div>
       </div>
 
@@ -597,7 +598,8 @@ rows.forEach((r) => {
 
      {isShootout && shootoutRows.length > 0 && (
   <div className="card" style={{ marginTop: 16 }}>
-    <h3 style={{ marginTop: 0 }}>Shootout</h3>
+ <h3 style={{ marginTop: 0 }}>{t("Shootout")}</h3>
+
 
     <div
       style={{
@@ -608,20 +610,23 @@ rows.forEach((r) => {
       }}
     >
      
-      <ShootoutTeam
-        team={awayTeam}
-        attempts={shootoutByTeam[awayTeam?.id] || []}
-      />
+    <ShootoutTeam
+  team={awayTeam}
+  attempts={shootoutByTeam[awayTeam?.id] || []}
+  t={t}
+/>
 
-     
-      <ShootoutTeam
-        team={homeTeam}
-        attempts={shootoutByTeam[homeTeam?.id] || []}
-      />
+<ShootoutTeam
+  team={homeTeam}
+  attempts={shootoutByTeam[homeTeam?.id] || []}
+  t={t}
+/>
+
     </div>
 
     <div style={{ marginTop: 14, textAlign: "center", fontWeight: 600 }}>
-      Winner:{" "}
+     {t("Winner")}:
+{" "}
       {game.so_winner_team_id === homeTeam?.id
         ? homeTeam?.name
         : awayTeam?.name}
@@ -634,7 +639,8 @@ rows.forEach((r) => {
   );
 }
 
-function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
+function LineupCard({ team, record, lineup, goalieRec, alignRight = false, t }) {
+
   const recText =
     record &&
     (record.w !== undefined ||
@@ -675,24 +681,25 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
 
       <div className="table-responsive">
         <table className="summary-lineup-table">
-          <thead>
-            <tr>
-              <Th>#</Th>
-              <Th>PLAYER</Th>
-              <Th>POS</Th>
-            </tr>
-          </thead>
+         <thead>
+  <tr>
+    <Th>#</Th>
+    <Th>{t("Player")}</Th>
+    <Th>{t("POS")}</Th>
+  </tr>
+</thead>
           <tbody>
             {lineup.skaters.length === 0 && lineup.goalies.length === 0 ? (
               <tr>
                 <Td colSpan={3} style={{ color: "#777" }}>
-                  No lineup recorded.
+             {t("No lineup recorded.")}
                 </Td>
               </tr>
             ) : (
               <>
                 {lineup.skaters.map((p) => (
-                  <RosterRow key={`s-${p.id}`} p={p} />
+                <RosterRow key={`s-${p.id}`} p={p} t={t} />
+
                 ))}
 
                 {lineup.goalies.length > 0 && (
@@ -702,11 +709,7 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
                 )}
 
                 {lineup.goalies.map((p) => (
-  <RosterRow
-    key={`g-${p.id}`}
-    p={p}
-    goalieRec={goalieRec}
-  />
+  <RosterRow key={`g-${p.id}`} p={p} goalieRec={goalieRec} t={t} />
 ))}
               </>
             )}
@@ -717,7 +720,8 @@ function LineupCard({ team, record, lineup, goalieRec, alignRight = false }) {
   );
 }
 
-function RosterRow({ p, goalieRec }) {
+function RosterRow({ p, goalieRec, t }) {
+
   return (
     <tr>
       <Td>{p.number ?? "—"}</Td>
@@ -726,12 +730,11 @@ function RosterRow({ p, goalieRec }) {
         {goalieRec && (
           <span style={{ color: "#666", marginLeft: 6, fontSize: 11 }}>
             {[
-              goalieRec.w != null ? `${goalieRec.w} W` : null,
-              goalieRec.l != null ? `${goalieRec.l} L` : null,
-              goalieRec.ot != null ? `${goalieRec.ot} OTL` : null,
-            goalieRec.sol != null ? `${goalieRec.sol} SOL` : null,
-             
-            ]
+  goalieRec.w != null ? `${goalieRec.w} ${t("W")}` : null,
+  goalieRec.l != null ? `${goalieRec.l} ${t("L")}` : null,
+  goalieRec.ot != null ? `${goalieRec.ot} ${t("OTL")}` : null,
+  goalieRec.sol != null ? `${goalieRec.sol} ${t("SOL")}` : null,
+]
               .filter(Boolean)
               .join(" • ")}
           </span>
@@ -769,7 +772,7 @@ const Td = (props) => (
   />
 );
 
-function ShootoutTeam({ team, attempts }) {
+function ShootoutTeam({ team, attempts, t }) {
   const color = team?.primary_color || "#cc0000"; // fallback
 
   return (
@@ -780,9 +783,10 @@ function ShootoutTeam({ team, attempts }) {
         {attempts.map((a, i) => (
           <span
             key={a.id}
-            title={`${a.players?.name || "Unknown"} — ${
-              a.is_goal ? "GOAL" : "MISS"
-            }`}
+
+title={`${a.players?.name || t("Unknown")} — ${a.is_goal ? t("GOAL") : t("MISS")}`}
+
+            
             style={{
               display: "inline-block",
               width: 14,
