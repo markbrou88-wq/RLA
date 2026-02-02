@@ -32,6 +32,21 @@ PTS: "PTS",
  Player: "PLayer",   
 Goalie: "Goalie",   
     "SA": "SA", 
+"Back to Stats": "Back to Stats",
+"Player not found.": "Player not found.",
+"Career Totals": "Career Totals",
+"Stats by season & category": "Stats by season & category",
+"Game log (Skater)": "Game log (Skater)",
+"Game log (Goalie)": "Game log (Goalie)",
+"Season": "Season",
+"Category": "Category",
+"Opponent": "Opponent",
+"Decision": "Decision",
+"View": "View",
+"No goalie games yet.": "No goalie games yet."
+
+
+    
     
     // Auth
     "Email": "Email",
@@ -113,6 +128,18 @@ Goalie: "Gardien",
   "No players found.": "Aucun joueur trouvé.",
   "No final games yet": "Aucun match final pour le moment",
     
+"Back to Stats": "Retour aux statistiques",
+"Player not found.": "Joueur introuvable.",
+"Career Totals": "Totaux en carrière",
+"Stats by season & category": "Statistiques par saison et catégorie",
+"Game log (Skater)": "Journal des matchs (joueur)",
+"Game log (Goalie)": "Journal des matchs (gardien)",
+"Season": "Saison",
+"Category": "Catégorie",
+"Opponent": "Adversaire",
+"Decision": "Décision",
+"View": "Voir",
+"No goalie games yet.": "Aucun match disputé comme gardien."
 
 
 
