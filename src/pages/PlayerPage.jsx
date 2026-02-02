@@ -374,25 +374,12 @@ if (!player) return <div>{t("Player not found.")}</div>;
       justifyContent: "flex-start",
     }}
   >
-    {headerTeam?.logo_url && (
-      <img
-        src={headerTeam.logo_url}
-        alt={headerTeam.name}
-        style={{
-          width: 80,
-          height: 48,
-          objectFit: "contain",
-          flexShrink: 0,
-        }}
-      />
-    )}
 
-    <div
+<div
   style={{
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    flexWrap: "nowrap",
+    gap: 12,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -400,14 +387,31 @@ if (!player) return <div>{t("Player not found.")}</div>;
     fontWeight: 700,
   }}
 >
-      {headerNumber && (
-        <span style={{ opacity: 0.6 }}>#{headerNumber}</span>
-      )}
-      <span>{player.name}</span>
-      <span style={{ opacity: 0.5, fontWeight: 500 }}>
-        {player.position} • {headerTeam?.name}
-      </span>
-    </div>
+  {headerTeam?.logo_url && (
+    <img
+      src={headerTeam.logo_url}
+      alt={headerTeam.name}
+      style={{
+        height: 32,
+        width: "auto",
+        objectFit: "contain",
+        flexShrink: 0,
+      }}
+    />
+  )}
+
+  {headerNumber && (
+    <span style={{ opacity: 0.6 }}>#{headerNumber}</span>
+  )}
+
+  <span>{player.name}</span>
+
+  <span style={{ opacity: 0.5, fontWeight: 500 }}>
+    {player.position} • {headerTeam?.name}
+  </span>
+</div>
+
+    
 
     {/* SECOND ROW — RESERVED SPACE */}
     <div
