@@ -545,6 +545,8 @@ function SummaryBox({ label, value, highlight }) {
 }
 
 function SkaterLog({ skaterLog }) {
+  const { t } = useI18n();
+
   const [openSeasons, setOpenSeasons] = React.useState(() => {
   const seasons = [...new Set(skaterLog.map(g => g.season_name))];
   return seasons.reduce((acc, s, i) => {
@@ -642,6 +644,8 @@ function SkaterLog({ skaterLog }) {
 }
 
 function GoalieLog({ goalieLog }) {
+  const { t } = useI18n();
+
   const bySeason = goalieLog.reduce((acc, g) => {
     const key = g.season_name || "Other";
     if (!acc[key]) acc[key] = [];
@@ -688,7 +692,8 @@ function GoalieLog({ goalieLog }) {
             {seasonName}
           </h4>
 
-          {openSeasons[seasonName] && renderGoalieLog(games)}
+         {openSeasons[seasonName] && renderGoalieLog(games, t)}
+
         </div>
       ))}
     </section>
@@ -697,7 +702,8 @@ function GoalieLog({ goalieLog }) {
 
 
 
-function renderGoalieLog(goalieLog) {
+function renderGoalieLog(goalieLog, t) {
+
   return (
     <section style={{ marginTop: 18 }}>
      
@@ -747,7 +753,7 @@ function renderGoalieLog(goalieLog) {
                     <td style={tdS}>{r.so ? 1 : 0}</td>
                     <td style={tdS}>
                       <Link to={`/summary/${r.slug}`}>
-                        View
+                         {t("View")}
                       </Link>
                     </td>
                   </tr>
