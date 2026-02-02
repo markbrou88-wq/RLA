@@ -32,6 +32,7 @@ PTS: "PTS",
  Player: "PLayer",   
 Goalie: "Goalie",   
     "SA": "SA", 
+    
 "Back to Stats": "Back to Stats",
 "Player not found.": "Player not found.",
 "Career Totals": "Career Totals",
@@ -43,7 +44,7 @@ Goalie: "Goalie",
 "Opponent": "Opponent",
 "Decision": "Decision",
 "View": "View",
-"No goalie games yet.": "No goalie games yet."
+"No goalie games yet.": "No goalie games yet.",
 
 
     
@@ -139,7 +140,7 @@ Goalie: "Gardien",
 "Opponent": "Adversaire",
 "Decision": "Décision",
 "View": "Voir",
-"No goalie games yet.": "Aucun match disputé comme gardien."
+"No goalie games yet.": "Aucun match disputé comme gardien.",
 
 
 
