@@ -36,11 +36,11 @@ export default function PlayerPage() {
       setLoading(true);
 
       /* ---------- PLAYER ---------- */
-   const { data: pRow, error: e1 } = await supabase
-  .from("players")
-  .select("id, name, position, avatar_url")
-  .eq("id", pid)
-  .single();
+      const { data: pRow, error: e1 } = await supabase
+        .from("players")
+        .select("id, name, position")
+        .eq("id", pid)
+        .single();
 
       if (e1 || !pRow) {
         if (!cancelled) setLoading(false);
@@ -364,87 +364,30 @@ if (!player) return <div>{t("Player not found.")}</div>;
 
       </Link>
 
-<div className="player-header">
-  {/* LEFT */}
-  <div
-    className="player-info-card"
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "flex-start",
-    }}
-  >
-
-<div
-  style={{
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    fontSize: 18,
-    fontWeight: 700,
-  }}
->
-  {headerTeam?.logo_url && (
-    <img
-      src={headerTeam.logo_url}
-      alt={headerTeam.name}
-      style={{
-        height: 32,
-        width: "auto",
-        objectFit: "contain",
-        flexShrink: 0,
-      }}
-    />
-  )}
-
+      {/* Header Card */}
+      <div style={headerCard}>
+        {headerTeam?.logo_url && (
+          <img
+            src={headerTeam.logo_url}
+            alt={headerTeam.short_name || headerTeam.name}
+            style={{ width: 80, height: 80, objectFit: "contain" }}
+          />
+        )}
+        <div>
+        <h2 style={{ margin: 0, fontSize: 26 }}>
   {headerNumber && (
-    <span style={{ opacity: 0.6 }}>#{headerNumber}</span>
+    <span style={{ opacity: 0.6, marginRight: 6 }}>
+      #{headerNumber}
+    </span>
   )}
-
-  <span>{player.name}</span>
-
-  <span style={{ opacity: 0.5, fontWeight: 500 }}>
-    {player.position} • {headerTeam?.name}
-  </span>
-</div>
-
-    
-
-    {/* SECOND ROW — RESERVED SPACE */}
-    <div
-      style={{
-        marginTop: 14,
-        minHeight: 48,
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        color: "#999",
-        fontSize: 14,
-      }}
-    >
-      {/* Future badges / stats */}
-    </div>
-  </div>
-
-  {/* RIGHT */}
-  <div className="player-avatar-card">
-    {player.avatar_url ? (
-      <img
-        src={player.avatar_url}
-        alt={player.name}
-        className="player-avatar-img"
-      />
-    ) : (
-      <div className="player-avatar-placeholder">No photo</div>
-    )}
-  </div>
-</div>
-
-      
-
+  {player.name}
+</h2>
+          <div style={{ color: "#666", marginTop: 4 }}>
+            {player.position || "-"}{" "}
+            {headerTeam?.name ? `• ${headerTeam.name}` : ""}
+          </div>
+        </div>
+      </div>
 
       {/* Career Summary */}
 
@@ -833,7 +776,15 @@ function fmtTOI(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-
+const headerCard = {
+  display: "flex",
+  alignItems: "center",
+  gap: 16,
+  padding: 16,
+  border: "1px solid #eee",
+  borderRadius: 12,
+  marginTop: 10,
+};
 
 const summaryRow = {
   display: "flex",
