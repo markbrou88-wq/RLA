@@ -93,6 +93,26 @@ PTS: "Pts",
 "Loss (regulation)": "Défaite (temps réglementaire)",    
    Player: "Joueur", 
 
+  "Back to Standings": "Retour au classement",
+  "Team": "Équipe",
+  "Attack": "Attaque",
+  "Defense": "Défense",
+  "Trend (10)": "Tendance (10)",
+  "GF per game": "BP / match",
+  "GA per game": "BA / match",
+  "Goals For vs Goals Against (Last 10)": "Buts marqués vs buts accordés (10 derniers)",
+  "For": "Marqués",
+  "Against": "Accordés",
+  "Roster & Player Stats": "Alignement & statistiques",
+  "Add Player": "Ajouter un joueur",
+  "Actions": "Actions",
+  "Select a Season and Category to view this team's roster.": "Sélectionnez une saison et une catégorie pour voir l’alignement.",
+  "No players found.": "Aucun joueur trouvé.",
+  "No final games yet": "Aucun match final pour le moment"
+
+
+
+    
     // Auth
     "Email": "Courriel",
     "Password": "Mot de passe",
