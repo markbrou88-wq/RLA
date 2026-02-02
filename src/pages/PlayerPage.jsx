@@ -364,9 +364,9 @@ if (!player) return <div>{t("Player not found.")}</div>;
 
       </Link>
 
-     <div style={playerHeader}>
+     <div className="player-header">
   {/* LEFT: player info */}
-  <div style={playerInfoCard}>
+<div className="player-info-card">
     {headerTeam?.logo_url && (
       <img
         src={headerTeam.logo_url}
@@ -388,15 +388,15 @@ if (!player) return <div>{t("Player not found.")}</div>;
   </div>
 
   {/* RIGHT: avatar */}
-  <div style={playerAvatarCard}>
+<div className="player-avatar-card">
     {player.avatar_url ? (
       <img
         src={player.avatar_url}
         alt={player.name}
-        style={playerAvatarImg}
+        className="player-avatar-img"
       />
     ) : (
-      <div style={avatarPlaceholder}>
+   <div className="player-avatar-placeholder">
         No photo
       </div>
     )}
