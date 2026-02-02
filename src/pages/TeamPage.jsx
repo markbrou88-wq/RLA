@@ -856,7 +856,7 @@ const trend10 = summary.chart.reduce(
           <Th col="pos" label={t("Pos")} sortKeyFor="position" />
           <Th col="gp" label={t("GP")} />
           <Th col="g" label={t("G")} />
-          <Th col="a" label={t("G")} />
+          <Th col="a" label={t("A")} />
           <Th col="pts" label={t("PTS")} />
           {isLoggedIn && <Th col="actions" label={t("Actions")} />}
         </div>
