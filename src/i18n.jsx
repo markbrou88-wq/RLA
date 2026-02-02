@@ -47,6 +47,25 @@ Goalie: "Goalie",
 "View": "View",
 "No goalie games yet.": "No goalie games yet.",
 
+// SummaryPage – missing
+"Back to Games": "Back to Games",
+"Goals / Events": "Goals / Events",
+"No events yet.": "No events yet.",
+"PER": "PER",
+"TIME": "TIME",
+"TEAM": "TEAM",
+"TYPE": "TYPE",
+"PLAYER / ASSISTS": "PLAYER / ASSISTS",
+"Period": "Period",
+"Show shots": "Show shots",
+"Hide shots": "Hide shots",
+"GOAL": "GOAL",
+"Shootout": "Shootout",
+"Winner": "Winner",
+"Live": "Live",
+"No lineup recorded.": "No lineup recorded.",
+"Unknown": "Unknown",
+"MISS": "MISS",
 
     
     
@@ -144,6 +163,25 @@ Goalie: "Gardien",
 "View": "Voir",
 "No goalie games yet.": "Aucun match disputé comme gardien.",
 
+// SummaryPage – missing
+"Back to Games": "Retour aux matchs",
+"Goals / Events": "Buts / Événements",
+"No events yet.": "Aucun événement pour le moment.",
+"PER": "PÉR",
+"TIME": "TEMPS",
+"TEAM": "ÉQUIPE",
+"TYPE": "TYPE",
+"PLAYER / ASSISTS": "JOUEUR / PASSES",
+"Period": "Période",
+"Show shots": "Afficher les tirs",
+"Hide shots": "Masquer les tirs",
+"GOAL": "BUT",
+"Shootout": "Tirs de barrage",
+"Winner": "Gagnant",
+"Live": "Direct",
+"No lineup recorded.": "Aucun alignement enregistré.",
+"Unknown": "Inconnu",
+"MISS": "RATÉ",
 
 
     
