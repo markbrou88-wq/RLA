@@ -67,6 +67,34 @@ Goalie: "Goalie",
 "Unknown": "Unknown",
 "MISS": "MISS",
 
+    // GamesPage
+"at": "at",
+"Live": "Live",
+"Mark as Final": "Mark as Final",
+
+"Team…": "Team…",
+"Clear": "Clear",
+
+"Home team…": "Home team…",
+"Away team…": "Away team…",
+
+"Create": "Create",
+"Creating…": "Creating…",
+
+"Upcoming": "Upcoming",
+"Past": "Past",
+"Next games": "Next games",
+
+"No games match your filters.": "No games match your filters.",
+
+"Delete this game?": "Delete this game?",
+"Please fill date, home and away.": "Please fill date, home and away.",
+"Home and away cannot be the same team.": "Home and away cannot be the same team.",
+
+"Final": "Final",
+"OT": "OT",
+"SO": "SO",
+
     
     
     // Auth
@@ -183,6 +211,33 @@ Goalie: "Gardien",
 "Unknown": "Inconnu",
 "MISS": "RATÉ",
 
+// GamesPage
+"at": "à",
+"Live": "Live",
+"Mark as Final": "Marquer comme final",
+
+"Team…": "Équipe…",
+"Clear": "Effacer",
+
+"Home team…": "Équipe locale…",
+"Away team…": "Équipe visiteuse…",
+
+"Create": "Créer",
+"Creating…": "Création…",
+
+"Upcoming": "À venir",
+"Past": "Passés",
+"Next games": "Prochains matchs",
+
+"No games match your filters.": "Aucun match ne correspond aux filtres.",
+
+"Delete this game?": "Supprimer ce match ?",
+"Please fill date, home and away.": "Veuillez remplir la date, l’équipe locale et visiteuse.",
+"Home and away cannot be the same team.": "L’équipe locale et visiteuse ne peuvent pas être identiques.",
+
+"Final": "Final",
+"OT": "P",
+"SO": "TB",
 
     
     // Auth
