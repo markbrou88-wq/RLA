@@ -31,6 +31,7 @@ PTS: "PTS",
 "Loss (regulation)": "Loss (regulation)",
  Player: "PLayer",   
 Goalie: "Goalie",   
+    "SA": "SA", 
     
     // Auth
     "Email": "Email",
@@ -160,6 +161,7 @@ Goalie: "Gardien",
 
   // Tables
   "GP": "PJ",
+  "SA": "TA",  
   "W-L-OTL": "V-D-DP",
   "SV%": "ARR%",
   "TOI": "Temps de jeu",
