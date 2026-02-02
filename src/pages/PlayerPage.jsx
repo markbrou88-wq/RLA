@@ -366,26 +366,69 @@ if (!player) return <div>{t("Player not found.")}</div>;
 
      <div className="player-header">
   {/* LEFT: player info */}
+
 <div className="player-info-card">
+  {/* TOP ROW — everything on one line */}
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 14,
+      width: "100%",
+    }}
+  >
     {headerTeam?.logo_url && (
       <img
         src={headerTeam.logo_url}
         alt={headerTeam.name}
-        style={{ width: 64, height: 64 }}
+        style={{
+          width: 56,
+          height: 56,
+          objectFit: "contain",
+          flexShrink: 0,
+        }}
       />
     )}
 
-    <div>
-      <h2 style={{ margin: 0 }}>
-        {headerNumber && <span style={{ opacity: 0.6 }}>#{headerNumber} </span>}
-        {player.name}
-      </h2>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        flexWrap: "wrap",
+        fontSize: 18,
+        fontWeight: 700,
+      }}
+    >
+      {headerNumber && (
+        <span style={{ opacity: 0.6 }}>#{headerNumber}</span>
+      )}
 
-      <div style={{ color: "#666", marginTop: 4 }}>
+      <span>{player.name}</span>
+
+      <span style={{ opacity: 0.5, fontWeight: 500 }}>
         {player.position} • {headerTeam?.name}
-      </div>
+      </span>
     </div>
   </div>
+
+  {/* SECOND ROW — RESERVED SPACE (badges / stats later) */}
+  <div
+    style={{
+      marginTop: 14,
+      minHeight: 48,
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      color: "#999",
+      fontSize: 14,
+    }}
+  >
+    {/* Future badges / icons go here */}
+  </div>
+</div>
+
+       
 
   {/* RIGHT: avatar */}
 <div className="player-avatar-card">
