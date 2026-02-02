@@ -1,20 +1,16 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { useI18n } from "../i18n";
 
-function useMaybeI18n() {
-  try {
-    const { useI18n } = require("../i18n");
-    return useI18n();
-  } catch {
-    return { t: (s) => s };
-  }
-}
+
 
 export default function PlayerPage() {
-  const { t } = useMaybeI18n();
+
   const { id } = useParams();
   const pid = Number(id);
+  const { t } = useI18n();
+
 
   const [player, setPlayer] = React.useState(null);
   const [headerTeam, setHeaderTeam] = React.useState(null);
@@ -354,8 +350,9 @@ builtGoalieLog = (gRoster || [])
     };
   }, [pid]);
 
-  if (loading) return <div>Loading…</div>;
-  if (!player) return <div>Player not found.</div>;
+  if (loading) return <div>{t("Loading…")}</div>;
+if (!player) return <div>{t("Player not found.")}</div>;
+
 
   const isGoalie =
     String(player.position || "").trim().toUpperCase() === "G";
@@ -363,7 +360,8 @@ builtGoalieLog = (gRoster || [])
   return (
     <div className="player-page">
       <Link to="/stats" style={{ textDecoration: "none" }}>
-        ← Back to Stats
+     ← {t("Back to Stats")}
+
       </Link>
 
       {/* Header Card */}
@@ -394,33 +392,41 @@ builtGoalieLog = (gRoster || [])
       {/* Career Summary */}
 
       <section style={{ marginTop: 16 }}>
-  <h3>Career Totals</h3>
+<h3>{t("Career Totals")}</h3>
+
 
   {!isGoalie ? (
     /* ---------- SKATERS (unchanged) ---------- */
     <div style={summaryRow}>
-      <SummaryBox label="GP" value={career.gp} />
-      <SummaryBox label="G" value={career.g} />
-      <SummaryBox label="A" value={career.a} />
-      <SummaryBox label="PTS" value={career.pts} highlight />
+
+<SummaryBox label={t("GP")} value={career.gp} />
+<SummaryBox label={t("G")} value={career.g} />
+<SummaryBox label={t("A")} value={career.a} />
+<SummaryBox label={t("PTS")} value={career.pts} highlight />
+
+      
     </div>
   ) : (
     /* ---------- GOALIES ---------- */
     <div style={summaryRow}>
-      <SummaryBox label="GP" value={goalieCareer?.gp ?? 0} />
-      <SummaryBox
-        label="SV%"
-        value={goalieCareer?.sv_pct != null ? `${goalieCareer.sv_pct}%` : "—"}
-      />
-      <SummaryBox
-        label="GAA"
-        value={goalieCareer?.gaa != null ? goalieCareer.gaa : "—"}
-      />
-      <SummaryBox
-  label="W-L-OTL-SOL"
+
+
+<SummaryBox label={t("GP")} value={goalieCareer?.gp ?? 0} />
+<SummaryBox
+  label={t("SV%")}
+  value={goalieCareer?.sv_pct != null ? `${goalieCareer.sv_pct}%` : "—"}
+/>
+<SummaryBox
+  label={t("GAA")}
+  value={goalieCareer?.gaa != null ? goalieCareer.gaa : "—"}
+/>
+<SummaryBox
+  label={t("W-L-OTL-SOL")}
   value={`${goalieCareer?.w ?? 0}-${goalieCareer?.l ?? 0}-${goalieCareer?.otl ?? 0}-${goalieCareer?.sol ?? 0}`}
   highlight
 />
+
+      
     </div>
   )}
 </section>
@@ -428,7 +434,7 @@ builtGoalieLog = (gRoster || [])
 
       {/* Season Stats */}
      <section style={{ marginTop: 18 }}>
-  <h3>Stats by season & category</h3>
+ <h3>{t("Stats by season & category")}</h3>
 
   <div style={tblWrap}>
     {!isGoalie ? (
@@ -436,13 +442,16 @@ builtGoalieLog = (gRoster || [])
       <table style={logTbl}>
         <thead style={theadS}>
           <tr>
-            <th style={thS}>Season</th>
-            <th style={thS}>Category</th>
-            <th style={thS}>Team</th>
-            <th style={thS}>GP</th>
-            <th style={thS}>G</th>
-            <th style={thS}>A</th>
-            <th style={thS}>PTS</th>
+
+<th style={thS}>{t("Season")}</th>
+<th style={thS}>{t("Category")}</th>
+<th style={thS}>{t("Team")}</th>
+<th style={thS}>{t("GP")}</th>
+<th style={thS}>{t("G")}</th>
+<th style={thS}>{t("A")}</th>
+<th style={thS}>{t("PTS")}</th>
+
+            
           </tr>
         </thead>
         <tbody>
@@ -464,13 +473,15 @@ builtGoalieLog = (gRoster || [])
       <table style={logTbl}>
         <thead style={theadS}>
           <tr>
-            <th style={thS}>Season</th>
-            <th style={thS}>Category</th>
-            <th style={thS}>Team</th>
-            <th style={thS}>GP</th>
-            <th style={thS}>SV%</th>
-            <th style={thS}>GAA</th>
-            <th style={thS}>W-L-OTL-SOL</th>
+
+            <th style={thS}>{t("Season")}</th>
+<th style={thS}>{t("Category")}</th>
+<th style={thS}>{t("Team")}</th>
+<th style={thS}>{t("GP")}</th>
+<th style={thS}>{t("SV%")}</th>
+<th style={thS}>{t("GAA")}</th>
+<th style={thS}>{t("W-L-OTL-SOL")}</th>
+
 
           </tr>
         </thead>
@@ -558,7 +569,7 @@ function SkaterLog({ skaterLog }) {
 
   return (
     <section style={{ marginTop: 18 }}>
-      <h3>Game log (Skater)</h3>
+      <h3>{t("Game log (Skater)")}</h3>
 
       {Object.entries(bySeason).map(([seasonName, games]) => (
         <div key={seasonName} style={{ marginTop: 16 }}>
@@ -583,12 +594,15 @@ function SkaterLog({ skaterLog }) {
             <table style={logTbl}>
               <thead style={theadS}>
                 <tr>
-                  <th style={thS}>Date</th>
-                  <th style={thS}>Matchup</th>
-                  <th style={thS}>G</th>
-                  <th style={thS}>A</th>
-                  <th style={thS}>Score</th>
-                  <th style={thS}>Boxscore</th>
+
+<th style={thS}>{t("Date")}</th>
+<th style={thS}>{t("Matchup")}</th>
+<th style={thS}>{t("G")}</th>
+<th style={thS}>{t("A")}</th>
+<th style={thS}>{t("Score")}</th>
+<th style={thS}>{t("Boxscore")}</th>
+
+                  
                 </tr>
               </thead>
               <tbody>
@@ -611,7 +625,8 @@ function SkaterLog({ skaterLog }) {
                       {r.hs}–{r.as}
                     </td>
                     <td style={tdS}>
-                      <Link to={`/summary/${r.slug}`}>View</Link>
+                    <Link to={`/summary/${r.slug}`}>{t("View")}</Link>
+
                     </td>
                   </tr>
                 ))}
@@ -651,7 +666,8 @@ function GoalieLog({ goalieLog }) {
 
   return (
     <section style={{ marginTop: 18 }}>
-      <h3>Game log (Goalie)</h3>
+   <h3>{t("Game log (Goalie)")}</h3>
+
 
       {Object.entries(bySeason).map(([seasonName, games]) => (
         <div key={seasonName} style={{ marginTop: 16 }}>
@@ -689,22 +705,26 @@ function renderGoalieLog(goalieLog) {
         <table style={logTbl}>
           <thead style={theadS}>
             <tr>
-              <th style={thS}>Date</th>
-              <th style={thS}>Opponent</th>
-              <th style={thS}>SA</th>
-              <th style={thS}>GA</th>
-              <th style={thS}>SV%</th>
-              <th style={thS}>TOI</th>
-              <th style={thS}>Decision</th>
-              <th style={thS}>SO</th>
-              <th style={thS}>Boxscore</th>
+
+<th style={thS}>{t("Date")}</th>
+<th style={thS}>{t("Opponent")}</th>
+<th style={thS}>{t("SA")}</th>
+<th style={thS}>{t("GA")}</th>
+<th style={thS}>{t("SV%")}</th>
+<th style={thS}>{t("TOI")}</th>
+<th style={thS}>{t("Decision")}</th>
+<th style={thS}>{t("SO")}</th>
+<th style={thS}>{t("Boxscore")}</th>
+
+              
             </tr>
           </thead>
           <tbody>
             {goalieLog.length === 0 ? (
               <tr>
                 <td style={tdS} colSpan={9}>
-                  No goalie games yet.
+                 {t("No goalie games yet.")}
+
                 </td>
               </tr>
             ) : (
