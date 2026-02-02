@@ -1822,7 +1822,10 @@ html, body {
 
 /* LEFT: player info */
 .player-info-card {
-  display: flex;
+ 
+    border: 3px solid var(--team-color, #e53935);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+   display: flex;
   align-items: center;
   gap: 16px;
   padding: 20px;
@@ -1835,7 +1838,12 @@ html, body {
 
 /* RIGHT: avatar card */
 .player-avatar-card {
-  display: flex;
+   
+   /* 👇 ADD THESE */
+  border: 3px solid var(--team-color, #e53935);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+   
+   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid #e5e7eb;
