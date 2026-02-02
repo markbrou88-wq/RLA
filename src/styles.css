@@ -1811,38 +1811,5 @@ html, body {
   font-weight: 700;
 }
 
-/* =========================================================
-   DARK MODE READABILITY FIX — GAMES PAGE ONLY
-   (No layout changes, text contrast only)
-   ========================================================= */
-
-:root[data-theme="dark"] .gp-card,
-@media (prefers-color-scheme: dark) {
-  .gp-card {
-    color: var(--text); /* force readable text */
-  }
-
-  .gp-team-name {
-    color: #f8fafc;     /* near-white */
-  }
-
-  .gp-score {
-    color: #ffffff;
-  }
-
-  .gp-sub {
-    color: #e5e7eb;     /* brighter than muted */
-  }
-
-  .gp-card-actions .btn {
-    color: #ffffff;
-  }
-}
-
-/* Fix hard-coded light text leaking into dark mode */
-:root[data-theme="dark"] .tbl .td,
-:root[data-theme="dark"] .th-btn {
-  color: var(--text) !important;
-}
 
 
