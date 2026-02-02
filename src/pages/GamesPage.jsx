@@ -6,6 +6,20 @@ import { useSeason } from "../contexts/SeasonContext";
 import { useCategory } from "../contexts/CategoryContext";
 import { useI18n } from "../i18n";
 
+function isDarkMode() {
+  if (typeof document === "undefined") return false;
+
+  // explicit app theme wins
+  const theme = document.documentElement.getAttribute("data-theme");
+  if (theme === "dark") return true;
+  if (theme === "light") return false;
+
+  // fallback to system
+  return window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+
 
 function groupByMonth(games) {
   return games.reduce((acc, g) => {
@@ -32,6 +46,9 @@ function MonthSection({
 }) {
   const groups = groupByMonth(games);
 
+  const dark = isDarkMode();
+
+
   return Object.entries(groups).map(([month, games]) => (
     <div key={month} style={{ marginBottom: 24 }}>
       <div className="gp-sub" style={{ fontWeight: 700, marginBottom: 8 }}>
@@ -49,18 +66,31 @@ function MonthSection({
             new Date(g.game_date).toDateString() === highlightDay;
 
           return (
-            <div
-              key={g.id}
-              className="gp-grid gp-card card"
-              style={{
-  ...(isHighlighted
-    ? { border: "2px solid #e53935", background: "#fff5f5" }
-    : {}),
-  ...(highlightDay === undefined
-    ? { opacity: 0.7 }
-    : {}),
-}}
-            >
+
+<div
+  key={g.id}
+  className="gp-grid gp-card card"
+  style={{
+    border: isHighlighted ? "2px solid #e53935" : undefined,
+
+    background: isHighlighted
+      ? dark
+        ? "#1b1f2a"     // dark-friendly red highlight
+        : "#fff5f5"
+      : dark
+      ? "#111827"       // normal dark card
+      : undefined,
+
+    color: dark ? "#f3f4f6" : undefined, // FORCE readable text
+
+    ...(highlightDay === undefined
+      ? { opacity: 0.7 }
+      : {}),
+  }}
+>
+
+
+            
               {/* Matchup */}
               <div className="gp-match" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
   {/* Teams */}
@@ -115,18 +145,24 @@ function MonthSection({
         padding: "2px 8px",
         borderRadius: 999,
         display: "inline-block",
-        background:
-          g.went_so
-            ? "#ede9fe" // purple-ish
-            : g.went_ot
-            ? "#e0f2fe" // blue-ish
-            : "#e5e7eb", // normal final
-        color:
-          g.went_so
-            ? "#5b21b6"
-            : g.went_ot
-            ? "#0369a1"
-            : "#374151",
+
+background: dark
+  ? "#020617"
+  : g.went_so
+  ? "#ede9fe"
+  : g.went_ot
+  ? "#e0f2fe"
+  : "#e5e7eb",
+
+color: dark
+  ? "#e5e7eb"
+  : g.went_so
+  ? "#5b21b6"
+  : g.went_ot
+  ? "#0369a1"
+  : "#374151",
+
+        
       }}
     >
       Final{g.went_so ? " (SO)" : g.went_ot ? " (OT)" : ""}
