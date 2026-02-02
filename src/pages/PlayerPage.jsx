@@ -367,27 +367,28 @@ if (!player) return <div>{t("Player not found.")}</div>;
      <div className="player-header">
   {/* LEFT: player info */}
 
-<div className="player-info-card">
-  {/* TOP ROW — everything on one line */}
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 14,
-      width: "100%",
-    }}
-  >
+
+<div
+  className="player-info-card"
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flex-start", // ⬅️ important
+  }}
+>
+
+       
     {headerTeam?.logo_url && (
       <img
-        src={headerTeam.logo_url}
-        alt={headerTeam.name}
-        style={{
-          width: 56,
-          height: 56,
-          objectFit: "contain",
-          flexShrink: 0,
-        }}
-      />
+  src={headerTeam.logo_url}
+  alt={headerTeam.name}
+  style={{
+    width: 80,      // ⬅️ wider
+    height: 48,     // ⬅️ slightly shorter
+    objectFit: "contain",
+    flexShrink: 0,
+  }}
+/>
     )}
 
     <div
