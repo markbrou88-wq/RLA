@@ -4,6 +4,8 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useSeason } from "../contexts/SeasonContext";
 import { useCategory } from "../contexts/CategoryContext";
+import { useI18n } from "../i18n";
+
 
 /* ---------- Tiny sparkline (no deps) ---------- */
 
@@ -357,6 +359,8 @@ export default function TeamPage() {
   const { id } = useParams();
   const { seasonId } = useSeason();
   const { categoryId } = useCategory();
+  const { t } = useI18n();
+
 
   const team = useTeam(id);
   const summary = useTeamSummary(id);
@@ -669,7 +673,7 @@ const trend10 = summary.chart.reduce(
     <div className="team-page">
       <div className="row gap">
         <Link to="/" className="btn ghost small">
-          ← Back to Standings
+         ← {t("Back to Standings")}
         </Link>
       </div>
 
@@ -682,13 +686,15 @@ const trend10 = summary.chart.reduce(
           />
           <div>
             <div className="h-title" style={{ marginBottom: 6 }}>
-              {team?.name || "Team"}
+              {team?.name || t("Team")}
             </div>
             <div className="muted">
-              GP {summary.record.gp} • W {summary.record.w} • L {summary.record.l} • OTL {summary.record.otl}
+              {t("GP")} {summary.record.gp} • {t("W")} {summary.record.w} • {t("L")} {summary.record.l} • {t("OTL")} {summary.record.otl}
+
             </div>
             <div className="muted">
-              GF {summary.record.gf} • GA {summary.record.ga} • Diff {summary.record.gf - summary.record.ga}
+              {t("GF")} {summary.record.gf} • {t("GA")} {summary.record.ga} • {t("Diff")} {summary.record.gf - summary.record.ga}
+
             </div>
             <div className="row gap xs" style={{ marginTop: 6 }}>
               {summary.recent.map((r, i) => (
@@ -696,22 +702,23 @@ const trend10 = summary.chart.reduce(
                   {r}
                 </span>
               ))}
-              {summary.recent.length === 0 && <span className="muted">No final games yet</span>}
+             {summary.recent.length === 0 && <span className="muted">{t("No final games yet")}</span>}
+
             </div>
 
 <div className="muted" style={{ marginTop: 10 }}>
   <div className="row gap xs">
-    <span>⚡ Attaque :</span>
-    <strong>{avgGF} BP / match</strong>
+    <span>⚡ {t("Attack")} :</span>
+<strong>{avgGF} {t("GF per game")}</strong>
   </div>
 
   <div className="row gap xs">
-    <span>🛡️ Défense :</span>
-    <strong>{avgGA} BA / match</strong>
+   <span>🛡️ {t("Defense")} :</span>
+<strong>{avgGA} {t("GA per game")}</strong>
   </div>
 
   <div className="row gap xs">
-    <span>📈 Tendance (10) :</span>
+    <span>📈 {t("Trend (10)")} :</span>
     <strong style={{ color: trend10 >= 0 ? "#2563eb" : "#dc2626" }}>
       {trend10 >= 0 ? "+" : ""}
       {trend10}
@@ -728,12 +735,12 @@ const trend10 = summary.chart.reduce(
 
         <div className="card" style={{ flex: 1, minWidth: 320 }}>
   <div className="card-title">
-    Buts marqués vs buts accordés (10 derniers)
-  </div>
+  {t("Goals For vs Goals Against (Last 10)")}
+</div>
 
   <div className="row gap xs muted" style={{ marginBottom: 6 }}>
-    <span>🔵 Marqués</span>
-    <span>🔴 Accordés</span>
+    <span>🔵 {t("For")}</span>
+<span>🔴 {t("Against")}</span>
   </div>
 
   <div style={{ width: "100%", height: 160 }}>
@@ -744,12 +751,13 @@ const trend10 = summary.chart.reduce(
 
       {/* Add player bar */}
       <div className="row space-between align-center" style={{ marginTop: 16, marginBottom: 8 }}>
-        <div className="card-title">Roster &amp; Player Stats</div>
+        <div className="card-title">{t("Roster & Player Stats")}</div>
+
         {isLoggedIn && (
           <>
             {!adding ? (
               <button className="btn" onClick={() => setAdding(true)}>
-                Add Player
+               {t("Add Player")}
               </button>
             ) : (
               <div className="row gap wrap">
@@ -793,7 +801,7 @@ const trend10 = summary.chart.reduce(
                       <option value="G">G</option>
                     </select>
                     <button className="btn" onClick={addPlayer}>
-                      Save
+                      {t("Save")}
                     </button>
                   </>
                 ) : (
@@ -817,7 +825,7 @@ const trend10 = summary.chart.reduce(
                     />
 
                     <button className="btn" onClick={addExistingPlayer}>
-                      Add
+                      {t("Add")}
                     </button>
                   </>
                 )}
@@ -832,7 +840,7 @@ const trend10 = summary.chart.reduce(
                     setExistingNumber("");
                   }}
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
               </div>
             )}
@@ -843,14 +851,14 @@ const trend10 = summary.chart.reduce(
       {/* Table */}
       <div className="tbl">
         <div className="tr thead">
-          <Th col="player" label="Player" sortKeyFor="name" />
+          <Th col="player" label={t("Player")} sortKeyFor="name" />
           <Th col="number" label="#" sortKeyFor="number" />
-          <Th col="pos" label="POS" sortKeyFor="position" />
-          <Th col="gp" label="GP" />
-          <Th col="g" label="G" />
-          <Th col="a" label="A" />
-          <Th col="pts" label="PTS" />
-          {isLoggedIn && <Th col="actions" label="Actions" />}
+          <Th col="pos" label={t("Pos")} sortKeyFor="position" />
+          <Th col="gp" label={t("GP")} />
+          <Th col="g" label={t("G")} />
+          <Th col="a" label={t("G")} />
+          <Th col="pts" label={t("PTS")} />
+          {isLoggedIn && <Th col="actions" label={t("Actions")} />}
         </div>
 
 
@@ -955,10 +963,10 @@ const trend10 = summary.chart.reduce(
               {isLoggedIn && (
                 <div className="td right" style={{ width: widths.actions }}>
                   <button className="btn" onClick={() => beginEdit(r.id)}>
-                    Edit
+                    {t("Edit")}
                   </button>
                   <button className="btn danger" style={{ marginLeft: 8 }} onClick={() => deletePlayer(r.id)}>
-                    Delete
+                    {t("Delete")}
                   </button>
                 </div>
               )}
@@ -969,7 +977,9 @@ const trend10 = summary.chart.reduce(
         {sortedRows.length === 0 && (
           <div className="tr">
             <div className="td muted">
-              {!seasonId || !categoryId ? "Select a Season and Category to view this team's roster." : "No players found."}
+              {!seasonId || !categoryId
+  ? t("Select a Season and Category to view this team's roster.")
+  : t("No players found.")}
             </div>
           </div>
         )}
@@ -979,15 +989,15 @@ const trend10 = summary.chart.reduce(
 {goalies.length > 0 && (
   <>
     <div className="tr thead">
-      <div className="td"style={{ fontSize: 12, whiteSpace: "nowrap" }}>Goalie</div>
-      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>GP</div>
-      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>SA</div>
-      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>GA</div>
-      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>SV%</div>
-      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>GAA</div>
+      <div className="td"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("Goalie")}</div>
+      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("GP")}</div>
+      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("SA")}</div>
+      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("GA")}</div>
+      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("SV%")}</div>
+      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("GAA")}</div>
       
       <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>
-        W-L-OTL-SOL
+        {t("W-L-OTL-SOL")}
       </div>
     </div>
 
