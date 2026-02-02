@@ -388,15 +388,18 @@ if (!player) return <div>{t("Player not found.")}</div>;
     )}
 
     <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        flexWrap: "wrap",
-        fontSize: 18,
-        fontWeight: 700,
-      }}
-    >
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "nowrap",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    fontSize: 18,
+    fontWeight: 700,
+  }}
+>
       {headerNumber && (
         <span style={{ opacity: 0.6 }}>#{headerNumber}</span>
       )}
