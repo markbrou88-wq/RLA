@@ -32,6 +32,9 @@ export default function SummaryPage() {
 
   const [shootoutRows, setShootoutRows] = React.useState([]);
 
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+
+
 
   const toggleShots = (period) => {
   setShowShotsByPeriod((prev) => ({
@@ -48,6 +51,27 @@ export default function SummaryPage() {
   }));
 };
 
+React.useEffect(() => {
+  let mounted = true;
+
+  // Initial session check
+  supabase.auth.getSession().then(({ data }) => {
+    if (!mounted) return;
+    setIsLoggedIn(!!data.session);
+  });
+
+  // Listen for login / logout
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (mounted) setIsLoggedIn(!!session);
+  });
+
+  return () => {
+    mounted = false;
+    subscription.unsubscribe();
+  };
+}, []);
 
 
   React.useEffect(() => {
@@ -336,15 +360,18 @@ rows.forEach((r) => {
     <div className="container summary-page" style={{ maxWidth: 1100 }}>
 
 
-      <div className="button-group" style={{ marginBottom: 12 }}>
-  <Link className="btn btn-grey" to={`/live/${slug}`}>
-    Live
-  </Link>
+     <div className="button-group" style={{ marginBottom: 12 }}>
+  {isLoggedIn && (
+    <Link className="btn btn-grey" to={`/live/${slug}`}>
+      Live
+    </Link>
+  )}
 
   <Link className="btn btn-grey" to="/games">
     {t("Back to Games")}
   </Link>
 </div>
+
 
 
       <h2 style={{ textAlign: "center", margin: "6px 0" }}>
