@@ -268,7 +268,7 @@ Goalie: "Gardien",
     "Points": "Points",
     "Games Played": "Parties jouées",
     "Save%": "Pourcentage d’arrêts",
-    "GAA": "Buts / match",
+    "GAA": "MBA",
 
     // Navigation / headers
   "Season": "Saison",
