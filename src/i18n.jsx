@@ -97,6 +97,16 @@ Goalie: "Goalie",
 
   "abbr.legend":
   "GP = Games Played • W = Wins • L = Losses • OTL = Overtime Loss • SOL = Shootout Loss • GF = Goals For • GA = Goals Against • DIFF = Goal Differential • PTS = Points",
+    "Games Played": "Games Played",
+"Wins": "Wins",
+"Losses": "Losses",
+"OT Loss": "Overtime Loss",
+"Shootout Loss": "Shootout Loss",
+"Goals For": "Goals For",
+"Goals Against": "Goals Against",
+"Goal Differential": "Goal Differential",
+"Points": "Points",
+
 
     
     
@@ -244,6 +254,17 @@ Goalie: "Gardien",
 
     "abbr.legend":
   "PJ = Parties jouées • V = Victoires • D = Défaites • DP = Défaite prolongation • DB = Défaite tirs • BP = Buts pour • BA = Buts contre • DIFF = Différentiel • PTS = Points",
+
+    "Games Played": "Parties jouées",
+"Wins": "Victoires",
+"Losses": "Défaites",
+"OT Loss": "Défaite prolongation",
+"Shootout Loss": "Défaite tirs",
+"Goals For": "Buts pour",
+"Goals Against": "Buts contre",
+"Goal Differential": "Différentiel",
+"Points": "Points",
+
 
 
     
