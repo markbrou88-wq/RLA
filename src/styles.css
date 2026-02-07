@@ -1810,3 +1810,12 @@ html, body {
   border-radius: 999px;
   font-weight: 700;
 }
+
+.admin-toggle {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
