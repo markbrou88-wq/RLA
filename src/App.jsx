@@ -137,7 +137,8 @@ function RedNav() {
 /* ===================== APP ===================== */
 function AppInner() {
   const { t } = useI18n();
-
+const [showAuth, setShowAuth] = React.useState(false);
+  
   return (
     <div className="app-shell">
       {/* BLACK HEADER */}
@@ -152,9 +153,18 @@ function AppInner() {
           </div>
 
 <div className="auth-bar-right">
+  <button
+    className="admin-toggle"
+    onClick={() => setShowAuth((v) => !v)}
+    title="Admin login"
+  >
+    🔒
+  </button>
+
   <LanguageToggle />
   <ThemeToggle />
 </div>
+
 
           
         </div>
@@ -165,7 +175,7 @@ function AppInner() {
 
       {/* CONTENT */}
       <div className="app-content">
-        <AuthBar />
+       {showAuth && <AuthBar />}
 
         <Routes>
           <Route path="/" element={<StandingsPage />} />
