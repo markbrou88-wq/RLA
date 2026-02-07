@@ -191,17 +191,30 @@ const finalGame = playoffGames.find((g) => (g.game_type || "").toLowerCase().tri
 
     </div>
 
-        {/* Abbreviation legend */}
+
+     {/* Abbreviation legend */}
 <div
   style={{
-    marginTop: 6,
+    marginTop: 8,
     fontSize: 12,
     color: "var(--muted)",
-    textAlign: "center",
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: "4px 16px",
+    textAlign: "left",
   }}
 >
-  {t("abbr.legend")}
+  <LegendItem abbr="PJ" text={t("Games Played")} />
+  <LegendItem abbr="V" text={t("Wins")} />
+  <LegendItem abbr="D" text={t("Losses")} />
+  <LegendItem abbr="DP" text={t("OT Loss")} />
+  <LegendItem abbr="DB" text={t("Shootout Loss")} />
+  <LegendItem abbr="BP" text={t("Goals For")} />
+  <LegendItem abbr="BA" text={t("Goals Against")} />
+  <LegendItem abbr="DIFF" text={t("Goal Differential")} />
+  <LegendItem abbr="PTS" text={t("Points")} />
 </div>
+   
 
       
       </div>
@@ -283,3 +296,12 @@ const finalGame = playoffGames.find((g) => (g.game_type || "").toLowerCase().tri
     </div>
   );
 }
+
+function LegendItem({ abbr, text }) {
+  return (
+    <div>
+      <strong>{abbr}</strong> — {text}
+    </div>
+  );
+}
+
