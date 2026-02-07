@@ -66,8 +66,9 @@ export default function StandingsPage() {
   const top2 = rows[1];
   const top3 = rows[2];
 
-  const semiGame = playoffGames.find((g) => g.game_type === "semi");
-  const finalGame = playoffGames.find((g) => g.game_type === "final");
+  const semiGame = playoffGames.find((g) => (g.game_type || "").toLowerCase().trim() === "semi");
+const finalGame = playoffGames.find((g) => (g.game_type || "").toLowerCase().trim() === "final");
+
 
   const getTeamName = (id) => rows.find((r) => r.team_id === id)?.name || "TBD";
 
