@@ -237,7 +237,7 @@ Goalie: "Gardien",
 
 "Final": "Final",
 "OT": "P",
-"SO": "TB",
+"SO": "Bl",
 
     
     // Auth
