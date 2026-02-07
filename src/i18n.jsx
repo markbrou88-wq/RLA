@@ -95,6 +95,9 @@ Goalie: "Goalie",
 "OT": "OT",
 "SO": "SO",
 
+  "abbr.legend":
+  "GP = Games Played • W = Wins • L = Losses • OTL = Overtime Loss • SOL = Shootout Loss • GF = Goals For • GA = Goals Against • DIFF = Goal Differential • PTS = Points",
+
     
     
     // Auth
@@ -238,6 +241,10 @@ Goalie: "Gardien",
 "Final": "Final",
 "OT": "P",
 "SO": "Bl",
+
+    "abbr.legend":
+  "PJ = Parties jouées • V = Victoires • D = Défaites • DP = Défaite prolongation • DB = Défaite tirs • BP = Buts pour • BA = Buts contre • DIFF = Différentiel • PTS = Points",
+
 
     
     // Auth
