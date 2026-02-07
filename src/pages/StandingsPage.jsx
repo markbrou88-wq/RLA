@@ -43,11 +43,11 @@ export default function StandingsPage() {
       }
 
       const { data: gamesData, error: gamesError } = await supabase
-        .from("games")
-        .select("*")
-        .eq("season_id", seasonId)
-        .eq("category_id", categoryId)
-        .in("game_type", ["semi", "final"]);
+  .from("games")
+  .select("*")
+  .eq("season_id", seasonId)
+  .eq("category_id", categoryId)
+  .eq("phase", "playoff"); // ✅ only playoff games
 
       if (gamesError) {
         console.error("Playoff games fetch error:", gamesError);
