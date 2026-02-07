@@ -228,7 +228,7 @@ const sortedGoalies = React.useMemo(() => {
 <SortableTh label={t("SV%")} sortKey="sv_pct" sort={goalieSort} setSort={setGoalieSort} align="right" />
 <SortableTh label={t("GAA")} sortKey="gaa" sort={goalieSort} setSort={setGoalieSort} align="right" />
 <SortableTh label={t("TOI")} sortKey="toi_seconds" sort={goalieSort} setSort={setGoalieSort} align="right" />
-<SortableTh label={t("PTS")} sortKey="pts" sort={goalieSort} setSort={setGoalieSort} align="right" />
+<SortableTh label={t("W-L-OTL-SOL")} sortKey="pts" sort={goalieSort} setSort={setGoalieSort} align="right" />
 <SortableTh label={t("SO")} sortKey="so" sort={goalieSort} setSort={setGoalieSort} align="right" />
 
     
