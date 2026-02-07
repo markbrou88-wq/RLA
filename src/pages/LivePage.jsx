@@ -132,7 +132,10 @@ const [pendingShootout, setPendingShootout] = useState({
   const [assist2, setAssist2] = useState("");
   const [goalTime, setGoalTime] = useState("");
   const [goalPeriod, setGoalPeriod] = useState(1);
+  const [goalType, setGoalType] = useState(null);
+// null | "pp" | "pk" | "en"
 
+  
   // shot modal
   const [shotPick, setShotPick] = useState(null); // { team_id }
   const [shotShooter, setShotShooter] = useState("");
@@ -1197,6 +1200,8 @@ async function handleShotMinus(teamId) {
   function openGoalFor(playerId, teamId, existing = null) {
     setAssist1("");
     setAssist2("");
+    setGoalType(null);
+
     setGoalPeriod(period);
     setGoalTime(clock);
     if (existing) {
@@ -1321,14 +1326,28 @@ async function handleShotMinus(teamId) {
 
       // NOTE: for simplicity, we *don't* touch shots/shot-events on edit.
       setGoalPick(null);
+      setGoalType(null);
+
       await refreshEvents(game.id);
       return;
     }
 
     // --- CREATE NEW GOAL ---
-    await supabase.from("events").insert([
-      { game_id: game.id, team_id: tid, player_id: scorerId, period: per, time_mmss: tm, event: "goal", goalie_id: goalieScoredOnId },
-    ]);
+await supabase.from("events").insert([
+  {
+    game_id: game.id,
+    team_id: tid,
+    player_id: scorerId,
+    period: per,
+    time_mmss: tm,
+    event: "goal",
+    goalie_id: goalieScoredOnId,
+    goal_type: goalType, // 👈 STEP 5 lives here
+  },
+]);
+
+
+    
 
     for (const aid of aList) {
       await supabase.from("events").insert([
@@ -2618,6 +2637,49 @@ cursor:
               </div>
             </div>
 
+{/* GOAL TYPE BUBBLES */}
+<div style={{ marginTop: 12 }}>
+  <div className="muted" style={{ marginBottom: 6 }}>
+    Goal type (optional)
+  </div>
+
+  <div style={{ display: "flex", gap: 10 }}>
+    {[
+      { key: "pp", label: "PP" },
+      { key: "pk", label: "PK" },
+      { key: "en", label: "EN" },
+    ].map((g) => {
+      const active = goalType === g.key;
+
+      return (
+        <button
+          key={g.key}
+          onClick={() =>
+            setGoalType(active ? null : g.key)
+          }
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 999,
+            fontWeight: 900,
+            fontSize: 16,
+            border: "none",
+            cursor: "pointer",
+            background: active ? "#2563eb" : "#e5e7eb",
+            color: active ? "#fff" : "#111",
+            boxShadow: active
+              ? "0 0 0 3px rgba(37,99,235,0.5)"
+              : "0 2px 6px rgba(0,0,0,0.15)",
+          }}
+        >
+          {g.label}
+        </button>
+      );
+    })}
+  </div>
+</div>
+
+            
 
             {/* ================= QUICK MODE ASSISTS ================= */}
 {goalPick.quick ? (
