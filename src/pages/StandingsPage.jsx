@@ -191,6 +191,18 @@ const finalGame = playoffGames.find((g) => (g.game_type || "").toLowerCase().tri
 
     </div>
 
+        {/* Abbreviation legend */}
+<div
+  style={{
+    marginTop: 6,
+    fontSize: 12,
+    color: "var(--muted)",
+    textAlign: "center",
+  }}
+>
+  {t("abbr.legend")}
+</div>
+
       
       </div>
       )}
