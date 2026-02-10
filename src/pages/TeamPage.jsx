@@ -406,8 +406,8 @@ export default function TeamPage() {
   const isLoggedIn = !!user;
 
   // ---- Add / Edit / Delete ----
-  const [adding, setAdding] = React.useState(false);
-  const [addMode, setAddMode] = React.useState("new"); // "new" | "existing"
+const [adding, setAdding] = React.useState(false);
+const [addMode, setAddMode] = React.useState("existing"); // default = existing
 
   // NEW player (jersey number goes to team_players.number)
   const [newPlayer, setNewPlayer] = React.useState({ number: "", name: "", position: "F" });
@@ -497,7 +497,7 @@ export default function TeamPage() {
     if (tpErr) return alert(tpErr.message);
 
     setAdding(false);
-    setAddMode("new");
+    setAddMode("existing");
     setNewPlayer({ number: "", name: "", position: "F" });
     setSelectedExisting("");
     setExistingNumber("");
@@ -522,7 +522,7 @@ export default function TeamPage() {
     if (error) return alert(error.message);
 
     setAdding(false);
-    setAddMode("new");
+    setAddMode("existing");
     setSelectedExisting("");
     setExistingNumber("");
     reload();
@@ -834,7 +834,7 @@ const trend10 = summary.chart.reduce(
                   className="btn ghost"
                   onClick={() => {
                     setAdding(false);
-                    setAddMode("new");
+                    setAddMode("existing"");
                     setNewPlayer({ number: "", name: "", position: "F" });
                     setSelectedExisting("");
                     setExistingNumber("");
