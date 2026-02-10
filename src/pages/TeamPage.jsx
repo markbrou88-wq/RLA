@@ -834,7 +834,7 @@ const trend10 = summary.chart.reduce(
                   className="btn ghost"
                   onClick={() => {
                     setAdding(false);
-                    setAddMode("existing"");
+                    setAddMode("existing");
                     setNewPlayer({ number: "", name: "", position: "F" });
                     setSelectedExisting("");
                     setExistingNumber("");
