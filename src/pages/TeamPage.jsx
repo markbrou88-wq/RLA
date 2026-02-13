@@ -263,7 +263,7 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
   .eq("team_id", Number(teamId))
   .eq("season_id", Number(seasonId))
   .eq("category_id", Number(categoryId))
-  .eq("team_players.team_id", Number(teamId));
+
       if (!stop) {
         if (error) {
           console.error(error);
