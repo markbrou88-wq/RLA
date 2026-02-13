@@ -246,6 +246,8 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
   .select(`
     player_id,
     goalie,
+     number,
+  position,
     gp,
     sa,
     ga,
