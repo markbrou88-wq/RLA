@@ -241,7 +241,7 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
     let stop = false;
 
     (async () => {
-     const { data, error } = await supabase
+    const { data, error } = await supabase
   .from("goalie_stats_current")
   .select(`
     player_id,
@@ -254,12 +254,9 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
     wins,
     losses,
     otl,
-    sol,
-    team_players!inner(
-      number,
-      player:players(position)
-    )
+    sol
   `)
+
   .eq("team_id", Number(teamId))
   .eq("season_id", Number(seasonId))
   .eq("category_id", Number(categoryId))
@@ -269,13 +266,7 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
           console.error(error);
           setGoalies([]);
         } else {
-          setGoalies(
-  (data || []).map(g => ({
-    ...g,
-    number: g.team_players?.number ?? "",
-    position: g.team_players?.player?.position ?? "G"
-  }))
-);
+          setGoalies(data || []);
         }
       }
     })();
