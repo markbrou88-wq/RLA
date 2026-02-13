@@ -1076,7 +1076,6 @@ const trend10 = summary.chart.reduce(
 </div>
 
     
-    </div>
 
 {goalies.map(g => (
   <div className="tr goalie-row" key={g.player_id}>
