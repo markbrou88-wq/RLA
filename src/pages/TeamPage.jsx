@@ -465,8 +465,39 @@ const [addMode, setAddMode] = React.useState("existing"); // default = existing
     })();
   }, [adding, addMode, id, seasonId, categoryId]);
 
-  async function addPlayer() {
-    if (!newPlayer.name) return;
+  const normalizeName = (s) =>
+  s.trim().toLowerCase();
+
+
+async function addPlayer() {
+  const cleanName = normalizeName(newPlayer.name);
+
+  if (!cleanName) return;
+
+  // check against current roster
+  const duplicateLocal = players.some(
+    (p) => normalizeName(p.name) === cleanName
+  );
+
+  if (duplicateLocal) {
+    alert("A player with this name already exists on this roster.");
+    return;
+  }
+
+  // check database globally (extra safety)
+  const { data: existing } = await supabase
+    .from("players")
+    .select("name")
+    .ilike("name", newPlayer.name.trim());
+
+  if (existing?.some(
+    p => normalizeName(p.name) === cleanName
+  )) {
+    alert("A player with this name already exists.");
+    return;
+  }
+
+  
     if (!seasonId || !categoryId) {
       alert("Please select a Season and Category first.");
       return;
