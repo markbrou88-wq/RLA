@@ -846,7 +846,7 @@ const trend10 = summary.chart.reduce(
     fontSize: 12,
     marginTop: 4
   }}>
-    ⚠ Player already exists on roster
+    ⚠ Player already exists in league
   </div>
 )}
 
