@@ -737,37 +737,50 @@ async function recordShootoutAttempt({ teamId, shooterId, result }) {
 // SHOOTOUT — CHECK FOR WINNER
 // --------------------------------------------------------------------------
 
+
 function getShootoutWinner(attempts, homeId, awayId) {
-  // Count goals by team
-  const homeGoals = attempts.filter(
-    (a) => a.team_id === homeId && a.result === "goal"
-  ).length;
+  let homeGoals = 0;
+  let awayGoals = 0;
 
-  const awayGoals = attempts.filter(
-    (a) => a.team_id === awayId && a.result === "goal"
-  ).length;
+  // shots taken per team
+  let homeShots = 0;
+  let awayShots = 0;
 
-  // Group attempts by round
-  const rounds = {};
   attempts.forEach((a) => {
-    if (!rounds[a.round]) rounds[a.round] = [];
-    rounds[a.round].push(a);
+    if (a.team_id === homeId) {
+      homeShots++;
+      if (a.result === "goal") homeGoals++;
+    }
+
+    if (a.team_id === awayId) {
+      awayShots++;
+      if (a.result === "goal") awayGoals++;
+    }
   });
 
-  const roundNumbers = Object.keys(rounds).map(Number);
-  const maxRound = Math.max(0, ...roundNumbers);
+  const maxInitialRounds = 3;
 
-  // Case 1 — After 3 rounds
-  if (maxRound >= 3 && homeGoals !== awayGoals) {
-    return homeGoals > awayGoals ? homeId : awayId;
-  }
+  const homeRemaining = Math.max(0, maxInitialRounds - homeShots);
+  const awayRemaining = Math.max(0, maxInitialRounds - awayShots);
 
-  // Case 2 — Sudden death
-  if (maxRound >= 4) {
-    const lastRound = rounds[maxRound] || [];
+  // 🧠 EARLY CLINCH LOGIC
+  if (homeGoals > awayGoals + awayRemaining) return homeId;
+  if (awayGoals > homeGoals + homeRemaining) return awayId;
 
-    if (lastRound.length === 2) {
-      const [a1, a2] = lastRound;
+  // Sudden death logic (after round 3)
+  if (homeShots >= 3 && awayShots >= 3) {
+    const rounds = {};
+
+    attempts.forEach((a) => {
+      if (!rounds[a.round]) rounds[a.round] = [];
+      rounds[a.round].push(a);
+    });
+
+    const maxRound = Math.max(...Object.keys(rounds).map(Number));
+    const last = rounds[maxRound] || [];
+
+    if (last.length === 2) {
+      const [a1, a2] = last;
 
       if (a1.result !== a2.result) {
         return a1.result === "goal" ? a1.team_id : a2.team_id;
@@ -775,8 +788,11 @@ function getShootoutWinner(attempts, homeId, awayId) {
     }
   }
 
-  return null; // no winner yet
+  return null;
 }
+
+
+  
 
 // --------------------------------------------------------------------------
 // SHOOTOUT — FINALIZE GAME
