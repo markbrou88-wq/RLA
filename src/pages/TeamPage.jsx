@@ -242,32 +242,40 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
 
     (async () => {
      const { data, error } = await supabase
-        .from("goalie_stats_current")
-        .select(`
-          player_id,
-          goalie,
-          team,
-          gp,
-          sa,
-          ga,
-          sv_pct,
-          gaa,
-          toi_seconds,
-          wins,
-          losses,
-          otl,
-          sol
-        `)
-        .eq("team_id", Number(teamId))
-        .eq("season_id", Number(seasonId))
-        .eq("category_id", Number(categoryId));
-
+  .from("goalie_stats_current")
+  .select(`
+    player_id,
+    goalie,
+    gp,
+    sa,
+    ga,
+    sv_pct,
+    gaa,
+    wins,
+    losses,
+    otl,
+    sol,
+    team_players!inner(
+      number,
+      player:players(position)
+    )
+  `)
+  .eq("team_id", Number(teamId))
+  .eq("season_id", Number(seasonId))
+  .eq("category_id", Number(categoryId))
+  .eq("team_players.team_id", Number(teamId));
       if (!stop) {
         if (error) {
           console.error(error);
           setGoalies([]);
         } else {
-          setGoalies(data || []);
+          setGoalies(
+  (data || []).map(g => ({
+    ...g,
+    number: g.team_players?.number ?? "",
+    position: g.team_players?.player?.position ?? "G"
+  }))
+);
         }
       }
     })();
@@ -1054,41 +1062,66 @@ const trend10 = summary.chart.reduce(
         {/* ---------- GOALIES ---------- */}
 {goalies.length > 0 && (
   <>
-    <div className="tr thead">
-      <div className="td"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("Goalie")}</div>
-      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("GP")}</div>
-      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("SA")}</div>
-      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("GA")}</div>
-      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("SV%")}</div>
-      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{t("GAA")}</div>
-      
-      <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>
-        {t("W-L-OTL-SOL")}
-      </div>
-    </div>
 
-    {goalies.map((g) => (
-      <div className="tr" key={`goalie-${g.player_id}`}>
-        <div className="td left">
-          <Link className="link" to={`/players/${g.player_id}`}>
-            {g.goalie}
-          </Link>
-        </div>
-
-        <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{g.gp ?? 0}</div>
-        <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{g.sa ?? 0}</div>
-        <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{g.ga ?? 0}</div>
-
-        <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{g.sv_pct != null ? `${g.sv_pct}%` : "—"}</div>
-        <div className="td c"style={{ fontSize: 12, whiteSpace: "nowrap" }}>{g.gaa != null ? Number(g.gaa).toFixed(2) : "—"}</div>
-
-       <div className="td c" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
-  {(g.wins ?? 0)}-{(g.losses ?? 0)}-{(g.otl ?? 0)}-{(g.sol ?? 0)}
+<div className="tr goalie-header">
+  <div className="td" style={{ width: widths.player }}>{t("Goalie")}</div>
+  <div className="td c" style={{ width: widths.number }}>#</div>
+  <div className="td c" style={{ width: widths.pos }}>{t("Pos")}</div>
+  <div className="td c" style={{ width: widths.gp }}>{t("GP")}</div>
+  <div className="td c" style={{ width: widths.g }}>{t("SA")}</div>
+  <div className="td c" style={{ width: widths.a }}>{t("GA")}</div>
+  <div className="td c" style={{ width: widths.pts }}>{t("SV%")}</div>
+  <div className="td c">{t("GAA")}</div>
+  <div className="td c">{t("Record")}</div>
 </div>
 
-      
-      </div>
-    ))}
+    
+    </div>
+
+{goalies.map(g => (
+  <div className="tr goalie-row" key={g.player_id}>
+
+    <div className="td left" style={{ width: widths.player }}>
+      <Link to={`/players/${g.player_id}`}>
+        {g.goalie}
+      </Link>
+    </div>
+
+    <div className="td c" style={{ width: widths.number }}>
+      {g.number}
+    </div>
+
+    <div className="td c" style={{ width: widths.pos }}>
+      {g.position}
+    </div>
+
+    <div className="td c" style={{ width: widths.gp }}>
+      {g.gp}
+    </div>
+
+    <div className="td c" style={{ width: widths.g }}>
+      {g.sa}
+    </div>
+
+    <div className="td c" style={{ width: widths.a }}>
+      {g.ga}
+    </div>
+
+    <div className="td c" style={{ width: widths.pts }}>
+      {g.sv_pct != null ? `${g.sv_pct}%` : "—"}
+    </div>
+
+    <div className="td c">
+      {g.gaa?.toFixed(2)}
+    </div>
+
+    <div className="td c">
+      {g.wins}-{g.losses}-{g.otl}-{g.sol}
+    </div>
+
+  </div>
+))}
+  
   </>
 )}
 
