@@ -254,7 +254,11 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
     wins,
     losses,
     otl,
-    sol
+    sol,
+    team_players:number(
+      number,
+      player:players(position)
+    )
   `)
 
   .eq("team_id", Number(teamId))
@@ -266,7 +270,13 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
           console.error(error);
           setGoalies([]);
         } else {
-          setGoalies(data || []);
+          setGoalies(
+  (data || []).map(g => ({
+    ...g,
+    number: g.team_players?.number ?? "",
+    position: g.team_players?.player?.position ?? "G"
+  }))
+);
         }
       }
     })();
