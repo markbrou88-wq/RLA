@@ -254,11 +254,7 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
     wins,
     losses,
     otl,
-    sol,
-    team_players:number(
-      number,
-      player:players(position)
-    )
+    sol
   `)
 
   .eq("team_id", Number(teamId))
@@ -270,13 +266,7 @@ function useGoaliesForTeam(teamId, seasonId, categoryId) {
           console.error(error);
           setGoalies([]);
         } else {
-          setGoalies(
-  (data || []).map(g => ({
-    ...g,
-    number: g.team_players?.number ?? "",
-    position: g.team_players?.player?.position ?? "G"
-  }))
-);
+          setGoalies(data || []);
         }
       }
     })();
@@ -1131,4 +1121,3 @@ const trend10 = summary.chart.reduce(
     </div>
   );
 }
-
