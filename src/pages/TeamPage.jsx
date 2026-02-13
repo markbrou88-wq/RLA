@@ -468,7 +468,18 @@ const [addMode, setAddMode] = React.useState("existing"); // default = existing
   const normalizeName = (s) =>
   s.trim().toLowerCase();
 
+const liveDuplicate = React.useMemo(() => {
+  const clean = normalizeName(newPlayer.name);
+  if (!clean) return false;
 
+  return players.some(
+    p => normalizeName(p.name) === clean
+  );
+}, [newPlayer.name, players]);
+
+
+
+  
 async function addPlayer() {
   const cleanName = normalizeName(newPlayer.name);
 
@@ -814,13 +825,33 @@ const trend10 = summary.chart.reduce(
                       value={newPlayer.number}
                       onChange={(e) => setNewPlayer((s) => ({ ...s, number: e.target.value.replace(/\D/g, "") }))}
                     />
-                    <input
-                      className="in"
-                      placeholder="Player name"
-                      style={{ width: 260 }}
-                      value={newPlayer.name}
-                      onChange={(e) => setNewPlayer((s) => ({ ...s, name: e.target.value }))}
-                    />
+
+<input
+  className="in"
+  placeholder="Player name"
+  style={{
+    width: 260,
+    borderColor: liveDuplicate ? "#dc2626" : undefined,
+    background: liveDuplicate ? "#fff5f5" : undefined
+  }}
+  value={newPlayer.name}
+  onChange={(e) =>
+    setNewPlayer(s => ({ ...s, name: e.target.value }))
+  }
+/>
+
+{liveDuplicate && (
+  <div style={{
+    color: "#dc2626",
+    fontSize: 12,
+    marginTop: 4
+  }}>
+    ⚠ Player already exists on roster
+  </div>
+)}
+
+                    
+                    
                     <select
                       className="in"
                       style={{ width: 80 }}
@@ -831,7 +862,11 @@ const trend10 = summary.chart.reduce(
                       <option value="D">D</option>
                       <option value="G">G</option>
                     </select>
-                    <button className="btn" onClick={addPlayer}>
+                    <button
+  className="btn"
+  onClick={addPlayer}
+  disabled={liveDuplicate}
+>
                       {t("Save")}
                     </button>
                   </>
