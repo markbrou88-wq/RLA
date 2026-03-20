@@ -801,7 +801,7 @@ function fmtTOI(sec) {
 
 const headerRow = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) 280px",
+  gridTemplateColumns: "minmax(0, 1fr) 320px",
   gap: 16,
   marginTop: 10,
   alignItems: "stretch",
@@ -818,15 +818,15 @@ const infoCard = {
 
 const photoCard = {
   display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 12,
+  alignItems: "stretch",
+  justifyContent: "stretch",
+  padding: 10,
   border: "1px solid #eee",
   borderRadius: 12,
   background: "#fff",
-  minHeight: 150,
+  minHeight: 250,
+  overflow: "hidden",
 };
-
 
 const headerLeft = {
   display: "flex",
@@ -845,9 +845,9 @@ const teamLogo = {
 
 
 const avatarImg = {
-  width: 160,
-  height: 210,
-  borderRadius: 12,
+  width: "100%",
+  height: "100%",
+  borderRadius: 10,
   objectFit: "cover",
   objectPosition: "center top",
   border: "1px solid #eee",
@@ -856,9 +856,9 @@ const avatarImg = {
 };
 
 const avatarPlaceholder = {
-  width: 160,
-  height: 210,
-  borderRadius: 12,
+  width: "100%",
+  height: "100%",
+  borderRadius: 10,
   border: "1px solid #eee",
   background: "#f4f5f8",
   display: "flex",
