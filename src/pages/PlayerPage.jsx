@@ -38,7 +38,7 @@ export default function PlayerPage() {
       /* ---------- PLAYER ---------- */
       const { data: pRow, error: e1 } = await supabase
         .from("players")
-        .select("id, name, position")
+        .select("id, name, position, avatar_url")
         .eq("id", pid)
         .single();
 
@@ -366,28 +366,47 @@ if (!player) return <div>{t("Player not found.")}</div>;
 
       {/* Header Card */}
       <div style={headerCard}>
-        {headerTeam?.logo_url && (
-          <img
-            src={headerTeam.logo_url}
-            alt={headerTeam.short_name || headerTeam.name}
-            style={{ width: 80, height: 80, objectFit: "contain" }}
-          />
-        )}
-        <div>
-        <h2 style={{ margin: 0, fontSize: 26 }}>
-  {headerNumber && (
-    <span style={{ opacity: 0.6, marginRight: 6 }}>
-      #{headerNumber}
-    </span>
-  )}
-  {player.name}
-</h2>
-          <div style={{ color: "#666", marginTop: 4 }}>
-            {player.position || "-"}{" "}
-            {headerTeam?.name ? `• ${headerTeam.name}` : ""}
+        <div style={headerLeft}>
+          {headerTeam?.logo_url && (
+            <img
+              src={headerTeam.logo_url}
+              alt={headerTeam.short_name || headerTeam.name}
+              style={teamLogo}
+            />
+          )}
+
+          <div>
+            <h2 style={{ margin: 0, fontSize: 26 }}>
+              {headerNumber && (
+                <span style={{ opacity: 0.6, marginRight: 6 }}>
+                  #{headerNumber}
+                </span>
+              )}
+              {player.name}
+            </h2>
+
+            <div style={{ color: "#666", marginTop: 4 }}>
+              {player.position || "-"}{" "}
+              {headerTeam?.name ? `• ${headerTeam.name}` : ""}
+            </div>
           </div>
         </div>
+
+        <div style={avatarWrap}>
+          {player.avatar_url ? (
+            <img
+              src={player.avatar_url}
+              alt={player.name}
+              style={avatarImg}
+            />
+          ) : (
+            <div style={avatarPlaceholder}>
+              {player.name?.charAt(0)?.toUpperCase() || "?"}
+            </div>
+          )}
+        </div>
       </div>
+      
 
       {/* Career Summary */}
 
@@ -779,12 +798,56 @@ function fmtTOI(sec) {
 const headerCard = {
   display: "flex",
   alignItems: "center",
+  justifyContent: "space-between",
   gap: 16,
   padding: 16,
   border: "1px solid #eee",
   borderRadius: 12,
   marginTop: 10,
 };
+
+const headerLeft = {
+  display: "flex",
+  alignItems: "center",
+  gap: 16,
+  minWidth: 0,
+};
+
+const teamLogo = {
+  width: 80,
+  height: 80,
+  objectFit: "contain",
+  flexShrink: 0,
+};
+
+const avatarWrap = {
+  marginLeft: "auto",
+  flexShrink: 0,
+};
+
+const avatarImg = {
+  width: 96,
+  height: 96,
+  borderRadius: 12,
+  objectFit: "cover",
+  border: "1px solid #eee",
+  background: "#fff",
+};
+
+const avatarPlaceholder = {
+  width: 96,
+  height: 96,
+  borderRadius: 12,
+  border: "1px solid #eee",
+  background: "#f4f5f8",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 32,
+  fontWeight: 700,
+  color: "#666",
+};
+
 
 const summaryRow = {
   display: "flex",
