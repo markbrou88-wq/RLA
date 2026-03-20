@@ -364,35 +364,38 @@ if (!player) return <div>{t("Player not found.")}</div>;
 
       </Link>
 
-      {/* Header Card */}
-      <div style={headerCard}>
-        <div style={headerLeft}>
-          {headerTeam?.logo_url && (
-            <img
-              src={headerTeam.logo_url}
-              alt={headerTeam.short_name || headerTeam.name}
-              style={teamLogo}
-            />
-          )}
 
-          <div>
-            <h2 style={{ margin: 0, fontSize: 26 }}>
-              {headerNumber && (
-                <span style={{ opacity: 0.6, marginRight: 6 }}>
-                  #{headerNumber}
-                </span>
-              )}
-              {player.name}
-            </h2>
+      {/* Header Row */}
+      <div style={headerRow}>
+        <div style={infoCard}>
+          <div style={headerLeft}>
+            {headerTeam?.logo_url && (
+              <img
+                src={headerTeam.logo_url}
+                alt={headerTeam.short_name || headerTeam.name}
+                style={teamLogo}
+              />
+            )}
 
-            <div style={{ color: "#666", marginTop: 4 }}>
-              {player.position || "-"}{" "}
-              {headerTeam?.name ? `• ${headerTeam.name}` : ""}
+            <div>
+              <h2 style={{ margin: 0, fontSize: 26 }}>
+                {headerNumber && (
+                  <span style={{ opacity: 0.6, marginRight: 6 }}>
+                    #{headerNumber}
+                  </span>
+                )}
+                {player.name}
+              </h2>
+
+              <div style={{ color: "#666", marginTop: 4 }}>
+                {player.position || "-"}{" "}
+                {headerTeam?.name ? `• ${headerTeam.name}` : ""}
+              </div>
             </div>
           </div>
         </div>
 
-        <div style={avatarWrap}>
+        <div style={photoCard}>
           {player.avatar_url ? (
             <img
               src={player.avatar_url}
@@ -406,6 +409,7 @@ if (!player) return <div>{t("Player not found.")}</div>;
           )}
         </div>
       </div>
+      
       
 
       {/* Career Summary */}
@@ -795,16 +799,35 @@ function fmtTOI(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-const headerCard = {
+const headerRow = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) 220px",
+  gap: 16,
+  marginTop: 10,
+  alignItems: "stretch",
+};
+
+const infoCard = {
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
-  gap: 16,
   padding: 16,
   border: "1px solid #eee",
   borderRadius: 12,
-  marginTop: 10,
+  minWidth: 0,
 };
+
+const photoCard = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 16,
+  border: "1px solid #eee",
+  borderRadius: 12,
+  background: "#fff",
+  minHeight: 140,
+};
+
+
 
 const headerLeft = {
   display: "flex",
@@ -820,14 +843,11 @@ const teamLogo = {
   flexShrink: 0,
 };
 
-const avatarWrap = {
-  marginLeft: "auto",
-  flexShrink: 0,
-};
+
 
 const avatarImg = {
-  width: 96,
-  height: 96,
+  width: 120,
+  height: 120,
   borderRadius: 12,
   objectFit: "cover",
   border: "1px solid #eee",
@@ -835,8 +855,8 @@ const avatarImg = {
 };
 
 const avatarPlaceholder = {
-  width: 96,
-  height: 96,
+  width: 120,
+  height: 120,
   borderRadius: 12,
   border: "1px solid #eee",
   background: "#f4f5f8",
