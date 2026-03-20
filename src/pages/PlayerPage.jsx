@@ -801,7 +801,7 @@ function fmtTOI(sec) {
 
 const headerRow = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) 260px",
+  gridTemplateColumns: "minmax(0, 1fr) 280px",
   gap: 16,
   marginTop: 10,
   alignItems: "stretch",
@@ -845,8 +845,8 @@ const teamLogo = {
 
 
 const avatarImg = {
-  width: 150,
-  height: 190,
+  width: 160,
+  height: 210,
   borderRadius: 12,
   objectFit: "cover",
   objectPosition: "center top",
@@ -856,8 +856,8 @@ const avatarImg = {
 };
 
 const avatarPlaceholder = {
-  width: 150,
-  height: 190,
+  width: 160,
+  height: 210,
   borderRadius: 12,
   border: "1px solid #eee",
   background: "#f4f5f8",
